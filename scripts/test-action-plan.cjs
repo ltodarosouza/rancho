@@ -2360,6 +2360,21 @@ test("AI Response Composer rejeita perda de opcao ou falsa afirmacao de salvamen
   assert(unsafeSave.usedAI === false && unsafeSave.reason === "unsafe_save_claim", "composer deveria rejeitar salvamento falso");
 });
 
+test("AI Response Composer rejeita pendencia inventada em resultado salvo", () => {
+  const original = [
+    "Importacao de estoque concluida.",
+    "Movimentacoes registradas: 3.",
+    "Itens criados para concluir a importacao: 2 (Silagem, Sal mineral)."
+  ].join("\n");
+  const result = validateComposedBotResponse(original, {
+    type: "bot_response_composition",
+    confidence: 0.9,
+    message: "Importacao de estoque concluida. Total de movimentacoes: 3. Itens nao encontrados: Silagem, Sal mineral. Por favor, cadastre-os para que as movimentacoes sejam processadas."
+  });
+  assert(result.usedAI === false && result.reason === "introduced_problem_language", "composer deveria rejeitar pendencia que nao veio do backend");
+  assert(result.response.includes("Itens criados"), "fallback deveria preservar o resultado real salvo");
+});
+
 test("ActionPlan de estoque entende saida acentuada com colunas embaralhadas", async () => {
   const fixture = fixtureByName("import-table-estoque-movimentos-embaralhados");
   const result = await executeImportTableActionPlan({

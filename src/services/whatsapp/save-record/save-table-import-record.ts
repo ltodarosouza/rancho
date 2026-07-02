@@ -28,6 +28,22 @@ function hasOnlyValidationIssue(row: AnyRecord, issue: string) {
   return issues.length === 1 && issues[0] === issue;
 }
 
+function pushUniqueText(list: string[], value: unknown) {
+  const text = String(value || "").trim();
+  if (!text) return;
+  const normalized = normalizeCatalogText(text);
+  if (list.some((item) => normalizeCatalogText(item) === normalized)) return;
+  list.push(text);
+}
+
+function formatNamedCount(count: number, names: string[], singular: string, plural: string) {
+  const label = count === 1 ?singular : plural;
+  if (!names.length) return `${label}: ${count}.`;
+  const visible = names.slice(0, 5).join(", ");
+  const suffix = names.length > 5 ?` e mais ${names.length - 5}` : "";
+  return `${label}: ${count} (${visible}${suffix}).`;
+}
+
 function animalImportLotName(row: AnyRecord) {
   const lotIdAsName = (value: unknown) => {
     const text = String(value || "").trim();
@@ -342,6 +358,9 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
     let registeredItemCount = 0;
     let createdItemCount = 0;
     let skippedInsufficientStock = 0;
+    const registeredItemNames: string[] = [];
+    const createdItemNames: string[] = [];
+    const unresolvedItemNames: string[] = [];
     const insufficientStockItems: string[] = [];
 
     if (createMissingItems) {
@@ -373,10 +392,13 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
           ativo: true,
           created_by: owner.usuario_id || null
         });
-        if (item?.id) createdItems.set(normalizeCatalogText(itemName), item as AnyRecord);
-        if (item?.id) balanceByItemId.set(String(item.id), Number(item.quantidade_atual || 0));
+        if (item?.id) {
+          createdItems.set(normalizeCatalogText(itemName), item as AnyRecord);
+          balanceByItemId.set(String(item.id), Number(item.quantidade_atual || 0));
+          createdItemCount += 1;
+          pushUniqueText(createdItemNames, itemName);
+        }
         savedTables.add(TABLES.estoqueItens);
-        createdItemCount += 1;
       }
     }
 
@@ -404,6 +426,7 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
         });
         savedTables.add(TABLES.estoqueItens);
         registeredItemCount += 1;
+        pushUniqueText(registeredItemNames, itemName);
         continue;
       }
 
@@ -435,7 +458,10 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
         }
       }
 
-      if (!itemId) continue;
+      if (!itemId) {
+        pushUniqueText(unresolvedItemNames, itemName);
+        continue;
+      }
 
       const type = row.tipo_movimento === "saida" ?"saida" : "entrada";
       const quantity = Number(row.quantidade || 0);
@@ -481,12 +507,18 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
 
     if (!saved && !createdItemCount && !registeredItemCount) return { response: "Nenhuma movimentação de estoque foi importada. Nada foi salvo." };
 
-    const registeredText = registeredItemCount ?`\nItens cadastrados: ${registeredItemCount}.` : "";
-    const movementText = saved ?`\nMovimentações importadas: ${saved}.` : "";
-    const itemText = createdItemCount ?`\nItens criados automaticamente para movimentações: ${createdItemCount}.` : "";
+    const lines = ["Importação de estoque concluída."];
+    if (saved) lines.push(formatNamedCount(saved, [], "Movimentação registrada", "Movimentações registradas"));
+    if (registeredItemCount) lines.push(formatNamedCount(registeredItemCount, registeredItemNames, "Item cadastrado", "Itens cadastrados"));
+    if (createdItemCount) lines.push(formatNamedCount(createdItemCount, createdItemNames, "Item criado para concluir a importação", "Itens criados para concluir a importação"));
+    if (unresolvedItemNames.length) {
+      const unresolved = unresolvedItemNames.slice(0, 5).join(", ");
+      const suffix = unresolvedItemNames.length > 5 ?` e mais ${unresolvedItemNames.length - 5}` : "";
+      lines.push(`Itens ainda não encontrados: ${unresolved}${suffix}. As movimentações dessas linhas não foram registradas.`);
+    }
     const skippedText = skippedInsufficientStock
       ?`\nBaixas ignoradas por saldo insuficiente: ${skippedInsufficientStock}.${insufficientStockItems.length ?`\n${insufficientStockItems.slice(0, 5).map((item) => `- ${item}`).join("\n")}` : ""}`
       : "";
-    return realSaveResult(`Importação de estoque concluída:${registeredText}${movementText}${itemText}${skippedText}`, Array.from(savedTables));
+    return realSaveResult(`${lines.join("\n")}${skippedText}`, Array.from(savedTables));
   }
 }

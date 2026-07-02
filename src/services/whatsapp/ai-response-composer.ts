@@ -63,6 +63,16 @@ function includesComparable(text: string, expected: string) {
   return normalizeComparable(text).includes(normalizeComparable(expected));
 }
 
+function hasFinalSuccessLanguage(value: string) {
+  const normalized = normalizeComparable(value);
+  return /\b(?:concluid[ao]|salv[ao]|registrad[ao]|cadastrad[ao]|importad[ao]|criad[ao]|movimentacoes registradas)\b/.test(normalized);
+}
+
+function hasProblemLanguage(value: string) {
+  const normalized = normalizeComparable(value);
+  return /\b(?:nao encontrad|faltant|pendencia|cadastre|nao consegui|nao foi possivel|revise|tente novamente|nao foram processad|nao foi processad)\b/.test(normalized);
+}
+
 function compactValueForPrompt(value: unknown, depth = 0): unknown {
   if (value === null || value === undefined) return value;
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
@@ -82,7 +92,8 @@ function compactValueForPrompt(value: unknown, depth = 0): unknown {
   return undefined;
 }
 
-function compactDataForPrompt(parsed?: ParsedRanchoMessage | null) {
+function compactDataForPrompt(parsed?: ParsedRanchoMessage | null, options: { eventConfirmed?: boolean } = {}) {
+  if (options.eventConfirmed) return null;
   if (!parsed?.dados) return null;
   const dados = parsed.dados as AnyRecord;
   const keys = [
@@ -134,7 +145,7 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     nextState: input.nextSession?.etapa || null,
     eventConfirmed: Boolean(input.eventConfirmed),
     missingFields: input.parsed?.perguntas_faltantes || [],
-    extractedData: compactDataForPrompt(input.parsed),
+    extractedData: compactDataForPrompt(input.parsed, { eventConfirmed: input.eventConfirmed }),
     mandatoryOptionLines: options,
     originalResponse: polishBotResponse(input.response)
   };
@@ -149,6 +160,7 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     "- Em consultas, extractedData.resultado contem os dados reais consultados. Voce pode reorganizar e explicar esses fatos, mas nao acrescentar nada fora deles.",
     "- Nao invente dados, valores, codigos, animais, datas, permissoes ou salvamentos.",
     "- Nao altere a acao definida pelo backend.",
+    "- Quando eventConfirmed for true, originalResponse e a fonte da verdade sobre o que foi salvo. Nao use dados de pre-validacao antigos para criar pendencias.",
     "- Nao diga que salvou, registrou, cadastrou ou importou se originalResponse estiver pedindo confirmacao ou dizendo que nada foi salvo.",
     "- Se houver mandatoryOptionLines, copie essas linhas exatamente como estao.",
     "- Mantenha a resposta curta, escaneavel e educada.",
@@ -193,6 +205,9 @@ export function validateComposedBotResponse(originalResponse: string, composed: 
   }
   if (TECHNICAL_TERMS.test(message) && !TECHNICAL_TERMS.test(original)) {
     return { response: original, usedAI: false, reason: "technical_term_leak" };
+  }
+  if (hasFinalSuccessLanguage(original) && !hasProblemLanguage(original) && hasProblemLanguage(message)) {
+    return { response: original, usedAI: false, reason: "introduced_problem_language" };
   }
 
   for (const line of mandatoryLines(original)) {

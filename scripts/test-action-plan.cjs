@@ -1579,6 +1579,39 @@ test("executor query producao Mimosa desde janeiro usa relacao animal", async ()
   assert(Number(result.parsed.dados?.resultado?.metrics?.totals?.total_litros || 0) === 35, "total_litros deveria ser 35");
 });
 
+test("executor query producao hoje soma registros mesmo com data principal ausente", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "producao_leite",
+      confidence: 0.94,
+      filters: [],
+      aggregations: [],
+      requiresConfirmation: false,
+      limit: 100,
+      userQuestion: "quanto produzi de leite hoje?"
+    },
+    owner: ADMIN_OWNER,
+    currentDate: "2026-07-01",
+    originalText: "quanto produzi de leite hoje?",
+    supabase: createActionPlanSupabase({
+      [TABLES.animais]: [
+        { id: "animal-090", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "090", nome: "Mimosa", categoria: "vaca" }
+      ],
+      [TABLES.ordenhas]: [
+        { id: "ord-criada-hoje", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-090", litros: 12, ordenhado_em: null, created_at: "2026-07-01T13:00:00Z" },
+        { id: "ord-ordenhada-hoje", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-090", litros: 20, ordenhado_em: "2026-07-01T15:00:00Z", created_at: "2026-07-01T15:01:00Z" },
+        { id: "ord-ontem", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-090", litros: 30, ordenhado_em: null, created_at: "2026-06-30T13:00:00Z" }
+      ]
+    })
+  });
+
+  assert(result.ok, `query producao hoje deveria executar: ${result.reason}`);
+  assert(result.rows.length === 2, `esperado 2 registros de hoje, recebido ${result.rows.length}`);
+  assert(Number(result.parsed.dados?.resultado?.metrics?.totals?.total_litros || 0) === 32, "total_litros deveria somar 32");
+  assert(result.response.includes("Total: 32 litros."), `resposta deveria mostrar 32 litros, recebeu: ${result.response}`);
+});
+
 test("executor query animais trata dados das vagas como resumo coletivo de vacas", async () => {
   const result = await executeQueryActionPlan({
     plan: {
@@ -1696,6 +1729,36 @@ test("executor query financeiro quanto gastei hoje filtra somente despesas do di
   assert(result.rows.length === 1, `esperado somente despesas de hoje, recebido ${result.rows.length}`);
   assert(result.rows[0]?.id === "saida-hoje", "consulta deveria retornar apenas a saida de hoje");
   assert(result.response.includes("Total gasto: R$ 300,00."), `resposta deveria mostrar gasto do dia, recebeu: ${result.response}`);
+});
+
+test("executor query financeiro em frase composta nao herda animal da acao anterior", async () => {
+  const text = "hoje teve parto da 396, nasceu uma bezerra chamada Aurora, codigo C-396, filha do T-50. Depois registra tambem que a 090 entrou em protocolo e me mostra quanto eu gastei hoje.";
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "financeiro",
+      confidence: 0.94,
+      filters: [],
+      aggregations: [{ field: "valor", op: "sum", as: "total" }],
+      requiresConfirmation: false,
+      limit: 100,
+      userQuestion: "me mostra quanto eu gastei hoje"
+    },
+    owner: ADMIN_OWNER,
+    currentDate: "2026-07-01",
+    originalText: text,
+    supabase: createActionPlanSupabase({
+      [TABLES.transacoesFinanceiras]: [
+        { id: "saida-hoje", fazenda_id: ADMIN_OWNER.fazenda_id, tipo: "saida", valor: 180, descricao: "vacina", categoria: "saude", data_transacao: "2026-07-01" },
+        { id: "saida-ontem", fazenda_id: ADMIN_OWNER.fazenda_id, tipo: "saida", valor: 90, descricao: "sal", categoria: "insumo", data_transacao: "2026-06-30" }
+      ]
+    })
+  });
+
+  assert(result.ok, `query financeira composta deveria executar: ${result.reason}`);
+  assert(result.rows.length === 1, `esperado despesa geral de hoje, recebido ${result.rows.length}`);
+  assert(!result.response.includes("396"), `resposta nao deveria filtrar pelo animal 396: ${result.response}`);
+  assert(!result.parsed.dados?.resultado?.filters?.some((filter) => filter.field === "descricao" && /396/.test(String(filter.value || ""))), "nao deveria criar filtro descricao=396");
 });
 
 test("executor query funcionarios retorna lista factual em vez de resposta generica", async () => {
@@ -3663,6 +3726,65 @@ test("Gemini-first ActionPlan sequence adia consulta apos mutacao ate confirmaca
     assert(after[0].tipo === "CONSULTA_REGISTROS_HOJE", `consulta posterior deveria ser registros de hoje, recebeu ${after[0]?.tipo}`);
     assert(after[0].dados?.consulta_registros === "relatorio", "relatorio de hoje posterior deveria ser relatorio geral, nao eventos");
     assert(result.gemini.requiresConfirmation === true, "sequence com mutacao deve exigir confirmacao");
+  });
+});
+
+test("Gemini-first ActionPlan sequence nao contamina financeiro posterior com animal da mutacao", async () => {
+  const text = "hoje teve parto da 396, nasceu uma bezerra chamada Aurora, codigo C-396, filha do T-50. Depois registra tambem que a 090 entrou em protocolo e me mostra quanto eu gastei hoje.";
+  const plan = {
+    action: "sequence",
+    confidence: 0.94,
+    requiresConfirmation: true,
+    steps: [
+      {
+        action: "execute",
+        capability: "registrar_evento_animal",
+        confidence: 0.94,
+        data: {
+          animal_ref: "396",
+          evento: "parto",
+          data: "hoje",
+          cria_codigo: "C-396",
+          cria_sexo: "femea",
+          pai_ref: "T-50"
+        },
+        requiresConfirmation: true,
+        semantic: { domains: ["reproducao"], intent: "parto", entities: { animal_ref: "396", cria_codigo: "C-396" } }
+      },
+      {
+        action: "query",
+        domain: "financeiro",
+        confidence: 0.94,
+        filters: [],
+        aggregations: [{ field: "valor", op: "sum", as: "total" }],
+        requiresConfirmation: false,
+        limit: 100,
+        userQuestion: "me mostra quanto eu gastei hoje",
+        semantic: { domains: ["financeiro"], intent: "consulta_gastos", period: "hoje" }
+      }
+    ]
+  };
+
+  await withGeminiMock(() => clone(plan), async () => {
+    const result = await parseWithConfiguredInterpreter({
+      text,
+      localParsed: parseRanchoMessage(text),
+      owner: ADMIN_OWNER,
+      supabase: createActionPlanSupabase({
+        [TABLES.animais]: [
+          { id: "animal-396", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "396", nome: "Mae 396", categoria: "vaca" }
+        ],
+        [TABLES.transacoesFinanceiras]: [
+          { id: "saida-hoje", fazenda_id: ADMIN_OWNER.fazenda_id, tipo: "saida", valor: 180, descricao: "vacina", categoria: "saude", data_transacao: "2026-07-01" }
+        ]
+      })
+    });
+    assert(result.kind === "compound", `sequence deveria ser compound, recebido ${result.kind}`);
+    const after = result.pending.dados?.gemini_consultas_apos_confirmacao || [];
+    assert(after.length === 1, "consulta financeira deveria ficar anexada para depois da confirmacao");
+    assert(after[0].tipo === "CONSULTA_FINANCEIRO", `consulta posterior deveria ser financeiro, recebeu ${after[0]?.tipo}`);
+    assert(!after[0].dados?.action_plan_response?.includes("396"), `financeiro posterior nao deveria citar 396: ${after[0].dados?.action_plan_response}`);
+    assert(!after[0].dados?.resultado?.filters?.some((filter) => filter.field === "descricao" && /396/.test(String(filter.value || ""))), "financeiro posterior nao deveria filtrar descricao=396");
   });
 });
 

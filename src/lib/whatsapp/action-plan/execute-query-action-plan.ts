@@ -322,6 +322,10 @@ function sourceField(domain: DomainManifestEntry, fieldName: string) {
   return domain.fields[fieldName]?.sourceField || fieldName;
 }
 
+function shouldApplyRemoteDateFilter(domain: DomainManifestEntry) {
+  return domain.domain !== "producao_leite";
+}
+
 function queryTable(domain: DomainManifestEntry) {
   if (domain.tableName) return domain.tableName;
   if (domain.domain === "estoque") return TABLES.estoqueMovimentacoes;
@@ -386,6 +390,10 @@ function rowValue(row: AnyRecord, domain: DomainManifestEntry, fieldName: string
     return [employee?.nome, employee?.funcao].filter(Boolean).join(" ");
   }
   const source = sourceField(domain, fieldName);
+  if (domain.dateFields.includes(fieldName)) {
+    const value = row[source];
+    return value || (source !== "created_at" ? row.created_at : value);
+  }
   if (domain.domain === "financeiro" && fieldName === "tipo") return normalizeFinanceType(row[source]);
   if (domain.domain === "financeiro" && fieldName === "descricao") return [row.descricao, row.categoria, row.metodo_pagamento].filter(Boolean).join(" ");
   if (domain.domain === "reproducao" && fieldName === "evento") return normalizedText(row[source]);
@@ -614,11 +622,12 @@ function normalizeAnimalQueryPlan(plan: QueryActionPlan, originalText?: string):
 function financeSearchTermFromText(text?: string | null) {
   const normalized = normalizedText(text);
   if (!normalized) return null;
-  const match = normalized.match(/\b(?:com|de|do|da|sobre)\s+([a-z0-9][a-z0-9\s-]{1,50}?)(?:\s+(?:esse|este|essa|esta|nesse|neste|nessa|nesta|hoje|ontem|mes|semana|ano|ultimos?|ultimas?|dias?|meses?|reais?|real|r\$)|[?.!,]|$)/);
+  const match = normalized.match(/\b(?:gastei|gasto|gastos|despesa|despesas|paguei|pagamento|receita|receitas|vendi|venda|vendas|faturamento)\s+(?:com|de|do|da|sobre)\s+([a-z0-9][a-z0-9\s-]{1,50}?)(?:\s+(?:esse|este|essa|esta|nesse|neste|nessa|nesta|hoje|ontem|mes|semana|ano|ultimos?|ultimas?|dias?|meses?|reais?|real|r\$)|[?.!,]|$)/);
   const raw = match?.[1]?.trim();
   if (!raw) return null;
   const cleaned = raw.replace(/\b(?:esse|este|essa|esta|mes|semana|ano|hoje|ontem)\b.*$/g, "").trim();
   if (!cleaned || /^(?:financeiro|mes|semana|ano|hoje|ontem|periodo|relatorio|resumo)$/.test(cleaned)) return null;
+  if (/^(?:a|o|da|do|de)?\s*(?:vaca|animal|boi|touro)?\s*[a-z]?-?\d+[a-z0-9-]*$/.test(cleaned)) return null;
   return cleaned;
 }
 
@@ -644,6 +653,42 @@ function normalizeFinanceQueryPlan(plan: QueryActionPlan, originalText?: string)
     filters,
     aggregations,
     groupBy,
+    limit: Math.max(plan.limit || 0, 100),
+    userQuestion: plan.userQuestion || originalText || null
+  };
+}
+
+function isProductionQueryText(text: unknown) {
+  const normalized = normalizedText(text);
+  return /\b(?:producao|produção|produzi|produziu|leite|ordenha|ordenhado|litros?)\b/.test(normalized)
+    && /\b(?:quanto|quantos|qual|como|relatorio|resumo|consulta|mostrar|mostra|ver|hoje|ontem|semana|mes|ano|ultimos?)\b/.test(normalized);
+}
+
+function isNoisyProductionAnimalRef(value: unknown) {
+  const text = normalizedText(value);
+  if (!text) return false;
+  if (/^(?:leite|producao|produção|ordenha|ordenhas|litros?|hoje|ontem|mes|semana|ano|rebanho|gado|vacas?|animais|todas?|todos?)$/.test(text)) return true;
+  return isCollectiveAnimalRef(text);
+}
+
+function normalizeProductionQueryPlan(plan: QueryActionPlan, originalText?: string): QueryActionPlan {
+  if (plan.domain !== "producao_leite") return plan;
+  const text = [originalText, plan.userQuestion].filter(Boolean).join(" ");
+  if (!isProductionQueryText(text)) return plan;
+
+  const filters = plan.filters.filter((filter) => !(filter.field === "animal_ref" && isNoisyProductionAnimalRef(filter.value)));
+  if (!filters.some((filter) => domainDateFilterField(filter)) && /\b(?:hoje|dia atual)\b/.test(normalizedText(text))) {
+    filters.push({ field: "data", op: "last_days", value: 1 });
+  }
+
+  const aggregations = plan.aggregations?.length
+    ? plan.aggregations
+    : [{ field: "litros", op: "sum", as: "total_litros" } as AggregationPlan];
+
+  return {
+    ...plan,
+    filters,
+    aggregations,
     limit: Math.max(plan.limit || 0, 100),
     userQuestion: plan.userQuestion || originalText || null
   };
@@ -1295,6 +1340,9 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   if (plan.domain === "financeiro") {
     plan = normalizeFinanceQueryPlan(plan, input.originalText);
   }
+  if (plan.domain === "producao_leite") {
+    plan = normalizeProductionQueryPlan(plan, input.originalText);
+  }
   if (shouldUseGeneralEventReport(plan, input.originalText)) {
     return executeGeneralEventReportQuery(input, plan);
   }
@@ -1352,7 +1400,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
     .limit(limit);
 
   const dateField = plan.filters.find((filter) => domain.dateFields.includes(filter.field));
-  if (dateField) {
+  if (dateField && shouldApplyRemoteDateFilter(domain)) {
     const range = dateRangeFor(dateField, currentDate(input.currentDate));
     const source = sourceField(domain, dateField.field);
     if (range) query = query.gte(source, dateOnly(range.start)).lt(source, dateOnly(range.end));

@@ -1253,6 +1253,12 @@ function flattenPrimitiveValues(value: unknown, limit = 30): string[] {
   return Object.values(value as AnyRecord).flatMap((item) => flattenPrimitiveValues(item, limit - 1)).slice(0, limit);
 }
 
+function financeQueryClauseFromText(text: string) {
+  const matches = Array.from(text.matchAll(/(?:me\s+(?:mostra|mostre|fala|diz)\s+)?(?:quanto\s+(?:eu\s+)?(?:gastei|recebi)|como\s+(?:foi|esta|est[aá]|ta|t[aá])\s+o\s+financeiro|relat[oó]rio\s+financeiro|resumo\s+financeiro|financeiro\b|gastos?\b|despesas?\b|receitas?\b|saldo\b)[^.;]*/gi));
+  const last = matches.length ? matches[matches.length - 1]?.[0]?.trim() : "";
+  return last || "";
+}
+
 function sequenceStepExecutionText(step: SequenceActionPlan["steps"][number], fallback: string) {
   const semantic = "semantic" in step && step.semantic ? step.semantic : null;
   const data = "data" in step && step.data ? step.data : null;
@@ -1287,7 +1293,8 @@ function sequenceStepExecutionText(step: SequenceActionPlan["steps"][number], fa
     || (Array.isArray(semantic?.domains) && semantic.domains.some((domain) => String(domain).toLowerCase() === "financeiro"))
   );
   if (isFinanceQueryStep && /\b(despesa|despesas|gasto|gastos|gastei|saida|saidas|paguei|pagamento|receita|receitas|entrada|entradas|faturamento|vendas?|recebi)\b/i.test(fallback)) {
-    return [text, fallback].filter(Boolean).join(" ");
+    const financeClause = financeQueryClauseFromText(fallback);
+    return [text, financeClause].filter(Boolean).join(" ");
   }
   return text || fallback;
 }

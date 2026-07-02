@@ -3670,7 +3670,8 @@ function extractCorrectionUnit(command: string) {
 
 function cleanAnimalCorrectionName(value: string | undefined) {
   const cleaned = String(value || "")
-    .replace(/\b(?:a|o|as|os|na|no|da|do|era|foi|litro|litros|kg|saco|sacos|parto|cio|compra|uso|saida|baixa)\b/g, " ")
+    .replace(/[.,;!?]+$/g, " ")
+    .replace(/\b(?:a|o|as|os|na|no|da|do|de|animal|vaca|boi|touro|novilha|era|foi|e|eh|é|corrige|corrigir|corrija|por|favor|litro|litros|kg|saco|sacos|parto|cio|protocolo|reteste|prenhez|inseminacao|inseminação|compra|uso|saida|baixa)\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned || /^(?:de|para|por)$/.test(cleaned)) return null;
@@ -3679,9 +3680,19 @@ function cleanAnimalCorrectionName(value: string | undefined) {
 
 function extractAnimalSwap(command: string) {
   if (/\b(?:litro|litros|kg|quilo|quilos|saco|sacos|reais|real|valor|quantidade)\b/.test(command)) return null;
-  const match = command.match(/\bnao\s+(?:era|foi)\s+(?:a|o|na|no)?\s*(.+?)\s+(?:era|foi)\s+(?:a|o|na|no)?\s*(.+)$/);
-  const oldValue = cleanAnimalCorrectionName(match?.[1]);
-  const newValue = cleanAnimalCorrectionName(match?.[2]);
+  const pairPatterns = [
+    /\bnao\s+(?:era|foi)\s+(?:a|o|na|no)?\s*(.+?)\s+(?:era|foi)\s+(?:a|o|na|no)?\s*(.+)$/,
+    /\b(?:troca|trocar|corrige|corrigir|corrija|muda|mudar|altera|alterar)\b.*?\b(?:de|da|do)\s+(.+?)\s+(?:para|pra|por)\s+(.+)$/,
+    /\b(?:a|o|vaca|animal|boi|touro|novilha)?\s*([a-z]?-?\d[a-z0-9-]*)\b.*?\b(?:na verdade|verdade)\s+(?:era|foi|e|eh|é)\s+(?:a|o|vaca|animal|boi|touro|novilha)?\s*([a-z]?-?\d[a-z0-9-]*)\b/
+  ];
+  const pair = pairPatterns.map((pattern) => command.match(pattern)).find(Boolean);
+  const oldValue = cleanAnimalCorrectionName(pair?.[1]);
+  let newValue = cleanAnimalCorrectionName(pair?.[2]);
+  if (!newValue) {
+    const single = command.match(/\b(?:na verdade|verdade|corrige|corrigir|corrija)\b.*?\b(?:era|foi|e|eh|é)\s+(?:a|o|vaca|animal|boi|touro|novilha)?\s*([a-z]?-?\d[a-z0-9-]*)\b/)
+      || command.match(/^(?:era|foi)\s+(?:a|o|vaca|animal|boi|touro|novilha)?\s*([a-z]?-?\d[a-z0-9-]*)\b/);
+    newValue = cleanAnimalCorrectionName(single?.[1]);
+  }
   if (!newValue) return null;
   return { oldValue, newValue };
 }
@@ -3789,6 +3800,84 @@ function buildCorrectedPending(pending: ParsedRanchoMessage, text: string, act: 
       "safe_to_apply_correction"
     ]),
     prefix
+  };
+}
+
+const CONFIRMED_RECORD_CONTEXT_MS = 30 * 60 * 1000;
+
+function isImportIntent(intent?: ParsedRanchoMessage["tipo"] | null) {
+  return Boolean(intent && String(intent).startsWith("IMPORTACAO_"));
+}
+
+function shouldRememberConfirmedRecord(pending: ParsedRanchoMessage, result: SaveResult) {
+  return Boolean(result.savedReal && pending?.tipo && !isImportIntent(pending.tipo));
+}
+
+function confirmedRecordMemory(pending: ParsedRanchoMessage, result: SaveResult) {
+  return {
+    pending,
+    tipo: pending.tipo,
+    savedTables: result.savedTables || [],
+    savedAt: nowIso()
+  };
+}
+
+function sessionAfterConfirmedSave(result: SaveResult, pending: ParsedRanchoMessage): BotSession {
+  if (result.nextSession) return result.nextSession;
+  const dados = { ...(result.sessionData || {}) };
+  if (shouldRememberConfirmedRecord(pending, result)) {
+    dados.ultimo_registro_confirmado = confirmedRecordMemory(pending, result);
+  }
+  return { etapa: "livre", dados };
+}
+
+function lastConfirmedRecordFromSession(session: BotSession) {
+  const record = session.dados?.ultimo_registro_confirmado as AnyRecord | undefined;
+  const pending = record?.pending as ParsedRanchoMessage | undefined;
+  if (!record || !pending?.tipo) return null;
+  const savedAt = record.savedAt ?new Date(String(record.savedAt)).getTime() : 0;
+  if (!savedAt || Date.now() - savedAt > CONFIRMED_RECORD_CONTEXT_MS) return null;
+  return { ...record, pending };
+}
+
+function isAnimalEventRecord(pending: ParsedRanchoMessage) {
+  const dados = pending.dados || {};
+  if (pending.tipo === "ATUALIZACAO_ANIMAL" && dados.registro_evento_animal) return true;
+  return ["PARTO", "VACINA_MEDICAMENTO", "MORTE"].includes(pending.tipo);
+}
+
+function buildConfirmedRecordAnimalCorrection(session: BotSession, text: string, act: ConversationAct) {
+  const record = lastConfirmedRecordFromSession(session);
+  if (!record || !isAnimalEventRecord(record.pending)) return null;
+
+  const animalSwap = extractAnimalSwap(act.normalizedText || normalizeRanchoText(text));
+  if (!animalSwap?.newValue) return null;
+
+  const previous = record.pending;
+  const previousData = previous.dados || {};
+  const oldAnimal = animalSwap.oldValue || previousData.animal_codigo || previousData.mae_ref || previousData.mae_codigo || "animal anterior";
+  const dados = {
+    ...previousData,
+    animal_codigo: animalSwap.newValue,
+    correcao_registro_salvo: true,
+    correcao_evento_animal: "trocar_animal",
+    correcao_animal_codigo_anterior: oldAnimal,
+    correcao_animal_id_anterior: previousData.animal_id || null,
+    correcao_data_referencia: previousData.data_referencia || null,
+    correcao_evento_reprodutivo_tipo: previousData.evento_reprodutivo_tipo || null,
+    correcao_evento_tipo: previousData.evento_tipo || previous.tipo || null
+  };
+
+  const corrected = refreshRanchoMessage({ ...previous, tipo: "ATUALIZACAO_ANIMAL", dados }, dados);
+  return {
+    parsed: withConversationFlags(corrected, [
+      "correction_message",
+      "references_previous_context",
+      "requires_confirmation",
+      "possible_duplicate_risk",
+      "safe_to_apply_correction"
+    ]),
+    prefix: `Entendi. Vou corrigir o animal do ultimo registro de ${oldAnimal} para ${animalSwap.newValue}.`
   };
 }
 
@@ -4074,6 +4163,13 @@ async function handleConversationActMessage(
         suppressPreviousPending: true,
         response: "Beleza, nao vou registrar como parto. Me diga o que aconteceu com o animal para eu lancar corretamente."
       };
+    }
+    if (act.messageType === "correction") {
+      const confirmedCorrection = buildConfirmedRecordAnimalCorrection(session, text, act);
+      if (confirmedCorrection) {
+        const result = await saveCorrectedPending(supabase, owner, confirmedCorrection.parsed, confirmedCorrection.prefix);
+        return { handled: true, parsed: result.parsed, response: result.response };
+      }
     }
     return {
       handled: true,
@@ -4443,7 +4539,7 @@ async function handleConfirmation(
       botTabularImportLog("stock_import_confirm_command", owner, stockImportSummary(pendingToSave));
     }
     const result = await saveConfirmedRecord(supabase, owner, pendingToSave);
-    await saveSession(supabase, owner, result.nextSession || { etapa: "livre", dados: result.sessionData || {} });
+    await saveSession(supabase, owner, sessionAfterConfirmedSave(result, pendingToSave));
     const postConfirmationText = result.savedReal ?await handlePostConfirmationConsultations(supabase, owner, pendingToSave) : "";
     const resultResponse = postConfirmationText ?`${result.response}\n\n${postConfirmationText}` : result.response;
     if (pendingToSave.tipo === "IMPORTACAO_EVENTOS_TABELA") {

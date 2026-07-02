@@ -118,6 +118,60 @@ export async function saveAnimalRecord(ctx: SaveRecordHandlerContext): Promise<S
 
     const animal = found.row;
 
+    if (dados.correcao_evento_animal === "trocar_animal") {
+      const previousRef = String(dados.correcao_animal_codigo_anterior || "").trim();
+      let previousAnimalId = dados.correcao_animal_id_anterior || null;
+      if (!previousAnimalId && previousRef) {
+        const previousFound = await findAnimal(supabase, owner, previousRef);
+        previousAnimalId = previousFound?.row?.id || null;
+      }
+      if (!previousAnimalId) {
+        return {
+          response: "Entendi a correcao, mas nao consegui identificar com seguranca qual era o animal anterior do registro salvo. Me envie a correcao com o animal antigo e o correto."
+        };
+      }
+
+      const correctionKind = dados.correcao_evento_reprodutivo_tipo || dados.evento_reprodutivo_tipo || null;
+      const reproductiveKind = normalizedReproductiveEventKind({ ...dados, evento_reprodutivo_tipo: correctionKind }, String(dados.descricao || dados.novo_valor || ""));
+      const targetType = reproductiveKind ?reproductiveEventDbType(reproductiveKind) : null;
+      const targetDate = dateOnlyFromReference(dados.correcao_data_referencia || dados.data_referencia || "hoje");
+      let query = supabase
+        .from(TABLES.eventosAnimal)
+        .select("*")
+        .eq("fazenda_id", owner.fazenda_id)
+        .eq("animal_id", previousAnimalId);
+      if (targetType) query = query.eq("tipo", targetType);
+      const { data: eventRows, error: eventError } = await query
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (eventError) throw new Error(eventError.message);
+
+      const rows = Array.isArray(eventRows) ?eventRows : eventRows ?[eventRows] : [];
+      const target = rows.find((row) => {
+        const rawDate = String(row.data_evento || row.created_at || "");
+        return targetDate ?rawDate.slice(0, 10) === targetDate : true;
+      }) || rows[0] || null;
+
+      if (!target?.id) {
+        return {
+          response: `Entendi a correcao para ${animal.brinco || animal.nome}, mas nao encontrei o registro anterior do animal ${previousRef || "informado"} para atualizar. Nada foi alterado.`
+        };
+      }
+
+      const { data, error } = await supabase
+        .from(TABLES.eventosAnimal)
+        .update({ animal_id: animal.id })
+        .eq("id", target.id)
+        .eq("fazenda_id", owner.fazenda_id)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      await logAudit(supabase, owner, TABLES.eventosAnimal, "update", data || { ...target, animal_id: animal.id });
+
+      const eventLabel = reproductiveKind ?reproductiveEventLabel(reproductiveKind) : "Registro";
+      return realSaveResult(`Pronto, corrigi o registro salvo.\n${eventLabel}: agora esta no animal ${animal.brinco || animal.nome}.`, [TABLES.eventosAnimal]);
+    }
+
     if (dados.registro_evento_animal) {
       const custo = hasBotValue(dados.custo ?? dados.valor) ?Number(dados.custo ?? dados.valor) : 0;
       const descricao = String(dados.descricao || dados.novo_valor || pending.resumo || "Ocorrência registrada via WhatsApp");

@@ -144,13 +144,36 @@ function isFinanceQueryText(text: unknown) {
   return hasFinanceTopic && hasQueryShape;
 }
 
+function hasSpecificConsultationTopic(text: unknown) {
+  const normalized = normalizedText(text);
+  if (!normalized) return false;
+  return /\b(?:vacinas?|vacinacao|tratamentos?|medicamentos?|vermifugos?|antibioticos?|doencas?|sanitario|saude|partos?|pariu|pariram|prenhas?|prenhez|inseminacoes?|inseminadas?|protocolos?|retestes?|cios?|financeiro|receitas?|despesas?|estoque|leite|ordenhas?|ponto|funcionarios?|lotes?|genealogia|touros?|vacas?|bezerros?|novilhas?)\b/.test(normalized);
+}
+
+function planSpecificConsultationText(plan: QueryActionPlan, originalText?: string) {
+  const semantic = plan.semantic || {};
+  return [
+    originalText || "",
+    plan.userQuestion || "",
+    plan.operation || "",
+    semantic.intent || "",
+    semantic.scope || "",
+    semantic.operation || "",
+    semantic.period || "",
+    semantic.report?.type || "",
+    semantic.report?.detailLevel || "",
+    ...(Array.isArray(semantic.domains) ? semantic.domains : []),
+    ...plan.filters.flatMap((filter) => [filter.field, filter.op, Array.isArray(filter.value) ? filter.value.join(" ") : filter.value])
+  ].filter((part) => part !== undefined && part !== null).join(" ");
+}
+
 function genericEventReportText(text: unknown) {
   const normalized = normalizedText(text);
   if (!normalized) return false;
   if (isExplicitGeneralOperationalReportText(normalized)) return true;
   const hasGenericEventTopic = /\b(?:eventos?|registros?|ocorrencias?|ocorridos?|aconteceu|aconteceram|movimentacoes?|atividades?|fechamento|resumo|relatorio|tudo)\b/.test(normalized);
   const hasQueryShape = /\b(?:quais?|qual|como|me fala|mostra|mostrar|ver|teve|houve|lista|listar|resumo|relatorio|fechamento|hoje|ontem|semana|mes|ano|ultimos?)\b/.test(normalized);
-  const hasSpecificTopic = /\b(?:vacinas?|vacinacao|tratamentos?|medicamentos?|vermifugos?|antibioticos?|doencas?|sanitario|saude|partos?|pariu|pariram|prenhas?|prenhez|inseminacoes?|inseminadas?|protocolos?|retestes?|cios?|financeiro|receitas?|despesas?|estoque|leite|ordenhas?|ponto|funcionarios?|lotes?|genealogia)\b/.test(normalized);
+  const hasSpecificTopic = hasSpecificConsultationTopic(normalized);
   return hasGenericEventTopic && hasQueryShape && !hasSpecificTopic;
 }
 
@@ -191,6 +214,7 @@ function genericEventReportMode(text: unknown) {
 function shouldUseGeneralEventReport(plan: QueryActionPlan, originalText?: string) {
   if (!["saude_sanitario", "reproducao", "observacoes", "agenda_tarefas"].includes(plan.domain)) return false;
   if (!genericEventReportText(originalText)) return false;
+  if (!isExplicitGeneralOperationalReportText(originalText) && hasSpecificConsultationTopic(planSpecificConsultationText(plan, originalText))) return false;
   return !plan.filters.some((filter) => ["animal_ref", "lote_ref", "funcionario_ref", "item_ref"].includes(filter.field));
 }
 
@@ -782,7 +806,8 @@ function activeReproductionEventForKind(events: AnyRecord[], kind?: string) {
 function targetReproductionKind(plan: QueryActionPlan, originalText?: string) {
   const raw = [
     ...plan.filters.map((filter) => String(filter.value || "")),
-    originalText || ""
+    originalText || "",
+    plan.userQuestion || ""
   ].join(" ");
   const text = normalizedText(raw);
   if (/\b(?:prenhas?|prenhes|prenhe|prenhez|gestantes?|gestacao)\b/.test(text)) return "prenhez";
@@ -811,7 +836,8 @@ function targetReproductionKinds(plan: QueryActionPlan, originalText?: string) {
     const values = Array.isArray(filter.value) ? filter.value : [filter.value];
     values.forEach((value) => addReproductionKindsFromText(kinds, value));
   }
-  addReproductionKindsFromText(kinds, originalText || plan.userQuestion || "");
+  addReproductionKindsFromText(kinds, originalText || "");
+  addReproductionKindsFromText(kinds, plan.userQuestion || "");
   if (!kinds.size) {
     const kind = targetReproductionKind(plan, originalText);
     if (kind) kinds.add(kind);

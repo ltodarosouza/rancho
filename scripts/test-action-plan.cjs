@@ -3788,6 +3788,73 @@ test("Gemini-first ActionPlan sequence nao contamina financeiro posterior com an
   });
 });
 
+test("Gemini-first ActionPlan sequence preserva consulta reprodutiva especifica apos importacao", async () => {
+  const text = "398:PROTOCOLO 204:PROTOCOLO 249:RETESTE e depois me fala quantas vacas estao em protocolo";
+  const plan = {
+    action: "sequence",
+    confidence: 0.94,
+    requiresConfirmation: true,
+    steps: [
+      {
+        action: "import_table",
+        domain: "reproducao",
+        confidence: 0.94,
+        data: {
+          rows: [
+            { animal_ref: "398", evento: "protocolo" },
+            { animal_ref: "204", evento: "protocolo" },
+            { animal_ref: "249", evento: "reteste" }
+          ]
+        },
+        requiresConfirmation: true,
+        semantic: { domains: ["reproducao"], intent: "importar_eventos_reprodutivos" }
+      },
+      {
+        action: "query",
+        domain: "reproducao",
+        confidence: 0.94,
+        filters: [],
+        aggregations: [],
+        requiresConfirmation: false,
+        limit: 50,
+        userQuestion: "quantas vacas estao em protocolo",
+        semantic: {
+          domains: ["reproducao"],
+          intent: "consulta_status_reprodutivo",
+          report: { type: "relatorio", detailLevel: "resumo" }
+        }
+      }
+    ]
+  };
+
+  await withGeminiMock(() => clone(plan), async () => {
+    const result = await parseWithConfiguredInterpreter({
+      text,
+      localParsed: parseRanchoMessage(text),
+      owner: ADMIN_OWNER,
+      supabase: createActionPlanSupabase({
+        [TABLES.animais]: [
+          { id: "animal-398", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "398", nome: "Vaca 398", categoria: "vaca" },
+          { id: "animal-204", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "204", nome: "Vaca 204", categoria: "vaca" },
+          { id: "animal-249", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "249", nome: "Vaca 249", categoria: "vaca" }
+        ],
+        [TABLES.eventosAnimal]: [
+          { id: "evt-protocolo-398", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-398", tipo: "observacao", data_evento: "2026-07-01", descricao: "[Reproducao Animal] Protocolo IA" },
+          { id: "evt-protocolo-204", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-204", tipo: "observacao", data_evento: "2026-07-01", descricao: "[Reproducao Animal] Protocolo IA" },
+          { id: "evt-reteste-249", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-249", tipo: "observacao", data_evento: "2026-07-01", descricao: "[Reproducao Animal] Reteste de protocolo" }
+        ]
+      })
+    });
+    assert(result.kind === "compound", `sequence deveria ser compound, recebido ${result.kind}`);
+    const after = result.pending.dados?.gemini_consultas_apos_confirmacao || [];
+    assert(after.length === 1, "consulta reprodutiva deveria ficar anexada para depois da confirmacao");
+    const response = String(after[0].dados?.action_plan_response || "");
+    assert(response.includes("Vacas em protocolo"), `consulta posterior deveria listar protocolo, recebeu: ${response}`);
+    assert(!response.includes("Relatorio de hoje"), `consulta posterior nao deveria virar relatorio geral: ${response}`);
+    assert(after[0].dados?.resultado?.tipo_reprodutivo === "protocolo", "consulta posterior deveria preservar tipo reprodutivo protocolo");
+  });
+});
+
 test("Gemini-first ActionPlan sequence executa consulta antes e deixa mutacao pendente", async () => {
   const text = "me mostra os eventos de hoje e registra 30kg de racao no estoque";
   const fixture = fixtureByName("sequence-relatorio-antes-estoque");

@@ -1259,13 +1259,49 @@ function financeQueryClauseFromText(text: string) {
   return last || "";
 }
 
+function queryDomainFromStep(step: SequenceActionPlan["steps"][number]) {
+  if ("domain" in step && step.domain) return String(step.domain);
+  if (step.action === "execute" && step.capability) return String(step.capability);
+  return "";
+}
+
+function queryClauseMatchesDomain(text: string, domain: string) {
+  const normalized = normalizeRanchoText(text);
+  if (!domain) return true;
+  if (domain === "financeiro") return /\b(financeiro|receitas?|despesas?|gastos?|gastei|saldo|caixa|vendas?|recebi)\b/.test(normalized);
+  if (domain === "reproducao") return /\b(reproducao|prenhas?|prenhez|inseminad[ao]s?|protocolo|protocolos|reteste|partos?|paridas?|cios?)\b/.test(normalized);
+  if (domain === "animais") return /\b(animais?|rebanho|vacas?|touros?|bezerros?|novilhas?|brincos?|lotes?)\b/.test(normalized);
+  if (domain === "estoque") return /\b(estoque|itens?|produtos?|insumos?|racao|sal|milho|diesel|entrada|saida|movimentacoes?)\b/.test(normalized);
+  if (domain === "producao_leite") return /\b(leite|ordenha|producao|litros?)\b/.test(normalized);
+  if (domain === "funcionarios" || domain === "ponto_funcionario") return /\b(funcionarios?|colaboradores?|ponto|salarios?|folha|whatsapp)\b/.test(normalized);
+  if (domain === "lotes") return /\b(lotes?|piquetes?|lactacao|reprodutores?)\b/.test(normalized);
+  if (domain === "genealogia") return /\b(genealogia|filhos?|filhas?|crias?|pai|mae|descendentes?)\b/.test(normalized);
+  if (domain === "saude_sanitario") return /\b(saude|sanitario|vacinas?|medicamentos?|doencas?|tratamentos?)\b/.test(normalized);
+  return true;
+}
+
+function queryClauseFromText(text: string, domain: string) {
+  const pieces = String(text || "")
+    .split(/\b(?:e\s+)?depois\b|\b(?:mas\s+antes|antes\s+de|antes|em\s+seguida|entao|apos)\b|\be\s+(?:registra|registrar|cadastro|cadastra|cadastrar|adiciona|adicionar|lanca|lancar|inclui|incluir)\b|[;\n.]+/gi)
+    .map((piece) => piece.trim())
+    .filter(Boolean);
+  const queryCue = /\b(?:me\s+(?:mostra|mostre|fala|diz|informa|conte)|quanto|quantas?|quais?|qual|lista|listar|relatorio|resumo|consulta|consultar|dados|como|quem)\b/i;
+  const candidates = pieces.filter((piece) => queryCue.test(piece));
+  const domainCandidates = candidates.filter((piece) => queryClauseMatchesDomain(piece, domain));
+  const selected = domainCandidates.length ? domainCandidates[domainCandidates.length - 1] : candidates[candidates.length - 1];
+  return selected || "";
+}
+
 function sequenceStepExecutionText(step: SequenceActionPlan["steps"][number], fallback: string) {
   const semantic = "semantic" in step && step.semantic ? step.semantic : null;
   const data = "data" in step && step.data ? step.data : null;
   const filters = "filters" in step && Array.isArray(step.filters) ? step.filters : [];
+  const domain = queryDomainFromStep(step);
   const parts = [
     step.action,
+    domain,
     step.operation,
+    "userQuestion" in step ? step.userQuestion : null,
     step.action === "execute" ? step.capability : null,
     semantic?.intent,
     semantic?.scope,
@@ -1287,6 +1323,7 @@ function sequenceStepExecutionText(step: SequenceActionPlan["steps"][number], fa
     .trim();
   const isQueryStep = step.action === "query" || (step.action === "execute" && step.requiresConfirmation === false);
   if (isQueryStep && isExplicitGeneralOperationalReportText(fallback)) return fallback;
+  const queryClause = isQueryStep ? queryClauseFromText(fallback, domain) : "";
   const isFinanceQueryStep = isQueryStep && (
     ("domain" in step && step.domain === "financeiro")
     || (step.action === "execute" && /financeiro/i.test(String(step.capability || "")))
@@ -1294,8 +1331,9 @@ function sequenceStepExecutionText(step: SequenceActionPlan["steps"][number], fa
   );
   if (isFinanceQueryStep && /\b(despesa|despesas|gasto|gastos|gastei|saida|saidas|paguei|pagamento|receita|receitas|entrada|entradas|faturamento|vendas?|recebi)\b/i.test(fallback)) {
     const financeClause = financeQueryClauseFromText(fallback);
-    return [text, financeClause].filter(Boolean).join(" ");
+    return [text, financeClause || queryClause].filter(Boolean).join(" ");
   }
+  if (isQueryStep) return [text, queryClause].filter(Boolean).join(" ") || fallback;
   return text || fallback;
 }
 

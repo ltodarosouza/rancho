@@ -704,6 +704,33 @@ module.exports = function loadBotTestSection(context) {
         }
       },
       {
+        name: "correcao apos salvar troca animal do evento reprodutivo sem duplicar",
+        module: "eventos",
+        phone: BOT_TEST_ADMIN_PHONE,
+        extraAnimals: [
+          { id: "animal-090-corrigir", brinco: "090", nome: "Animal 090" },
+          { id: "animal-080-corrigir", brinco: "080", nome: "Animal 080" }
+        ],
+        messages: [
+          { text: "a 090 entrou em protocolo", salvarReal: true },
+          { text: "sim", salvarReal: true },
+          { text: "a 090 entrou em protocolo, na verdade era a 080. Corrige", salvarReal: true },
+          { text: "sim", salvarReal: true }
+        ],
+        expected: {
+          finalIntent: "ATUALIZACAO_ANIMAL",
+          entities: { animal_codigo: "080", correcao_evento_animal: "trocar_animal" },
+          responseIncludes: "corrigi o registro salvo",
+          shouldAskConfirmation: true,
+          shouldSaveBeforeConfirmation: false,
+          savedAfterConfirmation: true,
+          savedTables: [BOT_TEST_TABLES.eventosAnimal],
+          shouldSaveValues: { animal_id: "animal-080-corrigir" },
+          shouldNotWriteBusiness: false,
+          ranchId: BOT_TEST_FARM_ID
+        }
+      },
+      {
         name: "codigo com espaco nao passou preserva animal do rancho atual",
         module: "eventos",
         phone: BOT_TEST_ADMIN_PHONE,

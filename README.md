@@ -181,6 +181,21 @@ docs/reports
 - Manter chamadas live de IA fora dos testes automatizados.
 - Validar payloads do Gemini no backend antes de qualquer insert/update.
 
+## Padrao de commits
+
+Use Conventional Commits para manter o historico legivel:
+
+```txt
+feat: add new user-facing capability
+fix: correct a bug or regression
+docs: update documentation
+chore: adjust repository, tooling or maintenance files
+refactor: reorganize code without behavior changes
+test: add or update tests
+```
+
+Evite mensagens genericas como `a`, `update` ou `ajustes`.
+
 ## Qualidade
 
 Antes de abrir PR ou fazer deploy, rode:

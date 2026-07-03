@@ -1386,6 +1386,151 @@ test("query sem domain falha", () => {
   }, "domain obrigatorio");
 });
 
+test("ActionPlan normaliza aliases de dominio e campos antes de validar", () => {
+  const result = assertValid("query gado touros", {
+    action: "query",
+    domain: "gado",
+    confidence: 0.92,
+    filters: [{ field: "tipo", op: "eq", value: "touro" }],
+    select: ["codigo", "nome", "lote"],
+    requiresConfirmation: false
+  });
+
+  assert(result.value.domain === "animais", `dominio esperado animais, recebido ${result.value.domain}`);
+  assert(result.value.filters?.[0]?.field === "categoria", `field esperado categoria, recebido ${result.value.filters?.[0]?.field}`);
+  assert(result.value.select?.includes("brinco"), `select deveria conter brinco: ${JSON.stringify(result.value.select)}`);
+  assert(result.value.select?.includes("lote_ref"), `select deveria conter lote_ref: ${JSON.stringify(result.value.select)}`);
+});
+
+test("ActionPlan normaliza count para contagem de registros", () => {
+  const result = assertValid("query protocolo count animal_ref", {
+    action: "query",
+    domain: "reproducao",
+    confidence: 0.94,
+    filters: [{ field: "status_reprodutivo", op: "eq", value: "em_protocolo" }],
+    aggregations: [{ field: "animal_ref", op: "count", as: "total_em_protocolo" }],
+    requiresConfirmation: false
+  });
+
+  assert(result.value.aggregations?.[0]?.field === "id", `count deveria usar id: ${JSON.stringify(result.value.aggregations)}`);
+});
+
+test("ActionPlan normaliza operadores comuns de filtro", () => {
+  const result = assertValid("query financeiro hoje", {
+    action: "query",
+    domain: "financeiro",
+    confidence: 0.94,
+    filters: [
+      { field: "tipo", op: "equals", value: "despesa" },
+      { field: "data", op: "today" }
+    ],
+    aggregations: [{ field: "valor", op: "sum", as: "total_gasto" }],
+    requiresConfirmation: false
+  });
+
+  assert(result.value.filters?.[0]?.op === "eq", `equals deveria virar eq: ${JSON.stringify(result.value.filters)}`);
+  assert(result.value.filters?.[1]?.op === "last_days", `today deveria virar last_days: ${JSON.stringify(result.value.filters)}`);
+  assert(result.value.filters?.[1]?.value === 1, `today deveria virar valor 1: ${JSON.stringify(result.value.filters)}`);
+});
+
+test("ActionPlan infere dominio de import_table pela estrutura da tabela", () => {
+  const plan = {
+    action: "import_table",
+    domain: "lista_de_insumos",
+    confidence: 0.94,
+    table: {
+      hasHeader: true,
+      columnMapping: {
+        produto: "Produto",
+        categoria: "Categoria",
+        unidade: "Unidade",
+        quantidade_atual: "Quantidade atual",
+        quantidade_minima: "Quantidade minima",
+        valor_unitario: "Valor unitario"
+      }
+    },
+    requiresConfirmation: true
+  };
+  const parsedTable = {
+    headers: ["Produto", "Categoria", "Unidade", "Quantidade atual", "Quantidade minima", "Valor unitario"],
+    rows: [
+      ["Milho", "racao", "saco", "20", "5", "80"],
+      ["Sal mineral", "insumo", "kg", "100", "30", "4"]
+    ],
+    hasHeader: true
+  };
+
+  const result = assertValid("import_table estoque inferido", plan, parsedTable);
+  assert(result.value.domain === "estoque", `dominio esperado estoque, recebido ${result.value.domain}`);
+  assert(String(result.value.table.columnMapping.item).toLowerCase() === "produto", `produto deveria virar item: ${JSON.stringify(result.value.table.columnMapping)}`);
+  assert(result.value.table.columnMapping.quantidade_minima === "Quantidade minima", "quantidade minima deveria ser preservada");
+});
+
+test("ActionPlan infere columnMapping vazio pelo cabecalho da tabela", () => {
+  const result = assertValid("import_table estoque columnMapping vazio", {
+    action: "import_table",
+    domain: "estoque",
+    confidence: 0.94,
+    table: {
+      hasHeader: true,
+      columnMapping: {}
+    },
+    requiresConfirmation: true
+  }, {
+    headers: ["Produto", "Categoria", "Unidade", "Quantidade atual", "Quantidade minima", "Valor unitario"],
+    rows: [["Milho", "racao", "saco", "20", "5", "80"]],
+    hasHeader: true
+  });
+
+  assert(result.value.table.columnMapping.item === "Produto", `Produto deveria virar item: ${JSON.stringify(result.value.table.columnMapping)}`);
+  assert(result.value.table.columnMapping.quantidade_atual === "Quantidade atual", `Quantidade atual deveria ser inferida: ${JSON.stringify(result.value.table.columnMapping)}`);
+  assert(result.value.table.columnMapping.valor_unitario === "Valor unitario", `Valor unitario deveria ser inferido: ${JSON.stringify(result.value.table.columnMapping)}`);
+});
+
+test("ActionPlan forca confirmacao em import_table mesmo se IA omitir", () => {
+  const result = assertValid("import_table confirmacao normalizada", {
+    action: "import_table",
+    domain: "funcionarios",
+    confidence: 0.94,
+    table: {
+      hasHeader: true,
+      columnMapping: {
+        nome: "Nome",
+        funcao: "Funcao",
+        salario_base: "Salario"
+      }
+    },
+    requiresConfirmation: false
+  }, {
+    headers: ["Nome", "Funcao", "Salario"],
+    rows: [["Joao", "Vaqueiro", "1800"]],
+    hasHeader: true
+  });
+
+  assert(result.value.requiresConfirmation === true, "import_table deveria ser confirmado pelo backend");
+});
+
+test("ActionPlan import_table normaliza linhas com values e aliases de cadastro animal", () => {
+  const result = assertValid("import rows values animais", {
+    action: "import_table",
+    domain: "rebanho_animais",
+    confidence: 0.94,
+    data: {
+      rows: [
+        { values: { codigo: "B-001", tipo: "vaca", genero: "femea", piquete: "Lactacao" } }
+      ]
+    },
+    requiresConfirmation: true
+  });
+
+  const row = result.value.data.rows[0];
+  assert(result.value.domain === "animais", `dominio esperado animais, recebido ${result.value.domain}`);
+  assert(row.brinco === "B-001", `codigo deveria virar brinco: ${JSON.stringify(row)}`);
+  assert(row.categoria === "vaca", `tipo deveria virar categoria: ${JSON.stringify(row)}`);
+  assert(row.sexo === "femea", `genero deveria virar sexo: ${JSON.stringify(row)}`);
+  assert(row.lote_ref === "Lactacao", `piquete deveria virar lote_ref: ${JSON.stringify(row)}`);
+});
+
 test("import_table com coluna inexistente falha", () => {
   const fixture = loadFixtures().find((item) => item.name === "import-table-financeiro");
   const plan = clone(fixture.plan);
@@ -1421,28 +1566,31 @@ test("query normaliza confirmacao para nao bloquear consulta segura", () => {
   assert(result.value.requiresConfirmation === false, "query deve executar sem confirmacao apos normalizacao");
 });
 
-test("create update e import_table exigem confirmacao", () => {
-  assertInvalid("create sem confirmacao", {
+test("create update e import_table normalizam confirmacao obrigatoria", () => {
+  const create = assertValid("create sem confirmacao", {
     action: "create",
     domain: "financeiro",
     confidence: 0.9,
     data: { tipo: "despesa", valor: 100, categoria: "energia" },
     requiresConfirmation: false
-  }, "requiresConfirmation=true");
+  });
+  assert(create.value.requiresConfirmation === true, "create deve exigir confirmacao apos normalizacao");
 
-  assertInvalid("update sem confirmacao", {
+  const update = assertValid("update sem confirmacao", {
     action: "update",
     domain: "animais",
     confidence: 0.9,
     data: { animal_ref: "001", status: "ativo" },
     filters: [{ field: "animal_ref", op: "eq", value: "001" }],
     requiresConfirmation: false
-  }, "requiresConfirmation=true");
+  });
+  assert(update.value.requiresConfirmation === true, "update deve exigir confirmacao apos normalizacao");
 
   const fixture = loadFixtures().find((item) => item.name === "import-table-producao");
   const plan = clone(fixture.plan);
   plan.requiresConfirmation = false;
-  assertInvalid("import sem confirmacao", plan, "requiresConfirmation=true", fixture.parsedTable);
+  const imported = assertValid("import sem confirmacao", plan, fixture.parsedTable);
+  assert(imported.value.requiresConfirmation === true, "import_table deve exigir confirmacao apos normalizacao");
 });
 
 test("SQL livre e campos de escopo interno sao bloqueados", () => {
@@ -2271,6 +2419,95 @@ test("table_import legado da IA vira ActionPlan generico sem parser local", asyn
       assert(result.gemini?.requiresConfirmation === true, "importacao deve exigir confirmacao");
     });
   });
+});
+
+test("table_import legado aceita aliases de dominio da IA", () => {
+  const validation = validateInterpretedAction({
+    intent: "DESCONHECIDO",
+    confidence: 0.9,
+    riskScore: 0.1,
+    fields: {},
+    actions: [],
+    missing_fields: [],
+    warnings: [],
+    should_confirm: false,
+    table_import: {
+      domain: "REBANHO",
+      confidence: 0.94,
+      column_mapping: {
+        Codigo: "codigo",
+        Nome: "nome",
+        Categoria: "categoria"
+      },
+      normalized_rows: [
+        { codigo: "B-001", nome: "Mimosa", categoria: "vaca" }
+      ],
+      unknown_columns: [],
+      warnings: [],
+      errors: [],
+      ambiguous_domains: [],
+      needs_manual_choice: false
+    }
+  }, {
+    originalText: "Codigo;Nome;Categoria\nB-001;Mimosa;vaca"
+  });
+
+  assert(validation.ok, `table_import com alias deveria validar: ${validation.ok ? "" : validation.message}`);
+  assert(validation.value.table_import?.domain === "ANIMAIS", `dominio esperado ANIMAIS, recebido ${validation.value.table_import?.domain}`);
+  assert(validation.value.table_import?.column_mapping?.Codigo === "codigo", "mapeamento de Codigo deveria ser preservado");
+});
+
+test("validador aceita ActionPlan em envelopes alternativos da IA", () => {
+  const wrapped = validateInterpretedAction({
+    plan: {
+      action: "query",
+      domain: "gado",
+      confidence: 0.94,
+      filters: [{ field: "tipo", op: "eq", value: "touro" }],
+      requiresConfirmation: false
+    }
+  }, { originalText: "quais touros cadastrados?" });
+  assert(wrapped.ok, `plan envelopado deveria validar: ${wrapped.ok ? "" : wrapped.message}`);
+  assert(wrapped.value.action_plan?.domain === "animais", `dominio esperado animais, recebido ${wrapped.value.action_plan?.domain}`);
+
+  const implicitSequence = validateInterpretedAction({
+    confidence: 0.94,
+    requiresConfirmation: false,
+    steps: [
+      {
+        action: "query",
+        domain: "financeiro",
+        confidence: 0.94,
+        filters: [{ field: "data", op: "last_days", value: 1 }],
+        requiresConfirmation: false
+      },
+      {
+        action: "query",
+        domain: "estoque",
+        confidence: 0.94,
+        filters: [],
+        requiresConfirmation: false
+      }
+    ]
+  }, { originalText: "financeiro e estoque de hoje" });
+  assert(implicitSequence.ok, `sequence implicita deveria validar: ${implicitSequence.ok ? "" : implicitSequence.message}`);
+  assert(implicitSequence.value.action_plan?.action === "sequence", `action esperado sequence, recebido ${implicitSequence.value.action_plan?.action}`);
+});
+
+test("validador aceita importacao estruturada route linhas da IA", () => {
+  const validation = validateInterpretedAction({
+    route: "structured_input",
+    dominio: "rebanho",
+    confidence: 0.94,
+    linhas: [
+      { values: { codigo: "B-001", nome: "Mimosa", tipo: "vaca", genero: "femea" } }
+    ]
+  }, { originalText: "codigo;nome;categoria;sexo\nB-001;Mimosa;vaca;femea" });
+
+  assert(validation.ok, `route/linhas deveria validar: ${validation.ok ? "" : validation.message}`);
+  assert(validation.value.action_plan?.action === "import_table", `action esperado import_table, recebido ${validation.value.action_plan?.action}`);
+  assert(validation.value.action_plan?.domain === "animais", `dominio esperado animais, recebido ${validation.value.action_plan?.domain}`);
+  assert(validation.value.action_plan?.requiresConfirmation === true, "importacao route/linhas deve exigir confirmacao");
 });
 
 test("executor import_table funcionarios aceita data.rows canonico da IA", async () => {

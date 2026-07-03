@@ -2,6 +2,7 @@ import { aiProviderLog, generateStructuredAI, parseJsonObjectText } from "@/lib/
 import { botTestVerbose, geminiActionPlanEnabled } from "@/lib/whatsapp/gemini/config";
 import { buildGeminiSystemPrompt } from "@/lib/whatsapp/gemini/system-prompt";
 import { validateInterpretedAction } from "@/lib/whatsapp/gemini/validator";
+import { RANCHO_DOMAIN_MANIFEST, summarizeDomainManifestForPrompt } from "@/lib/whatsapp/gemini/domain-manifest";
 import {
   findGeminiMockFixture,
   geminiMode,
@@ -22,6 +23,99 @@ function geminiInterpreterLog(event: string, details: Record<string, unknown>) {
     event,
     ...details
   });
+}
+
+function isRepairableActionPlanContractError(reason: unknown) {
+  const text = String(reason || "");
+  if (!text) return false;
+  if (/\b(?:delete|sql|perigoso|segredo|senha|token|api|escopo|massa|bloqueado|blocked)\b/i.test(text)) return false;
+  return /\b(?:invalid_json|invalid_schema|schema|contract|contrato|intent|intencao|action|acao|steps|sequence|requiresConfirmation|domain|dominio|manifest|field|campo|table|tabela|column|coluna|columnMapping|import_table|semantic\.domains|semantic\.effects)\b/i.test(text);
+}
+
+function buildActionPlanRepairPrompt(input: GeminiInterpreterInput, originalJson: unknown, reason: string) {
+  return [
+    "Corrija o ActionPlan do bot Rancho.",
+    "",
+    "Voce deve devolver SOMENTE um objeto JSON valido. Pode ser o ActionPlan direto ou {\"action_plan\": {...}}.",
+    "Nao altere a intencao do usuario. Nao invente dados. Nao execute delete. Mutacoes precisam de requiresConfirmation=true. Consultas precisam de requiresConfirmation=false.",
+    "Se o erro for nome de dominio/tabela/campo, escolha o dominio e os campos canonicos mais adequados pelo contrato abaixo.",
+    "",
+    `Mensagem do usuario: ${JSON.stringify(input.text)}`,
+    `Erro de validacao: ${reason}`,
+    "",
+    "Dominios e campos permitidos:",
+    JSON.stringify(summarizeDomainManifestForPrompt(RANCHO_DOMAIN_MANIFEST)),
+    "",
+    "JSON original a corrigir:",
+    JSON.stringify(originalJson)
+  ].join("\n");
+}
+
+async function tryRepairActionPlanContract(
+  input: GeminiInterpreterInput,
+  originalJson: unknown,
+  reason: string
+) {
+  if (!isRepairableActionPlanContractError(reason)) return null;
+
+  const generated = await generateStructuredAI({
+    purpose: "action_plan",
+    userPrompt: buildActionPlanRepairPrompt(input, originalJson, reason),
+    temperature: 0,
+    maxTokens: 4096,
+    requestId: input.geminiMockId ? `${input.geminiMockId}:repair` : undefined
+  });
+
+  if (!generated.ok) {
+    geminiInterpreterLog("action_plan_repair_failed", {
+      reason: generated.reason,
+      status: generated.status || null,
+      message: generated.message
+    });
+    return null;
+  }
+
+  let repaired: unknown;
+  try {
+    repaired = parseJsonObjectText(generated.rawText);
+  } catch {
+    geminiInterpreterLog("action_plan_repair_failed", {
+      provider: generated.provider,
+      model: generated.model,
+      reason: "invalid_json",
+      responseLength: generated.rawText.length
+    });
+    return null;
+  }
+
+  const validation = validateInterpretedAction(repaired, {
+    originalText: input.text,
+    currentDate: input.currentDate,
+    timezone: input.timezone
+  });
+
+  if (!validation.ok || validation.value.action_plan_error) {
+    geminiInterpreterLog("action_plan_repair_rejected", {
+      provider: generated.provider,
+      model: generated.model,
+      reason: validation.ok ? validation.value.action_plan_error?.reason : validation.reason
+    });
+    return null;
+  }
+
+  geminiInterpreterLog("action_plan_repair_success", {
+    provider: generated.provider,
+    model: generated.model,
+    action: validation.value.action_plan?.action || null,
+    domain: validation.value.action_plan && "domain" in validation.value.action_plan ? validation.value.action_plan.domain : null
+  });
+
+  return {
+    validation,
+    rawText: generated.rawText,
+    provider: generated.provider,
+    model: generated.model
+  };
 }
 
 async function mockInterpretation(input: GeminiInterpreterInput) {
@@ -92,11 +186,43 @@ export async function callGeminiInterpreter(input: GeminiInterpreterInput): Prom
       temperature: 0.1,
       requestId: input.geminiMockId || undefined
     });
-    const model = generated.model;
-    const provider = generated.provider;
+    let model = generated.model;
+    let provider = generated.provider;
 
     geminiInterpreterLog("request", { provider, model, messageLength: input.text.length });
     if (!generated.ok) {
+      if (generated.reason === "invalid_json" && generated.rawText) {
+        const repair = await tryRepairActionPlanContract(input, generated.rawText, "invalid_json");
+        if (repair) {
+          const value = repair.validation.value;
+          if (value.action_plan) {
+            const plan = value.action_plan;
+            geminiInterpreterLog("action_plan_success", {
+              provider: repair.provider,
+              model: repair.model,
+              action: plan.action,
+              domain: "domain" in plan ? plan.domain : null,
+              confidence: value.confidence
+            });
+          }
+          geminiInterpreterLog("success", {
+            provider: repair.provider,
+            model: repair.model,
+            intent: value.intent,
+            confidence: value.confidence,
+            riskScore: value.riskScore,
+            missingFields: value.missing_fields,
+            shouldConfirm: value.should_confirm
+          });
+          return {
+            ok: true,
+            interpretation: value,
+            model: repair.model,
+            rawText: repair.rawText,
+            validationStatus: repair.validation.status
+          };
+        }
+      }
       return {
         ok: false,
         reason: generated.reason,
@@ -106,7 +232,7 @@ export async function callGeminiInterpreter(input: GeminiInterpreterInput): Prom
       };
     }
 
-    const rawText = generated.rawText;
+    let rawText = generated.rawText;
     let parsed: unknown;
     try {
       parsed = parseJsonObjectText(rawText);
@@ -115,11 +241,32 @@ export async function callGeminiInterpreter(input: GeminiInterpreterInput): Prom
       return { ok: false, reason: "invalid_json", message: "Interpretador retornou JSON invalido.", rawText };
     }
 
-    const validation = validateInterpretedAction(parsed, {
+    let validation = validateInterpretedAction(parsed, {
       originalText: input.text,
       currentDate: input.currentDate,
       timezone: input.timezone
     });
+
+    if (validation.ok && validation.value.action_plan_error) {
+      const repair = await tryRepairActionPlanContract(input, parsed, validation.value.action_plan_error.reason);
+      if (repair) {
+        validation = repair.validation;
+        rawText = repair.rawText;
+        provider = repair.provider;
+        model = repair.model;
+      }
+    }
+
+    if (!validation.ok && validation.reason === "invalid_schema") {
+      const repair = await tryRepairActionPlanContract(input, parsed, validation.message || validation.reason);
+      if (repair) {
+        validation = repair.validation;
+        rawText = repair.rawText;
+        provider = repair.provider;
+        model = repair.model;
+      }
+    }
+
     if (!validation.ok) {
       aiProviderLog("ai_provider_contract_error", {
         provider,

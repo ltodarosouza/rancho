@@ -30,6 +30,10 @@ import {
   normalizeSex
 } from "@/lib/whatsapp/nlp-core/reproduction-normalizers";
 import { normalizeActionPlanSemantic } from "@/lib/whatsapp/gemini/action-plan-semantic";
+import {
+  classifyStructuredTableDomain,
+  type KnownTabularTableDomain
+} from "@/lib/whatsapp/nlp-core/tabular-domain-router";
 
 export type ParsedTableForValidation = {
   headers: Array<string | number>;
@@ -102,6 +106,108 @@ function hasValue(value: unknown) {
 
 const DATA_META_FIELDS = new Set(["semantic_scope"]);
 
+const TABULAR_DOMAIN_TO_ACTION_PLAN_DOMAIN: Record<KnownTabularTableDomain, string> = {
+  REBANHO_ANIMAIS: "animais",
+  LOTES: "lotes",
+  GENEALOGIA: "genealogia",
+  REPRODUCAO: "reproducao",
+  PRODUCAO_LEITE: "producao_leite",
+  ESTOQUE: "estoque",
+  FINANCEIRO: "financeiro",
+  FUNCIONARIOS: "funcionarios",
+  PONTO_FUNCIONARIO: "ponto_funcionario",
+  SAUDE_SANITARIO: "saude_sanitario",
+  OBSERVACOES: "observacoes",
+  AGENDA_TAREFAS: "agenda_tarefas"
+};
+
+const DOMAIN_ALIASES: Record<string, string> = {
+  animal: "animais",
+  animais: "animais",
+  rebanho: "animais",
+  gado: "animais",
+  vaca: "animais",
+  vacas: "animais",
+  touro: "animais",
+  touros: "animais",
+  cadastro_animais: "animais",
+  cadastro_de_animais: "animais",
+  rebanho_animais: "animais",
+  tabela_animais: "animais",
+  animal_table: "animais",
+  lote: "lotes",
+  lotes: "lotes",
+  piquete: "lotes",
+  piquetes: "lotes",
+  pasto: "lotes",
+  pastos: "lotes",
+  grupo: "lotes",
+  grupos: "lotes",
+  genealogia: "genealogia",
+  arvore_genealogica: "genealogia",
+  linhagem: "genealogia",
+  descendencia: "genealogia",
+  reproducao: "reproducao",
+  reproducao_animal: "reproducao",
+  eventos_reprodutivos: "reproducao",
+  tabela_reproducao: "reproducao",
+  producao: "producao_leite",
+  producao_leite: "producao_leite",
+  leite: "producao_leite",
+  ordenha: "producao_leite",
+  ordenhas: "producao_leite",
+  estoque: "estoque",
+  insumos: "estoque",
+  produtos: "estoque",
+  materiais: "estoque",
+  almoxarifado: "estoque",
+  financeiro: "financeiro",
+  financas: "financeiro",
+  caixa: "financeiro",
+  transacoes: "financeiro",
+  transacoes_financeiras: "financeiro",
+  funcionarios: "funcionarios",
+  funcionario: "funcionarios",
+  colaboradores: "funcionarios",
+  equipe: "funcionarios",
+  pessoal: "funcionarios",
+  ponto: "ponto_funcionario",
+  ponto_funcionario: "ponto_funcionario",
+  ponto_funcionarios: "ponto_funcionario",
+  folha_ponto: "ponto_funcionario",
+  horas_funcionario: "ponto_funcionario",
+  saude: "saude_sanitario",
+  sanitario: "saude_sanitario",
+  saude_sanitario: "saude_sanitario",
+  saude_animal: "saude_sanitario",
+  vacina: "saude_sanitario",
+  vacinas: "saude_sanitario",
+  medicamento: "saude_sanitario",
+  medicamentos: "saude_sanitario",
+  observacao: "observacoes",
+  observacoes: "observacoes",
+  anotacoes: "observacoes",
+  notas: "observacoes",
+  agenda: "agenda_tarefas",
+  tarefas: "agenda_tarefas",
+  agenda_tarefas: "agenda_tarefas",
+  lembretes: "agenda_tarefas",
+  compromissos: "agenda_tarefas"
+};
+
+const GENERIC_TABLE_DOMAIN_ALIASES = new Set([
+  "tabela",
+  "importacao",
+  "importacao_tabela",
+  "lista",
+  "planilha",
+  "dados",
+  "registros",
+  "cadastro",
+  "dominio",
+  "domain"
+]);
+
 function stripDataMetaFields(data: unknown) {
   if (!isPlainObject(data)) return data;
   const next: AnyRecord = { ...data };
@@ -129,22 +235,36 @@ const FIELD_ALIASES_BY_DOMAIN: Record<string, Record<string, string>> = {
     codigo: "brinco",
     codigo_animal: "brinco",
     cod: "brinco",
+    id: "brinco",
     identificacao: "brinco",
     identificador: "brinco",
+    tipo: "categoria",
+    classe: "categoria",
+    genero: "sexo",
+    estagio: "fase",
     lote: "lote_ref",
+    piquete: "lote_ref",
+    grupo: "lote_ref",
+    pasto: "lote_ref",
     nascimento: "data_nascimento",
     data_nasc: "data_nascimento",
+    data_de_nascimento: "data_nascimento",
     mae: "mae_ref",
     pai: "pai_ref"
   },
   estoque: {
+    insumo: "item",
+    material: "item",
     produto: "item",
     produto_nome: "item",
     item_nome: "item",
+    descricao: "item",
     movimento: "tipo_movimento",
     movimentacao: "tipo_movimento",
     entrada_saida: "tipo_movimento",
+    tipo_de_movimento: "tipo_movimento",
     qtd: "quantidade",
+    qtde: "quantidade",
     quantidade_atual: "quantidade",
     quantidade_inicial: "quantidade",
     estoque_atual: "quantidade",
@@ -158,14 +278,24 @@ const FIELD_ALIASES_BY_DOMAIN: Record<string, Record<string, string>> = {
     animal: "animal_ref",
     vaca: "animal_ref",
     codigo: "animal_ref",
+    cod: "animal_ref",
     brinco: "animal_ref",
     quantidade: "litros",
+    qtd: "litros",
+    qtde: "litros",
     leite: "litros",
+    producao: "litros",
+    total_litros: "litros",
     volume: "litros",
     dia: "data"
   },
   financeiro: {
+    descricao_item: "descricao",
+    historico: "descricao",
+    motivo: "descricao",
     valor_total: "valor",
+    total: "valor",
+    preco: "valor",
     quantia: "valor",
     movimento: "tipo",
     entrada_saida: "tipo",
@@ -173,38 +303,55 @@ const FIELD_ALIASES_BY_DOMAIN: Record<string, Record<string, string>> = {
   },
   lotes: {
     lote: "nome",
+    piquete: "nome",
+    pasto: "nome",
+    grupo: "nome",
+    lotacao: "capacidade",
     ativo_inativo: "ativo"
   },
   funcionarios: {
     funcionario: "nome",
     colaborador: "nome",
+    colaboradora: "nome",
     telefone: "contato_whatsapp",
+    celular: "contato_whatsapp",
     whatsapp: "contato_whatsapp",
+    cargo: "funcao",
     salario: "salario_base",
     pagamento: "salario_base",
     valor: "salario_base",
     valor_total: "salario_base",
     admissao: "data_admissao",
+    entrada: "data_admissao",
+    data_admissao_funcionario: "data_admissao",
     data: "data_admissao"
   },
   ponto_funcionario: {
     funcionario: "funcionario_ref",
     colaborador: "funcionario_ref",
     movimento: "tipo",
-    horario: "registrado_em"
+    horario: "registrado_em",
+    hora: "registrado_em",
+    observacao: "observacoes"
   },
   saude_sanitario: {
     animal: "animal_ref",
     vaca: "animal_ref",
     codigo: "animal_ref",
+    brinco: "animal_ref",
     evento_sanitario: "evento",
+    procedimento: "evento",
     medicamento_produto: "produto"
   },
   reproducao: {
     animal: "animal_ref",
     vaca: "animal_ref",
     codigo: "animal_ref",
+    brinco: "animal_ref",
+    matriz: "mae_ref",
     mae: "mae_ref",
+    touro: "pai_ref",
+    reprodutor: "pai_ref",
     pai: "pai_ref",
     status: "status_reprodutivo",
     situacao: "status_reprodutivo",
@@ -261,6 +408,169 @@ function fieldNameForDomain(domainName: string, domain: DomainManifestEntry, val
   if (manifestName) return manifestName;
   const alias = FIELD_ALIASES_BY_DOMAIN[domainName]?.[normalizedLooseHeader(value)];
   return alias && domain.fields[alias] ? alias : null;
+}
+
+function normalizeDomainAlias(value: unknown, manifest: DomainManifest) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (manifest[raw]) return raw;
+  const normalized = normalizedLooseHeader(raw);
+  if (manifest[normalized]) return normalized;
+  const alias = DOMAIN_ALIASES[normalized];
+  return alias && manifest[alias] ? alias : raw;
+}
+
+function parsedRowsAsStrings(parsedTable?: ParsedTableForValidation | null) {
+  return (parsedTable?.rows || [])
+    .slice(0, 12)
+    .map((row) => Array.isArray(row) ? row.map((cell) => String(cell ?? "")) : []);
+}
+
+function tableFromPlanRows(plan: AnyRecord): ParsedTableForValidation | null {
+  if (plan.action !== "import_table" || !isPlainObject(plan.data) || !Array.isArray(plan.data.rows)) return null;
+  const objectRows = plan.data.rows.filter(isPlainObject).slice(0, 12);
+  if (!objectRows.length) return null;
+  const headers = Array.from(new Set(objectRows.flatMap((row) => Object.keys(isPlainObject(row.values) ? row.values : row))));
+  if (!headers.length) return null;
+  return {
+    headers,
+    rows: objectRows.map((row) => {
+      const source = isPlainObject(row.values) ? row.values : row;
+      return headers.map((header) => source[header]);
+    }),
+    hasHeader: true
+  };
+}
+
+function inferActionPlanDomainFromTable(
+  plan: AnyRecord,
+  parsedTable: ParsedTableForValidation | null | undefined,
+  manifest: DomainManifest
+) {
+  if (plan.action !== "import_table") return null;
+  const table = parsedTable && parsedTable.headers?.length ? parsedTable : tableFromPlanRows(plan);
+  if (!table?.headers?.length) return null;
+  const classification = classifyStructuredTableDomain({
+    headers: table.headers.map((header) => String(header || "")),
+    sampleRows: parsedRowsAsStrings(table),
+    rowCount: table.rows?.length
+  });
+  if (classification.domain === "DESCONHECIDO" || classification.confidence < 0.55) return null;
+  const domainName = TABULAR_DOMAIN_TO_ACTION_PLAN_DOMAIN[classification.domain];
+  return domainName && manifest[domainName] ? domainName : null;
+}
+
+function normalizeDomainNameForPlan(
+  plan: AnyRecord,
+  rawDomainName: string,
+  manifest: DomainManifest,
+  parsedTable?: ParsedTableForValidation | null
+) {
+  let domainName = normalizeDomainAlias(rawDomainName, manifest);
+  if (domainName === "animais" && queryLooksReproductive(plan) && manifest.reproducao) return "reproducao";
+  if (plan.action === "import_table") {
+    const inferred = inferActionPlanDomainFromTable(plan, parsedTable, manifest);
+    const normalizedRaw = normalizedLooseHeader(rawDomainName);
+    const needsInference = !domainName || !manifest[domainName] || GENERIC_TABLE_DOMAIN_ALIASES.has(normalizedRaw);
+    if (inferred && needsInference) domainName = inferred;
+  }
+  return domainName;
+}
+
+function normalizeDataFieldsForDomain(
+  domainName: string,
+  domain: DomainManifestEntry,
+  data: unknown
+) {
+  if (!isPlainObject(data)) return data;
+  const normalized: AnyRecord = {};
+  const source = stripDataMetaFields(data);
+  if (!isPlainObject(source)) return normalized;
+  for (const [fieldName, value] of Object.entries(source)) {
+    const targetField = fieldNameForDomain(domainName, domain, fieldName) || fieldName;
+    normalized[targetField] = value;
+  }
+  return normalized;
+}
+
+function normalizeFieldArrayForDomain(domainName: string, domain: DomainManifestEntry, values: unknown) {
+  if (!Array.isArray(values)) return values;
+  return values.map((fieldName) => fieldNameForDomain(domainName, domain, fieldName) || fieldName);
+}
+
+const FILTER_OPERATOR_ALIASES: Record<string, FilterPlan["op"]> = {
+  equals: "eq",
+  equal: "eq",
+  igual: "eq",
+  igual_a: "eq",
+  is: "eq",
+  not_equals: "neq",
+  not_equal: "neq",
+  diferente: "neq",
+  diferente_de: "neq",
+  contem: "contains",
+  contains: "contains",
+  like: "contains",
+  search: "contains",
+  em: "in",
+  in: "in",
+  maior_igual: "gte",
+  maior_ou_igual: "gte",
+  after: "gte",
+  depois_de: "gte",
+  menor_igual: "lte",
+  menor_ou_igual: "lte",
+  before: "lte",
+  antes_de: "lte",
+  entre: "between",
+  ultimos_dias: "last_days",
+  últimos_dias: "last_days",
+  last_days: "last_days",
+  ultimos_meses: "last_months",
+  últimos_meses: "last_months",
+  last_months: "last_months",
+  mes_atual: "current_month",
+  mês_atual: "current_month",
+  this_month: "current_month",
+  current_month: "current_month",
+  ano_atual: "current_year",
+  this_year: "current_year",
+  current_year: "current_year",
+  desde: "since",
+  since: "since"
+};
+
+function normalizeFilterOperator(rawOperator: unknown, field: string, domain: DomainManifestEntry, value: unknown) {
+  const raw = normalizeLooseText(rawOperator || "eq").replace(/\s+/g, "_");
+  if (["hoje", "today", "current_day", "dia_atual"].includes(raw) && domain.dateFields.includes(field)) {
+    return { op: "last_days" as const, value: 1 };
+  }
+  const op = FILTER_OPERATOR_ALIASES[raw] || (FILTER_OPERATORS.includes(raw as FilterPlan["op"]) ? raw as FilterPlan["op"] : null);
+  if (!op) return { op: rawOperator as FilterPlan["op"], value };
+  if (op === "last_days" && (!hasValue(value) || ["hoje", "today", "dia_atual"].includes(normalizeLooseText(value)))) {
+    return { op, value: 1 };
+  }
+  return { op, value };
+}
+
+function normalizeAggregationsForDomain(domainName: string, domain: DomainManifestEntry, values: unknown) {
+  if (!Array.isArray(values)) return values;
+  return values.map((aggregation) => {
+    if (!isPlainObject(aggregation)) return aggregation;
+    const op = String(aggregation.op || "").trim().toLowerCase();
+    const field = op === "count"
+      ? "id"
+      : fieldNameForDomain(domainName, domain, aggregation.field) || aggregation.field;
+    return { ...aggregation, field };
+  });
+}
+
+function normalizeOrderByForDomain(domainName: string, domain: DomainManifestEntry, value: unknown) {
+  if (!isPlainObject(value)) return value;
+  return {
+    ...value,
+    field: fieldNameForDomain(domainName, domain, value.field) || value.field
+  };
 }
 
 function normalizeColumnMappingForDomain(domainName: string, columnMapping: unknown): Record<string, string | number> {
@@ -332,11 +642,12 @@ function normalizeQueryDataToFilters(
     ? plan.filters.map((filter) => {
       if (!isPlainObject(filter)) return filter as FilterPlan;
       const field = fieldNameForDomain(domainName, domain, filter.field) || String(filter.field || "");
+      const normalizedOperator = normalizeFilterOperator(filter.op, field, domain, filter.value);
       return {
         ...filter,
         field,
-        op: (filter.op || "eq") as FilterPlan["op"],
-        value: domainName === "reproducao" ? normalizeReproductionValue(field, filter.value) : filter.value
+        op: normalizedOperator.op,
+        value: domainName === "reproducao" ? normalizeReproductionValue(field, normalizedOperator.value) : normalizedOperator.value
       };
     })
     : [];
@@ -360,7 +671,11 @@ function normalizeQueryDataToFilters(
   return {
     ...plan,
     requiresConfirmation: false,
-    filters
+    filters,
+    select: normalizeFieldArrayForDomain(domainName, domain, plan.select) as QueryActionPlan["select"],
+    aggregations: normalizeAggregationsForDomain(domainName, domain, plan.aggregations) as QueryActionPlan["aggregations"],
+    groupBy: normalizeFieldArrayForDomain(domainName, domain, plan.groupBy) as QueryActionPlan["groupBy"],
+    orderBy: normalizeOrderByForDomain(domainName, domain, plan.orderBy) as QueryActionPlan["orderBy"]
   };
 }
 
@@ -379,14 +694,20 @@ function isDeathCue(value: unknown) {
 function normalizeImportRowsForDomain(data: unknown, domainName: string) {
   if (!isPlainObject(data)) return data;
   if (!Array.isArray(data.rows)) return data;
+  const domain = domainFromContext(domainName, RANCHO_DOMAIN_MANIFEST);
   return {
     ...data,
     rows: data.rows.map((row) => {
       if (!isPlainObject(row)) return row;
-      const domain = domainFromContext(domainName, RANCHO_DOMAIN_MANIFEST);
+      const rowMeta = { ...row };
+      const source = isPlainObject(row.values)
+        ? { ...row.values, ...Object.fromEntries(Object.entries(rowMeta).filter(([key]) => key !== "values")) }
+        : row;
       if (!domain) return domainName === "reproducao" ? normalizeReproductionData(row) : row;
       const normalized: AnyRecord = {};
-      for (const [fieldName, value] of Object.entries(row)) {
+      const stripped = stripDataMetaFields(source);
+      if (!isPlainObject(stripped)) return row;
+      for (const [fieldName, value] of Object.entries(stripped)) {
         const targetField = fieldNameForDomain(domainName, domain, fieldName) || fieldName;
         normalized[targetField] = value;
       }
@@ -396,13 +717,21 @@ function normalizeImportRowsForDomain(data: unknown, domainName: string) {
 }
 
 function normalizePlanForDomain(plan: ActionPlan, domainName: string): ActionPlan {
+  const domain = domainFromContext(domainName, RANCHO_DOMAIN_MANIFEST);
   if (plan.action === "create" || plan.action === "update") {
-    plan = { ...plan, data: stripDataMetaFields(plan.data) as Record<string, unknown> };
+    const data = domain
+      ? normalizeDataFieldsForDomain(domainName, domain, plan.data)
+      : stripDataMetaFields(plan.data);
+    plan = { ...plan, data: data as Record<string, unknown>, requiresConfirmation: true };
   }
   if (plan.action === "import_table") {
     const table: AnyRecord = isPlainObject(plan.table) ? plan.table : {};
+    const defaultFields = domain
+      ? normalizeDataFieldsForDomain(domainName, domain, table.defaultFields || {})
+      : stripDataMetaFields(table.defaultFields || {});
     plan = {
       ...plan,
+      requiresConfirmation: true,
       data: isPlainObject(plan.data)
         ? {
           ...plan.data,
@@ -415,7 +744,7 @@ function normalizePlanForDomain(plan: ActionPlan, domainName: string): ActionPla
         ...table,
         hasHeader: table.hasHeader === false ? false : true,
         columnMapping: normalizeColumnMappingForDomain(domainName, table.columnMapping),
-        defaultFields: stripDataMetaFields(table.defaultFields || {}) as Record<string, unknown>
+        defaultFields: defaultFields as Record<string, unknown>
       }
     };
     plan = {
@@ -687,11 +1016,11 @@ function validateAggregation(domain: DomainManifestEntry, aggregation: Aggregati
     errors.push(`${path}.op nao permitido`);
     return;
   }
+  if (aggregation.op === "count" && String(aggregation.field || "id").trim() === "id") return;
   const definition = validateFieldExists(domain, aggregation.field, errors, `${path}.field`);
   if (!definition) return;
   const isAggregatable = domain.aggregatableFields.includes(aggregation.field);
-  const isCountId = aggregation.op === "count" && aggregation.field === "id";
-  if (!isAggregatable && !isCountId) {
+  if (!isAggregatable) {
     errors.push(`${path}.${aggregation.field} nao e aggregatable`);
     return;
   }
@@ -775,6 +1104,20 @@ function validateDataObject(
 
 function tableHeaders(parsedTable?: ParsedTableForValidation | null) {
   return (parsedTable?.headers || []).map((header) => String(header));
+}
+
+function inferColumnMappingFromParsedTable(
+  domain: DomainManifestEntry,
+  parsedTable?: ParsedTableForValidation | null
+) {
+  if (!parsedTable?.hasHeader || !Array.isArray(parsedTable.headers)) return {};
+  const mapping: Record<string, string | number> = {};
+  for (const header of parsedTable.headers) {
+    const fieldName = fieldNameForDomain(domain.domain, domain, header);
+    if (!fieldName || mapping[fieldName] !== undefined) continue;
+    mapping[fieldName] = typeof header === "number" ? header : String(header);
+  }
+  return mapping;
 }
 
 function columnExists(column: string | number, headers: string[]) {
@@ -891,6 +1234,12 @@ function validateImportTableCore(
     return;
   }
   if (typeof plan.table.hasHeader !== "boolean") errors.push("table.hasHeader deve ser boolean");
+  if (
+    (!isPlainObject(plan.table.columnMapping) || !Object.keys(plan.table.columnMapping).length)
+    && parsedTable?.hasHeader
+  ) {
+    plan.table.columnMapping = inferColumnMappingFromParsedTable(domain, parsedTable);
+  }
   if (!isPlainObject(plan.table.columnMapping) || !Object.keys(plan.table.columnMapping).length) {
     errors.push("table.columnMapping nao pode ser vazio");
     return;
@@ -1002,11 +1351,6 @@ function queryLooksReproductive(plan: AnyRecord) {
   return /\b(?:prenhas?|prenhe|prenhez|gestantes?|inseminad[ao]s?|inseminacao|iatf|protocolo|reteste|paridas?|partos?|cio|reproducao|status_reprodutivo)\b/.test(normalizeLooseText(raw));
 }
 
-function normalizeDomainNameForPlan(plan: AnyRecord, domainName: string, manifest: DomainManifest) {
-  if (domainName === "animais" && queryLooksReproductive(plan) && manifest.reproducao) return "reproducao";
-  return domainName;
-}
-
 function validateDomainList(list: unknown, manifest: DomainManifest, errors: string[], path: string) {
   if (list === undefined) return;
   if (!Array.isArray(list)) {
@@ -1014,7 +1358,7 @@ function validateDomainList(list: unknown, manifest: DomainManifest, errors: str
     return;
   }
   list.forEach((domain, index) => {
-    const name = String(domain || "").trim();
+    const name = normalizeDomainAlias(domain, manifest);
     if (!name || !manifest[name]) errors.push(`${path}[${index}] deve ser dominio valido do manifest`);
   });
 }
@@ -1043,7 +1387,7 @@ function validateSemanticBlock(semantic: unknown, manifest: DomainManifest, erro
           errors.push(`semantic.effects[${index}] deve ser objeto`);
           return;
         }
-        const domain = String(effect.domain || "").trim();
+        const domain = normalizeDomainAlias(effect.domain, manifest);
         const type = String(effect.type || "").trim();
         if (!domain || !manifest[domain]) errors.push(`semantic.effects[${index}].domain deve ser dominio valido do manifest`);
         if (!type) errors.push(`semantic.effects[${index}].type obrigatorio`);
@@ -1190,7 +1534,7 @@ export function validateActionPlan(plan: unknown, context: ActionPlanValidationC
   if (action === "sequence") return validateSequencePlan(normalizedInput, context, manifest, minConfidence, warnings);
 
   const rawDomainName = String(normalizedInput.domain || "").trim();
-  const domainName = normalizeDomainNameForPlan(normalizedInput, rawDomainName, manifest);
+  const domainName = normalizeDomainNameForPlan(normalizedInput, rawDomainName, manifest, context.parsedTable);
   if (domainName !== rawDomainName) normalizedInput.domain = domainName;
   if (!domainName) errors.push("domain obrigatorio");
   const domain = domainName ? domainFromContext(domainName, manifest) : null;

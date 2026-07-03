@@ -66,6 +66,59 @@ const TABLE_IMPORT_MANIFEST_DOMAIN: Record<GeminiTableDomain, string> = {
   EVENTOS: "reproducao"
 };
 
+const GEMINI_TABLE_DOMAIN_ALIASES: Record<string, GeminiTableDomain> = {
+  ANIMAL: "ANIMAIS",
+  ANIMAIS: "ANIMAIS",
+  REBANHO: "ANIMAIS",
+  REBANHO_ANIMAIS: "ANIMAIS",
+  GADO: "ANIMAIS",
+  VACAS: "ANIMAIS",
+  TOUROS: "ANIMAIS",
+  LOTES: "LOTES",
+  LOTE: "LOTES",
+  PIQUETES: "LOTES",
+  PIQUETE: "LOTES",
+  PASTOS: "LOTES",
+  PASTO: "LOTES",
+  GENEALOGIA: "GENEALOGIA",
+  LINHAGEM: "GENEALOGIA",
+  PRODUCAO: "PRODUCAO",
+  PRODUCAO_LEITE: "PRODUCAO",
+  ORDENHA: "PRODUCAO",
+  ORDENHAS: "PRODUCAO",
+  LEITE: "PRODUCAO",
+  FINANCEIRO: "FINANCEIRO",
+  FINANCAS: "FINANCEIRO",
+  CAIXA: "FINANCEIRO",
+  TRANSACOES: "FINANCEIRO",
+  ESTOQUE: "ESTOQUE",
+  INSUMOS: "ESTOQUE",
+  PRODUTOS: "ESTOQUE",
+  MATERIAIS: "ESTOQUE",
+  FUNCIONARIOS: "FUNCIONARIOS",
+  FUNCIONARIO: "FUNCIONARIOS",
+  COLABORADORES: "FUNCIONARIOS",
+  EQUIPE: "FUNCIONARIOS",
+  PONTO: "PONTO_FUNCIONARIO",
+  PONTO_FUNCIONARIO: "PONTO_FUNCIONARIO",
+  FOLHA_PONTO: "PONTO_FUNCIONARIO",
+  SAUDE: "SAUDE_SANITARIO",
+  SANITARIO: "SAUDE_SANITARIO",
+  SAUDE_SANITARIO: "SAUDE_SANITARIO",
+  VACINAS: "SAUDE_SANITARIO",
+  MEDICAMENTOS: "SAUDE_SANITARIO",
+  OBSERVACOES: "OBSERVACOES",
+  OBSERVACAO: "OBSERVACOES",
+  ANOTACOES: "OBSERVACOES",
+  AGENDA: "AGENDA_TAREFAS",
+  TAREFAS: "AGENDA_TAREFAS",
+  AGENDA_TAREFAS: "AGENDA_TAREFAS",
+  EVENTOS: "EVENTOS",
+  REPRODUCAO: "EVENTOS",
+  REPRODUCAO_ANIMAL: "EVENTOS",
+  EVENTOS_REPRODUTIVOS: "EVENTOS"
+};
+
 type ManifestDomainName = keyof typeof RANCHO_DOMAIN_MANIFEST;
 
 function isPlainObject(value: unknown): value is AnyRecord {
@@ -76,9 +129,58 @@ function hasActionPlanShape(value: unknown) {
   return isPlainObject(value) && typeof value.action === "string";
 }
 
-function extractActionPlan(result: AnyRecord) {
-  if (hasActionPlanShape(result)) return result;
-  if (hasActionPlanShape(result.action_plan)) return result.action_plan;
+function looksLikeStructuredImport(value: AnyRecord) {
+  const route = String(value.route || value.tipo || value.kind || "").trim().toLowerCase();
+  return route === "structured_input"
+    || route === "import_table"
+    || route === "importacao_tabela"
+    || Array.isArray(value.linhas)
+    || Array.isArray(value.rows)
+    || (isPlainObject(value.data) && Array.isArray(value.data.rows));
+}
+
+function actionPlanFromStructuredImport(value: AnyRecord): AnyRecord {
+  const rows = Array.isArray(value.linhas)
+    ? value.linhas
+    : Array.isArray(value.rows)
+      ? value.rows
+      : isPlainObject(value.data) && Array.isArray(value.data.rows)
+        ? value.data.rows
+        : [];
+  return {
+    ...value,
+    action: "import_table",
+    domain: String(value.domain || value.dominio || value.tableDomain || value.table_domain || value.tipo_tabela || "tabela"),
+    confidence: actionPlanConfidence(value),
+    table: isPlainObject(value.table)
+      ? value.table
+      : {
+        hasHeader: true,
+        columnMapping: isPlainObject(value.columnMapping) ? value.columnMapping : {}
+      },
+    data: {
+      ...(isPlainObject(value.data) ? value.data : {}),
+      rows
+    },
+    requiresConfirmation: true
+  };
+}
+
+function normalizeActionPlanCandidate(value: unknown): AnyRecord | null {
+  if (!isPlainObject(value)) return null;
+  if (hasActionPlanShape(value)) return value;
+  if (Array.isArray(value.steps)) return { ...value, action: "sequence" };
+  if (looksLikeStructuredImport(value)) return actionPlanFromStructuredImport(value);
+  return null;
+}
+
+function extractActionPlan(result: AnyRecord): AnyRecord | null {
+  const direct = normalizeActionPlanCandidate(result);
+  if (direct) return direct;
+  for (const key of ["action_plan", "actionPlan", "plan", "action_plan_json"]) {
+    const nested = normalizeActionPlanCandidate(result[key]);
+    if (nested) return nested;
+  }
   return null;
 }
 
@@ -249,6 +351,12 @@ function isGeminiTableDomain(value: unknown): value is GeminiTableDomain {
   return GEMINI_TABLE_DOMAINS.includes(value as GeminiTableDomain);
 }
 
+function normalizeGeminiTableDomain(value: unknown): GeminiTableDomain | null {
+  const normalized = normalizeTableFieldName(value).toUpperCase();
+  if (isGeminiTableDomain(normalized)) return normalized;
+  return GEMINI_TABLE_DOMAIN_ALIASES[normalized] || null;
+}
+
 function normalizeTableFieldName(value: unknown) {
   return String(value || "")
     .trim()
@@ -288,8 +396,8 @@ function normalizeGeminiTableImport(
     return null;
   }
 
-  const domain = String(raw.domain || "").trim().toUpperCase();
-  if (!isGeminiTableDomain(domain)) {
+  const domain = normalizeGeminiTableDomain(raw.domain);
+  if (!domain) {
     errors.push("table_import.domain fora da lista permitida");
     return null;
   }

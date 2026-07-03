@@ -58,6 +58,8 @@ src/services               Servicos de dominio e integracoes
 src/services/whatsapp      Fluxo principal do bot, consultas e salvamento
 scripts                    Testes, smoke tests e ferramentas internas
 supabase/migrations        Migrations versionadas
+supabase/sql               Scripts SQL auxiliares e historicos
+docs/reports               Relatorios tecnicos e auditorias historicas
 public                     Assets publicos
 ```
 
@@ -158,7 +160,17 @@ Migrations versionadas ficam em:
 supabase/migrations
 ```
 
-Arquivos SQL soltos na raiz devem ser tratados como scripts auxiliares/historicos e revisados antes de execucao.
+Scripts SQL auxiliares ficam em:
+
+```txt
+supabase/sql
+```
+
+Relatorios tecnicos e auditorias historicas ficam em:
+
+```txt
+docs/reports
+```
 
 ## Segurança
 

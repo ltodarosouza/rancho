@@ -1734,16 +1734,23 @@ module.exports = function loadBotTestSection(context) {
         }
       },
       {
-        name: "funcionario comum nao importa tabela",
+        name: "funcionario comum importa tabela de eventos",
         module: "tabela-eventos",
         phone: BOT_TEST_WORKER_PHONE,
         extraAnimals: tabularExtraAnimals,
-        messages: [realTabularAnimalEventsMessage],
+        messages: [realTabularAnimalEventsMessage, "importar validas"],
         expected: {
           finalIntent: "IMPORTACAO_EVENTOS_TABELA",
-          responseIncludes: "importar eventos do rebanho",
-          savedAfterConfirmation: false,
-          shouldNotWriteBusiness: true
+          responseIncludes: "30 evento",
+          shouldAskConfirmation: true,
+          shouldSaveBeforeConfirmation: false,
+          savedAfterConfirmation: true,
+          simulatedSaveCount: 30,
+          savedTables: [BOT_TEST_TABLES.eventosAnimal],
+          shouldSaveValues: { animal_codigo: "5714 CF", data_evento: "2026-05-06" },
+          shouldNotSaveValues: { animal_codigo: "090" },
+          shouldNotWriteBusiness: true,
+          ranchId: BOT_TEST_FARM_ID
         }
       },
       {
@@ -2010,14 +2017,17 @@ module.exports = function loadBotTestSection(context) {
         }
       },
       {
-        name: "funcionario comum nao importa cadastro de animais",
+        name: "funcionario comum importa cadastro de animais",
         module: "tabela-animais",
         phone: BOT_TEST_WORKER_PHONE,
-        messages: [minimalAnimalRegistrationTableMessage],
+        messages: [minimalAnimalRegistrationTableMessage, "sim"],
         expected: {
           finalIntent: "IMPORTACAO_ANIMAIS_TABELA",
-          responseIncludes: "cadastrar animais",
-          savedAfterConfirmation: false,
+          responseIncludes: "2 animal",
+          savedAfterConfirmation: true,
+          simulatedSaveCount: 2,
+          savedTables: [BOT_TEST_TABLES.animais],
+          shouldSaveValues: { brinco: "IMP-202", sexo: "femea" },
           shouldNotWriteBusiness: true
         }
       },

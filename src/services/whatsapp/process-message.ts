@@ -222,17 +222,7 @@ const LOT_ADMIN_INTENTS = new Set<ParsedRanchoMessage["tipo"]>([
 ]);
 const ANIMAL_ADMIN_INTENTS = new Set<ParsedRanchoMessage["tipo"]>([
   "CADASTRO_ANIMAL",
-  "EXCLUIR_REBANHO",
-  "IMPORTACAO_ANIMAIS_TABELA"
-]);
-const ANIMAL_EVENT_IMPORT_ADMIN_INTENTS = new Set<ParsedRanchoMessage["tipo"]>([
-  "IMPORTACAO_EVENTOS_TABELA"
-]);
-const STOCK_IMPORT_ADMIN_INTENTS = new Set<ParsedRanchoMessage["tipo"]>([
-  "IMPORTACAO_ESTOQUE_TABELA"
-]);
-const DOMAIN_TABLE_IMPORT_ADMIN_INTENTS = new Set<ParsedRanchoMessage["tipo"]>([
-  "IMPORTACAO_TABELA_DOMINIO"
+  "EXCLUIR_REBANHO"
 ]);
 
 const BOT_INSERT_COLUMNS: Record<string, Set<string>> = {
@@ -405,15 +395,6 @@ function permissionDeniedMessage(owner: WhatsAppOwner, parsed?: ParsedRanchoMess
   }
   if (LOT_ADMIN_INTENTS.has(parsed.tipo)) {
     return "Você não tem permissão para criar lotes pelo bot. Peça para um administrador fazer esse cadastro.";
-  }
-  if (ANIMAL_EVENT_IMPORT_ADMIN_INTENTS.has(parsed.tipo)) {
-    return "Você não tem permissão para importar eventos do rebanho.";
-  }
-  if (STOCK_IMPORT_ADMIN_INTENTS.has(parsed.tipo)) {
-    return "Você não tem permissão para importar movimentações de estoque.";
-  }
-  if (DOMAIN_TABLE_IMPORT_ADMIN_INTENTS.has(parsed.tipo)) {
-    return "Voce nao tem permissao para importar tabelas desse dominio pelo bot. Peca para um administrador fazer essa importacao.";
   }
   if (ANIMAL_ADMIN_INTENTS.has(parsed.tipo)) {
     return "Você não tem permissão para cadastrar animais.";

@@ -363,14 +363,14 @@ module.exports = function loadBotTestSection(context) {
     function adminActionDenied(test, parsed) {
       const actor = mockUsers.find((user) => user.nome === test.actor);
       if (!actor || actor.admin) return null;
-      if (["CRIAR_ITEM_ESTOQUE", "CRIAR_FUNCIONARIO", "ATUALIZAR_FUNCIONARIO", "DESLIGAR_FUNCIONARIO", "EXCLUIR_FUNCIONARIO", "ATUALIZACAO_GENEALOGIA", "CRIAR_LOTE", "CADASTRO_ANIMAL", "IMPORTACAO_ANIMAIS_TABELA"].includes(parsed.tipo)) {
+      if (["CRIAR_ITEM_ESTOQUE", "CRIAR_FUNCIONARIO", "ATUALIZAR_FUNCIONARIO", "DESLIGAR_FUNCIONARIO", "EXCLUIR_FUNCIONARIO", "ATUALIZACAO_GENEALOGIA", "CRIAR_LOTE", "CADASTRO_ANIMAL"].includes(parsed.tipo)) {
         if (parsed.tipo === "ATUALIZACAO_GENEALOGIA") {
           return "Você não tem permissão para alterar genealogia pelo bot. Peça para um administrador fazer essa alteração.";
         }
         if (parsed.tipo === "CRIAR_LOTE") {
           return "Você não tem permissão para criar lotes pelo bot. Peça para um administrador fazer esse cadastro.";
         }
-        if (parsed.tipo === "CADASTRO_ANIMAL" || parsed.tipo === "IMPORTACAO_ANIMAIS_TABELA") {
+        if (parsed.tipo === "CADASTRO_ANIMAL") {
           return "Você não tem permissão para cadastrar animais.";
         }
         return parsed.tipo === "CRIAR_ITEM_ESTOQUE"

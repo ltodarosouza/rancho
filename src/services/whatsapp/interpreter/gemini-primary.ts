@@ -1282,7 +1282,7 @@ function queryClauseMatchesDomain(text: string, domain: string) {
 
 function queryClauseFromText(text: string, domain: string) {
   const pieces = String(text || "")
-    .split(/\b(?:e\s+)?depois\b|\b(?:mas\s+antes|antes\s+de|antes|em\s+seguida|entao|apos)\b|\be\s+(?:registra|registrar|cadastro|cadastra|cadastrar|adiciona|adicionar|lanca|lancar|inclui|incluir)\b|[;\n.]+/gi)
+    .split(/\b(?:e\s+)?depois\b|\b(?:mas\s+antes|antes\s+de|antes|em\s+seguida|entao|apos)\b|\be\s+(?=(?:me\s+(?:mostra|mostre|fala|diz|informa|conte)|quanto|quantas?|quais?|qual|lista|listar|relatorio|resumo|consulta|consultar|dados|como|quem)\b)|\be\s+(?:registra|registrar|cadastro|cadastra|cadastrar|adiciona|adicionar|lanca|lancar|inclui|incluir)\b|[;\n.]+/gi)
     .map((piece) => piece.trim())
     .filter(Boolean);
   const queryCue = /\b(?:me\s+(?:mostra|mostre|fala|diz|informa|conte)|quanto|quantas?|quais?|qual|lista|listar|relatorio|resumo|consulta|consultar|dados|como|quem)\b/i;

@@ -291,12 +291,13 @@ function normalizeReproductionValue(fieldName: string, value: unknown): unknown 
   if (["evento", "tipo"].includes(fieldName)) return normalizeReproductionEvent(value) || value;
   if (fieldName === "status_reprodutivo") {
     const normalized = normalizeLooseText(value).replace(/\s+/g, "_");
-    if (["prenhe", "prenha", "prenhas", "prenhes", "prenhez", "gestante", "gestacao"].includes(normalized)) return "prenhe";
-    if (["inseminada", "inseminado", "inseminacao", "ia", "iatf"].includes(normalized)) return "inseminada";
-    if (["pre_parto", "preparto", "pre_partos", "prepartos"].includes(normalized)) return "pre_parto";
-    if (["protocolo", "em_protocolo", "protocolada", "protocolado"].includes(normalized)) return "em_protocolo";
-    if (["reteste", "em_reteste"].includes(normalized)) return "em_reteste";
-    if (["parida", "pariu", "parto"].includes(normalized)) return "parida";
+    const phrase = normalized.replace(/_/g, " ");
+    if (/\b(?:prenhas?|prenhes|prenhe|prenhez|gestantes?|gestacao)\b/.test(phrase)) return "prenhe";
+    if (/\b(?:pre\s*partos?|prepartos?)\b/.test(phrase)) return "pre_parto";
+    if (/\b(?:protocolos?|em\s+protocolo|protocolad[ao]s?)\b/.test(phrase)) return "em_protocolo";
+    if (/\b(?:retestes?|em\s+reteste|nova\s+tentativa)\b/.test(phrase)) return "em_reteste";
+    if (/\b(?:paridas?|pariu|partos?|recem\s+parida)\b/.test(phrase)) return "parida";
+    if (/\b(?:inseminad[ao]s?|inseminacao|ia|iatf)\b/.test(phrase)) return "inseminada";
     return value;
   }
   if (["data", "data_evento"].includes(fieldName)) return normalizeDate(value) || value;

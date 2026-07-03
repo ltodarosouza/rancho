@@ -3855,6 +3855,95 @@ test("Gemini-first ActionPlan sequence preserva consulta reprodutiva especifica 
   });
 });
 
+test("Gemini-first ActionPlan sequence aceita lista reprodutiva compacta com multiplas consultas", async () => {
+  const text = "090:PROTOCOLO 080:PROTOCOLO 397:RETESTE 396:PARIU 249:PRÉ PARTO 5202:PARIU depois me mostra quantas vacas ficaram em protocolo e quanto eu gastei hoje";
+  const plan = {
+    action: "sequence",
+    confidence: 0.94,
+    requiresConfirmation: true,
+    steps: [
+      {
+        action: "import_table",
+        domain: "reproducao",
+        confidence: 0.94,
+        data: {
+          rows: [
+            { animal_ref: "090", evento: "PROTOCOLO" },
+            { animal_ref: "080", evento: "PROTOCOLO" },
+            { animal_ref: "397", evento: "RETESTE" },
+            { animal_ref: "396", evento: "PARIU" },
+            { animal_ref: "249", evento: "PRÉ PARTO" },
+            { animal_ref: "5202", evento: "PARIU" }
+          ]
+        },
+        requiresConfirmation: true,
+        userQuestion: "importar eventos reprodutivos",
+        semantic: { domains: ["reproducao"], intent: "importar_eventos_reprodutivos" }
+      },
+      {
+        action: "query",
+        domain: "reproducao",
+        confidence: 0.94,
+        filters: [{ field: "status_reprodutivo", op: "eq", value: "vacas que ficaram em protocolo" }],
+        aggregations: [],
+        requiresConfirmation: false,
+        limit: 50,
+        userQuestion: "quantas vacas ficaram em protocolo",
+        semantic: { domains: ["reproducao"], intent: "consulta_status_reprodutivo" }
+      },
+      {
+        action: "query",
+        domain: "financeiro",
+        confidence: 0.94,
+        filters: [{ field: "data", op: "last_days", value: 1 }],
+        aggregations: [{ field: "valor", op: "sum", as: "total_gastos" }],
+        requiresConfirmation: false,
+        limit: 100,
+        userQuestion: "quanto eu gastei hoje",
+        semantic: { domains: ["financeiro"], intent: "consulta_gastos", period: "hoje" }
+      }
+    ]
+  };
+
+  await withGeminiMock(() => clone(plan), async () => {
+    const result = await parseWithConfiguredInterpreter({
+      text,
+      localParsed: parseRanchoMessage(text),
+      owner: ADMIN_OWNER,
+      supabase: createActionPlanSupabase({
+        [TABLES.animais]: [
+          { id: "animal-090", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "090", nome: "Vaca 090", categoria: "vaca" },
+          { id: "animal-080", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "080", nome: "Vaca 080", categoria: "vaca" },
+          { id: "animal-397", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "397", nome: "Vaca 397", categoria: "vaca" },
+          { id: "animal-396", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "396", nome: "Vaca 396", categoria: "vaca" },
+          { id: "animal-249", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "249", nome: "Vaca 249", categoria: "vaca" },
+          { id: "animal-5202", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "5202", nome: "Vaca 5202", categoria: "vaca" }
+        ],
+        [TABLES.eventosAnimal]: [
+          { id: "evt-protocolo-090", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-090", tipo: "observacao", data_evento: "2026-07-03", descricao: "[Reproducao Animal] Protocolo IA" },
+          { id: "evt-protocolo-080", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-080", tipo: "observacao", data_evento: "2026-07-03", descricao: "[Reproducao Animal] Protocolo IA" },
+          { id: "evt-reteste-397", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-397", tipo: "observacao", data_evento: "2026-07-03", descricao: "[Reproducao Animal] Reteste de protocolo" }
+        ],
+        [TABLES.transacoesFinanceiras]: [
+          { id: "saida-hoje", fazenda_id: ADMIN_OWNER.fazenda_id, tipo: "saida", valor: 180, descricao: "vacina", categoria: "saude", data_transacao: "2026-07-03" }
+        ]
+      })
+    });
+    assert(result.kind === "compound", `sequence deveria ser compound, recebido ${result.kind}`);
+    assert(result.pending.tipo === "IMPORTACAO_EVENTOS_TABELA", `pendencia deveria ser importacao de reproducao, recebeu ${result.pending.tipo}`);
+    const rows = result.pending.dados?.linhas || [];
+    assert(rows.length === 6, `lista compacta deveria gerar 6 linhas, recebeu ${rows.length}`);
+    assert(rows.some((row) => row.animal_codigo === "249" && row.evento_tipo === "pre_parto"), "PRÉ PARTO deveria normalizar para pre_parto");
+    assert(rows.some((row) => row.animal_codigo === "396" && row.evento_tipo === "parto"), "PARIU deveria normalizar para parto");
+    const after = result.pending.dados?.gemini_consultas_apos_confirmacao || [];
+    assert(after.length === 2, `deveria anexar 2 consultas pos-confirmacao, recebeu ${after.length}`);
+    const reproduction = after.find((item) => item.dados?.resultado?.tipo_reprodutivo === "protocolo");
+    const finance = after.find((item) => item.tipo === "CONSULTA_FINANCEIRO");
+    assert(reproduction?.dados?.action_plan_response?.includes("Vacas em protocolo"), `consulta reprodutiva incorreta: ${reproduction?.dados?.action_plan_response}`);
+    assert(finance?.dados?.action_plan_response?.includes("R$ 180"), `consulta financeira incorreta: ${finance?.dados?.action_plan_response}`);
+  });
+});
+
 test("Gemini-first ActionPlan sequence executa consulta antes e deixa mutacao pendente", async () => {
   const text = "me mostra os eventos de hoje e registra 30kg de racao no estoque";
   const fixture = fixtureByName("sequence-relatorio-antes-estoque");
@@ -4692,6 +4781,22 @@ test("validador normaliza consulta reprodutiva com aliases de status", () => {
   const filter = validation.value.filters?.[0];
   assert(filter?.field === "status_reprodutivo", `field esperado status_reprodutivo, recebido ${filter?.field}`);
   assert(JSON.stringify(filter.value) === JSON.stringify(["prenhe", "inseminada"]), `valores normalizados incorretos: ${JSON.stringify(filter.value)}`);
+});
+
+test("validador normaliza frases de status reprodutivo em consultas", () => {
+  const validation = validateActionPlan({
+    action: "query",
+    domain: "reproducao",
+    confidence: 0.92,
+    filters: [{ field: "status_reprodutivo", op: "eq", value: "vacas que ficaram em protocolo" }],
+    requiresConfirmation: false,
+    limit: 50,
+    userQuestion: "quantas vacas ficaram em protocolo"
+  });
+  assert(validation.ok, `frase de protocolo deveria validar: ${validation.ok ? "" : validation.reason}`);
+  const filter = validation.value.filters?.[0];
+  assert(filter?.field === "status_reprodutivo", `field esperado status_reprodutivo, recebido ${filter?.field}`);
+  assert(filter.value === "em_protocolo", `status esperado em_protocolo, recebido ${filter.value}`);
 });
 
 test("mutacao com pedido explicito de relatorio agenda consulta para apos confirmacao", async () => {

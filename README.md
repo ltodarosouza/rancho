@@ -1,27 +1,74 @@
-# Rancho Pro
+# Rancho
 
-Aplicacao web para gestao agropecuaria integrada ao schema Supabase enviado.
+Sistema web para gestao agropecuaria, com foco em operacao de fazendas, controle de rebanho, estoque, financeiro, equipe e automacao por WhatsApp.
 
-## O que vem pronto
+O projeto usa Next.js, Supabase e um bot WhatsApp com interpretador Gemini-first para transformar mensagens naturais e tabelas enviadas pelo usuario em acoes seguras no sistema.
 
-- Next.js, React, TypeScript e Tailwind CSS
-- Login com Supabase Auth
-- Contexto de fazenda pela tabela `usuarios`
-- Dashboard com indicadores reais
-- CRUD de lotes, rebanho, eventos, ordenhas, estoque, financeiro, funcionarios, ponto e folha
-- Relatorios imprimiveis
-- Central WhatsApp com webhook Meta Cloud API
-- Modo demo quando o Supabase nao esta configurado
+## Principais recursos
 
-## Tabelas usadas
+- Dashboard operacional com indicadores da fazenda.
+- Gestao de rebanho, lotes, genealogia, reproducao, eventos e producao de leite.
+- Controle de estoque com movimentacoes de entrada e saida.
+- Financeiro com receitas, despesas, saldo e relatorios.
+- Funcionarios, ponto, folha e convites de acesso.
+- Central WhatsApp com simulador interno, webhook Twilio/Meta e historico de mensagens.
+- Bot WhatsApp com ActionPlan, confirmacao antes de salvar e importacao de tabelas/listas.
+- Fluxo multi-tenant por fazenda/rancho usando Supabase.
+- Compatibilidade com deploy na Vercel.
 
-O app esta mapeado para as tabelas:
+## Stack
 
-`fazendas`, `usuarios`, `lotes`, `animais`, `eventos_animal`, `ordenhas`, `estoque_itens`, `estoque_movimentacoes`, `transacoes_financeiras`, `funcionarios`, `registros_ponto`, `folha_pagamento`, `whatsapp_usuarios`, `whatsapp_sessoes`, `whatsapp_mensagens`, `alertas` e `auditoria_logs`.
+- Next.js 14
+- React 18
+- TypeScript
+- Tailwind CSS
+- Supabase Auth, Database e RLS
+- Twilio Sandbox / Meta WhatsApp Cloud API
+- Gemini API para interpretacao do bot
 
-O mapa central fica em `src/lib/tables.ts`.
+## Arquitetura do bot WhatsApp
 
-## Rodar localmente
+O bot segue um fluxo de execucao seguro:
+
+```txt
+Mensagem recebida
+  -> identificacao do usuario WhatsApp
+  -> interpretacao Gemini ActionPlan
+  -> validacao local do contrato
+  -> preview e confirmacao
+  -> persistencia no Supabase
+  -> resposta ao usuario
+```
+
+Regras importantes:
+
+- Nenhum registro real deve ser salvo sem confirmacao.
+- Gemini interpreta intencao e estrutura, mas o backend valida e executa.
+- Testes automatizados usam mocks e nao fazem chamadas live ao Gemini.
+- Secrets ficam somente no servidor/Vercel.
+
+## Estrutura do projeto
+
+```txt
+src/app                    Rotas do App Router e APIs
+src/components             Componentes de layout, UI e modulos
+src/lib                    Helpers, tipos, Supabase, seguranca e NLP
+src/lib/whatsapp           Contratos, Gemini, ActionPlan e parser auxiliar
+src/services               Servicos de dominio e integracoes
+src/services/whatsapp      Fluxo principal do bot, consultas e salvamento
+scripts                    Testes, smoke tests e ferramentas internas
+supabase/migrations        Migrations versionadas
+public                     Assets publicos
+```
+
+## Requisitos
+
+- Node.js compativel com Next.js 14.
+- npm.
+- Projeto Supabase configurado.
+- Variaveis de ambiente em `.env.local` para desenvolvimento.
+
+## Configuracao local
 
 ```bash
 npm install
@@ -29,45 +76,107 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Acesse `http://localhost:3000`.
+Depois acesse:
 
-## Variaveis principais
+```txt
+http://localhost:3000
+```
+
+## Variaveis de ambiente
+
+Use `.env.example` como referencia. As principais variaveis sao:
 
 ```txt
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SITE_URL=
+
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_DEFAULT_FAZENDA_ID=
-WHATSAPP_VERIFY_TOKEN=
-META_WHATSAPP_TOKEN=
-META_PHONE_NUMBER_ID=
+
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_WHATSAPP_FROM=
-NEXT_PUBLIC_WHATSAPP_ENV=sandbox
-NEXT_PUBLIC_TWILIO_SANDBOX_NUMBER=
-NEXT_PUBLIC_TWILIO_SANDBOX_JOIN_CODE=
+
+WHATSAPP_VERIFY_TOKEN=
+META_WHATSAPP_TOKEN=
+META_PHONE_NUMBER_ID=
+
+BOT_INTERPRETER=gemini
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
+BOT_ALLOW_LEGACY_ROLLBACK=false
 ```
 
-`SUPABASE_DEFAULT_FAZENDA_ID` e opcional, mas ajuda o webhook do WhatsApp quando um telefone ainda nao esta cadastrado em `whatsapp_usuarios`.
-As variaveis `NEXT_PUBLIC_*` acima mostram apenas informacoes publicas do ambiente de testes; tokens e chaves privadas ficam sempre fora do navegador.
+Variaveis iniciadas com `NEXT_PUBLIC_` podem ir para o navegador. Chaves privadas, tokens de webhook, service role e chaves de IA devem ficar apenas no servidor.
 
-## WhatsApp
+## Scripts
 
-Depois do deploy, configure na Meta:
+```bash
+npm run dev                  # servidor local
+npm run build                # build de producao
+npm run start                # iniciar build gerado
+npm run typecheck            # checagem TypeScript
+npm run test                 # typecheck + testes ActionPlan
+npm run test:bot             # regressao principal do bot
+npm run test:bot:gemini      # testes especificos do fluxo Gemini
+npm run smoke:gemini:live    # smoke manual com Gemini live
+```
+
+Por padrao, os testes do bot rodam em modo mockado e devem manter `Gemini live calls: 0`.
+
+## Webhooks
+
+### Twilio Sandbox
+
+Configure no Twilio:
 
 ```txt
-https://SEU-PROJETO.vercel.app/api/whatsapp/webhook
+When a message comes in = https://SEU-DOMINIO/api/twilio/webhook
+Method = POST
 ```
 
-O fluxo atual registra:
+### Meta WhatsApp Cloud API
 
-- ordenhas em `ordenhas`
-- animais em `animais`
-- entradas/saidas em `transacoes_financeiras`
-- estado da conversa em `whatsapp_sessoes`
-- auditoria em `auditoria_logs`
+Configure o webhook:
 
-## Observacao de seguranca
+```txt
+https://SEU-DOMINIO/api/whatsapp/webhook
+```
 
-Use `NEXT_PUBLIC_SUPABASE_ANON_KEY` no frontend. A `SUPABASE_SERVICE_ROLE_KEY` fica somente em rotas de backend e nunca deve ser exposta no navegador.
+## Supabase
+
+O sistema usa tabelas reais do app, com `fazenda_id`/`rancho_id` para isolamento de dados. O mapa central de nomes fica em:
+
+```txt
+src/lib/tables.ts
+```
+
+Migrations versionadas ficam em:
+
+```txt
+supabase/migrations
+```
+
+Arquivos SQL soltos na raiz devem ser tratados como scripts auxiliares/historicos e revisados antes de execucao.
+
+## Segurança
+
+- Nao commitar `.env`, `.env.local`, tokens ou chaves reais.
+- Nao expor `SUPABASE_SERVICE_ROLE_KEY` no frontend.
+- Nao desativar RLS para corrigir fluxo de aplicacao.
+- Confirmar acoes destrutivas ou persistencia real antes de executar.
+- Manter chamadas live de IA fora dos testes automatizados.
+- Validar payloads do Gemini no backend antes de qualquer insert/update.
+
+## Qualidade
+
+Antes de abrir PR ou fazer deploy, rode:
+
+```bash
+npm run test
+npm run test:bot
+npm run build
+```
+
+Se alterar o bot, priorize tambem smoke manual no simulador da aba WhatsApp.

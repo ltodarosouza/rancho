@@ -53,7 +53,7 @@ export const landingMetadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/landing/screenshots/dashboard.png",
+        url: "/landing/screenshots/dashboard.jpg",
         width: 1200,
         height: 630,
         alt: "Dashboard do Rancho para gestão agropecuária"
@@ -64,7 +64,7 @@ export const landingMetadata: Metadata = {
     card: "summary_large_image",
     title: LANDING_TITLE,
     description: LANDING_DESCRIPTION,
-    images: ["/landing/screenshots/dashboard.png"]
+    images: ["/landing/screenshots/dashboard.jpg"]
   },
   robots: {
     index: true,

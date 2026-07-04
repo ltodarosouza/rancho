@@ -2,39 +2,39 @@ import { absoluteSiteUrl } from "@/lib/seo";
 
 const landingImages = [
   {
-    url: "/landing/screenshots/dashboard.png",
+    url: "/landing/screenshots/dashboard.jpg",
     caption: "Dashboard do Rancho para gestão agropecuária"
   },
   {
-    url: "/landing/screenshots/rebanho.png",
+    url: "/landing/screenshots/rebanho.jpg",
     caption: "Tela de controle de rebanho bovino no Rancho"
   },
   {
-    url: "/landing/screenshots/producao.png",
+    url: "/landing/screenshots/producao.jpg",
     caption: "Tela de produção de leite e ordenhas no Rancho"
   },
   {
-    url: "/landing/screenshots/estoque.png",
+    url: "/landing/screenshots/estoque.jpg",
     caption: "Tela de controle de estoque rural no Rancho"
   },
   {
-    url: "/landing/screenshots/financeiro.png",
+    url: "/landing/screenshots/financeiro.jpg",
     caption: "Tela de financeiro rural no Rancho"
   },
   {
-    url: "/landing/screenshots/whatsapp.png",
+    url: "/landing/screenshots/whatsapp.jpg",
     caption: "Tela do bot de WhatsApp para registros da fazenda"
   },
   {
-    url: "/landing/screenshots/genealogia.png",
+    url: "/landing/screenshots/genealogia.jpg",
     caption: "Tela de genealogia bovina no Rancho"
   },
   {
-    url: "/landing/screenshots/funcionarios.png",
+    url: "/landing/screenshots/funcionarios.jpg",
     caption: "Tela de funcionários, equipe e ponto no Rancho"
   },
   {
-    url: "/landing/screenshots/configuracoes.png",
+    url: "/landing/screenshots/configuracoes.jpg",
     caption: "Tela de configurações da fazenda no Rancho"
   }
 ];

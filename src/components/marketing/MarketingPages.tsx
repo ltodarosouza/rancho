@@ -153,15 +153,13 @@ function Hero({
 }) {
   return (
     <section className="relative isolate overflow-hidden bg-slate-950 text-white">
-      <Image
-        src={image}
-        alt={imageAlt}
-        fill
-        priority
-        sizes="100vw"
-        className="z-0 object-cover object-top opacity-50"
+      <div
+        aria-label={imageAlt}
+        role="img"
+        className="absolute inset-0 z-0 bg-cover bg-top"
+        style={{ backgroundImage: `url(${image})` }}
       />
-      <div className="absolute inset-0 z-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.92)_0%,rgba(2,6,23,0.76)_36%,rgba(2,6,23,0.38)_68%,rgba(2,6,23,0.20)_100%)]" />
+      <div className="absolute inset-0 z-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.94)_0%,rgba(2,6,23,0.78)_36%,rgba(2,6,23,0.34)_68%,rgba(2,6,23,0.08)_100%)]" />
       <div className="absolute inset-x-0 bottom-0 z-0 h-44 bg-gradient-to-t from-slate-950 to-transparent" />
       <div className="relative z-10 mx-auto flex min-h-[76svh] max-w-7xl items-end px-4 pb-12 pt-24 sm:px-6 sm:pb-16 lg:px-8">
         <div className="max-w-4xl animate-fade-in">
@@ -236,7 +234,7 @@ function FeatureCard({ item }: { item: MarketingFeature }) {
 function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; large?: boolean }) {
   return (
     <article className={`group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft ${large ? "lg:col-span-2" : ""}`}>
-      <div className={`relative overflow-hidden bg-slate-100 ${large ? "aspect-[16/8.2]" : "aspect-[16/10]"}`}>
+      <div className="relative aspect-[16/10] overflow-hidden bg-white">
         <Image
           src={item.image}
           alt={`Tela do Rancho: ${item.name}`}
@@ -246,7 +244,7 @@ function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; la
           loading={large ? "eager" : "lazy"}
           decoding="async"
           sizes={large ? "(min-width: 1024px) 100vw, 100vw" : "(min-width: 1024px) 50vw, 100vw"}
-          className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-[1.015]"
+          className="h-full w-full object-contain object-top"
         />
         <div className="absolute right-[2.5%] top-[2.8%] flex min-h-8 items-center justify-center rounded-lg border border-white/50 bg-white/75 px-3 text-center text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 shadow-sm backdrop-blur-md">
           Demo protegida
@@ -364,7 +362,7 @@ export function MarketingHomePage() {
           label="Software de gestão agropecuária"
           title="Rancho: controle de fazenda, rebanho e leite em um só sistema."
           text="Organize produção de leite, rebanho bovino, estoque rural, financeiro, funcionários, genealogia e registros pelo WhatsApp com uma experiência clara para a equipe."
-          image="/landing/screenshots/dashboard.png"
+          image="/landing/screenshots/dashboard.jpg"
           imageAlt="Dashboard do Rancho para gestão agropecuária"
           primaryCta="Quero conhecer"
           proof={["Software para fazenda", "Bot de WhatsApp integrado", "Login para acessar o sistema"]}

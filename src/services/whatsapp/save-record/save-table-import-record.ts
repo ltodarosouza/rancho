@@ -160,6 +160,9 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
     let savedWithChild = 0;
     let skippedChildRows = 0;
     let skippedDuplicates = 0;
+    const savedBirthsWithChild: string[] = [];
+    const savedBirthsWithoutChild: string[] = [];
+    const skippedBirthsWithChild: string[] = [];
 
     for (const row of rows) {
       if (row.evento_tipo === "parto" && row.parto_cria_cadastro && row.cria_sexo && row.cria_codigo) {
@@ -184,8 +187,10 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
         if (result.savedReal) {
           saved += 1;
           savedWithChild += 1;
+          savedBirthsWithChild.push(`- ${row.animal_codigo}: cria ${[row.cria_sexo, row.cria_codigo].filter(Boolean).join(" ")}${row.pai_ref ? `, pai ${row.pai_ref}` : ""}.`);
         } else {
           skippedChildRows += 1;
+          skippedBirthsWithChild.push(`- ${row.animal_codigo}: cria ${[row.cria_sexo, row.cria_codigo].filter(Boolean).join(" ")}.`);
         }
         continue;
       }
@@ -209,6 +214,9 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
       });
       existingKeys.add(key);
       saved += 1;
+      if (row.evento_tipo === "parto") {
+        savedBirthsWithoutChild.push(`- ${row.animal_codigo}: parto registrado sem cria cadastrada.`);
+      }
     }
 
     if (!saved && skippedChildRows) {
@@ -220,10 +228,18 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
     }
 
     const duplicateText = skippedDuplicates ?`\nDuplicadas ignoradas no salvamento: ${skippedDuplicates}.` : "";
-    const childText = savedWithChild ?`\nPartos com cria cadastrada: ${savedWithChild}.` : "";
+    const birthDetailsText = savedBirthsWithChild.length || savedBirthsWithoutChild.length || skippedBirthsWithChild.length
+      ? [
+        "",
+        "Partos importados:",
+        savedBirthsWithChild.length ? ["Com cria cadastrada:", ...savedBirthsWithChild].join("\n") : "",
+        savedBirthsWithoutChild.length ? ["Sem cria cadastrada:", ...savedBirthsWithoutChild].join("\n") : "",
+        skippedBirthsWithChild.length ? ["Precisam de revisao:", ...skippedBirthsWithChild].join("\n") : ""
+      ].filter(Boolean).join("\n")
+      : "";
     const childSkippedText = skippedChildRows ?`\nPartos com cria completa que precisam revisao: ${skippedChildRows}.` : "";
     const savedTables = savedWithChild ?[TABLES.eventosAnimal, TABLES.animais] : [TABLES.eventosAnimal];
-    return realSaveResult(`Pronto, ${saved} evento(s) do rebanho importados com sucesso.${childText}${childSkippedText}${duplicateText}`, savedTables);
+    return realSaveResult(`Pronto, ${saved} evento(s) do rebanho importados com sucesso.${birthDetailsText}${childSkippedText}${duplicateText}`, savedTables);
   }
 
   if (pending.tipo === "IMPORTACAO_ANIMAIS_TABELA") {

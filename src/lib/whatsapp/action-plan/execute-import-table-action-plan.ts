@@ -392,19 +392,41 @@ function reproductionPreview(rows: AnyRecord[]) {
     .map(([kind, count]) => `${count} ${labels[kind] || kind}`)
     .join(", ");
   const childSummary = reproductionImportChildSummary(rows);
+  const birthRows = rows.filter((row) => String(row.evento_tipo || "").toLowerCase() === "parto");
+  const birthDetails = birthRows.slice(0, 8).map((row) => {
+    const mother = row.animal_codigo || row.animal_codigo_original || row.parsedValues?.animal_ref || row.values?.animal_ref || "mae nao informada";
+    if (row.child_status === "complete") {
+      return `- ${mother}: cria ${[row.cria_sexo, row.cria_codigo].filter(Boolean).join(" ")}${row.pai_ref ? `, pai ${row.pai_ref}` : ""}.`;
+    }
+    if (row.child_status === "missing_child_code") return `- ${mother}: falta o codigo da cria.`;
+    if (row.child_status === "missing_child_sex") return `- ${mother}: falta o sexo da cria.`;
+    if (row.child_status === "not_registered") return `- ${mother}: marcado para registrar sem cria.`;
+    return `- ${mother}: parto sem cria cadastrada agora.`;
+  });
+  if (birthRows.length > birthDetails.length) birthDetails.push(`...e mais ${birthRows.length - birthDetails.length} parto(s).`);
   const birthLines = childSummary.total_partos ? [
-    `Partos encontrados: ${childSummary.total_partos}.`,
-    `Com cria completa: ${childSummary.partos_com_cria_completa}.`,
-    `Sem cria cadastrada agora: ${childSummary.partos_sem_cria_cadastrada}.`,
-    `Com dados de cria faltando: ${childSummary.partos_com_cria_pendente}.`,
+    "",
+    "Partos encontrados:",
+    `- Total: ${childSummary.total_partos}.`,
+    `- Com cria completa: ${childSummary.partos_com_cria_completa}.`,
+    `- Sem cria cadastrada agora: ${childSummary.partos_sem_cria_cadastrada}.`,
+    `- Com dados de cria faltando: ${childSummary.partos_com_cria_pendente}.`,
+    birthDetails.length ? ["Detalhes dos partos:", birthDetails.join("\n")].join("\n") : "",
     childSummary.partos_sem_cria_cadastrada || childSummary.partos_com_cria_pendente
-      ? "Se confirmar agora, os partos serao salvos nas maes sem cadastrar crias. Para cadastrar crias antes de importar, envie: 094;C-094;femea;T-50. Formato: codigo_da_mae;codigo_da_cria;sexo_da_cria;pai_opcional."
+      ? [
+        "Como complementar crias antes de importar:",
+        "- Envie uma ou mais linhas, uma para cada parto.",
+        "- Formato: codigo_da_mae;codigo_da_cria;sexo_da_cria;pai_opcional.",
+        "- Exemplo com pai: 396;C-396;femea;T-50.",
+        "- Exemplo sem cadastrar cria: 5202;sem cria.",
+        "Se confirmar agora, os partos serao salvos nas maes sem cadastrar as crias pendentes."
+      ].join("\n")
       : ""
-  ].filter(Boolean).join(" ") : "";
+  ].filter(Boolean).join("\n") : "";
   return [
-    `Li uma tabela de reproducao com ${rows.length} registro(s)${summary ? `: ${summary}` : "."}`,
+    `Li uma tabela de reproducao com ${rows.length} registro(s)${summary ? `: ${summary}.` : "."}`,
     birthLines
-  ].filter(Boolean).join(" ").replace("..", ".");
+  ].filter(Boolean).join("\n");
 }
 
 function reproductionTableParsed(plan: ImportTableActionPlan, rows: AnyRecord[], text: string) {

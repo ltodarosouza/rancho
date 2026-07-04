@@ -50,6 +50,18 @@ function mandatoryLines(response: string) {
     .filter((line) => /^\d+\s*-\s+\S+/.test(line));
 }
 
+function mandatoryInstructionLines(response: string) {
+  return response
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => (
+      /codigo[_\s]da[_\s]mae.*codigo[_\s]da[_\s]cria.*sexo[_\s]da[_\s]cria/i.test(line) ||
+      /como complementar crias antes de importar/i.test(line) ||
+      /envie uma ou mais linhas/i.test(line) ||
+      /exemplo sem cadastrar cria/i.test(line)
+    ));
+}
+
 function normalizeComparable(value: string) {
   return polishBotResponse(value)
     .toLowerCase()
@@ -92,6 +104,36 @@ function compactValueForPrompt(value: unknown, depth = 0): unknown {
   return undefined;
 }
 
+function compactRowsForPrompt(parsed?: ParsedRanchoMessage | null) {
+  const rows = parsed?.dados?.linhas_validadas || parsed?.dados?.linhas;
+  if (!Array.isArray(rows)) return null;
+  const compacted = rows.slice(0, 10).map((row) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+    const record = row as AnyRecord;
+    const output: AnyRecord = {};
+    for (const key of [
+      "lineNumber",
+      "animal_codigo",
+      "evento_label",
+      "evento_tipo",
+      "data_referencia",
+      "child_status",
+      "cria_sexo",
+      "cria_codigo",
+      "pai_ref",
+      "status_validacao",
+      "status_linha",
+      "problemas_validacao",
+      "avisos"
+    ]) {
+      const value = record[key];
+      if (value !== undefined && value !== null && value !== "") output[key] = compactValueForPrompt(value, 1);
+    }
+    return Object.keys(output).length ? output : null;
+  }).filter(Boolean);
+  return compacted.length ? compacted : null;
+}
+
 function compactDataForPrompt(parsed?: ParsedRanchoMessage | null, options: { eventConfirmed?: boolean } = {}) {
   if (options.eventConfirmed) return null;
   if (!parsed?.dados) return null;
@@ -120,6 +162,8 @@ function compactDataForPrompt(parsed?: ParsedRanchoMessage | null, options: { ev
   }
   const result = compactValueForPrompt(dados.resultado);
   if (result) compact.resultado = result;
+  const rows = compactRowsForPrompt(parsed);
+  if (rows) compact.linhas_resumidas = rows;
   return Object.keys(compact).length ? compact : null;
 }
 
@@ -137,6 +181,7 @@ function shouldTryAIComposition(input: ComposeBotResponseInput) {
 
 function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
   const options = mandatoryLines(input.response);
+  const instructions = mandatoryInstructionLines(input.response);
   const context = {
     userMessage: input.userMessage,
     intent: input.parsed?.tipo || null,
@@ -147,6 +192,7 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     missingFields: input.parsed?.perguntas_faltantes || [],
     extractedData: compactDataForPrompt(input.parsed, { eventConfirmed: input.eventConfirmed }),
     mandatoryOptionLines: options,
+    mandatoryInstructionLines: instructions,
     originalResponse: polishBotResponse(input.response)
   };
 
@@ -163,6 +209,11 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     "- Quando eventConfirmed for true, originalResponse e a fonte da verdade sobre o que foi salvo. Nao use dados de pre-validacao antigos para criar pendencias.",
     "- Nao diga que salvou, registrou, cadastrou ou importou se originalResponse estiver pedindo confirmacao ou dizendo que nada foi salvo.",
     "- Se houver mandatoryOptionLines, copie essas linhas exatamente como estao.",
+    "- Se houver mandatoryInstructionLines, preserve essas instrucoes de forma clara. O formato de complementacao de crias deve aparecer explicitamente.",
+    "- Organize respostas longas em blocos curtos, por exemplo: Resumo, Partos, Como complementar, Opcoes.",
+    "- Em importacoes de tabelas, explique primeiro o que foi lido, depois pendencias/opcoes, e por ultimo as opcoes numeradas.",
+    "- Em importacoes com partos, separe os partos com cria completa, sem cria e com dados faltando. Nao esconda a possibilidade de enviar crias por linhas.",
+    "- Em respostas finais de salvamento, separe o que foi salvo por area quando houver mais de um resultado.",
     "- Mantenha a resposta curta, escaneavel e educada.",
     "- Remova termos tecnicos internos como action_plan, route, parser, mock, fixture, fallback ou debug.",
     "",
@@ -213,6 +264,12 @@ export function validateComposedBotResponse(originalResponse: string, composed: 
   for (const line of mandatoryLines(original)) {
     if (!includesComparable(message, line)) {
       return { response: original, usedAI: false, reason: "missing_mandatory_option" };
+    }
+  }
+
+  for (const line of mandatoryInstructionLines(original)) {
+    if (!includesComparable(message, line)) {
+      return { response: original, usedAI: false, reason: "missing_mandatory_instruction" };
     }
   }
 

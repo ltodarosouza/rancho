@@ -2695,6 +2695,36 @@ test("AI Response Composer rejeita perda de opcao ou falsa afirmacao de salvamen
   assert(unsafeSave.usedAI === false && unsafeSave.reason === "unsafe_save_claim", "composer deveria rejeitar salvamento falso");
 });
 
+test("AI Response Composer preserva orientacao de crias em lote", () => {
+  const original = [
+    "Li a tabela de eventos do rebanho.",
+    "Partos no lote:",
+    "- Total: 2.",
+    "- Sem cria cadastrada agora: 2.",
+    "Como complementar crias antes de importar:",
+    "- Envie uma ou mais linhas, uma para cada parto.",
+    "- Formato: codigo_da_mae;codigo_da_cria;sexo_da_cria;pai_opcional.",
+    "- Exemplo sem cadastrar cria: 5202;sem cria.",
+    "",
+    "1 - Importar",
+    "2 - Cancelar"
+  ].join("\n");
+
+  const result = validateComposedBotResponse(original, {
+    type: "bot_response_composition",
+    confidence: 0.9,
+    message: [
+      "Li a tabela e encontrei 2 partos sem cria.",
+      "",
+      "1 - Importar",
+      "2 - Cancelar"
+    ].join("\n")
+  });
+
+  assert(result.usedAI === false && result.reason === "missing_mandatory_instruction", "composer deveria rejeitar instrucao de cria removida");
+  assert(/codigo|c[oó]digo/i.test(result.response) && /mae|m[aã]e/i.test(result.response) && /cria/i.test(result.response), "fallback deveria preservar formato de crias");
+});
+
 test("AI Response Composer rejeita pendencia inventada em resultado salvo", () => {
   const original = [
     "Importacao de estoque concluida.",
@@ -3047,7 +3077,9 @@ test("ActionPlan import_table reproducao aceita tabela mista com parto sem cria"
   assert(birth?.status_linha === "pronto", "parto sem cria deve ficar pronto para evento da mae");
   const preview = confirmationText(result.parsed);
   assert(preview.includes("Partos no lote"), "preview deveria resumir partos em lote");
+  assert(preview.includes("Detalhes dos partos"), "preview deveria separar detalhes dos partos");
   assert(preview.includes("Sem cria cadastrada agora: 1"), "preview deveria indicar parto sem cria");
+  assert(preview.includes("Como complementar crias antes de importar"), "preview deveria explicar como complementar crias");
   assert(preview.includes("partos serao salvos nas maes"), "preview deveria explicar confirmacao sem cria");
   assert(preview.includes("codigo_da_mae;codigo_da_cria;sexo_da_cria;pai_opcional"), "preview deveria mostrar formato aceito");
   assert(!/Qual foi o sexo da cria/i.test(preview), "preview nao deve perguntar sexo de cria individualmente");
@@ -3080,7 +3112,8 @@ test("ActionPlan import_table reproducao resume varios partos sem pergunta indiv
   assert(result.parsed.dados?.resumo_partos?.total_partos === 3, "deveria contar 3 partos");
   assert(result.parsed.dados?.resumo_partos?.partos_sem_cria_cadastrada === 3, "deveria marcar 3 partos sem cria");
   const preview = confirmationText(result.parsed);
-  assert(preview.includes("094;C-094;femea;T-50"), "preview deveria mostrar formato de complemento em lote");
+  assert(preview.includes("Como complementar crias antes de importar"), "preview deveria explicar complemento em lote");
+  assert(preview.includes("codigo_da_mae;codigo_da_cria;sexo_da_cria;pai_opcional"), "preview deveria mostrar formato de complemento em lote");
   assert(!/Qual foi o sexo da cria/i.test(preview), "nao deve perguntar parto por parto");
 });
 

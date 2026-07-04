@@ -409,7 +409,38 @@ export function tabularReadyEventDetails(parsed: ParsedRanchoMessage, maxRows = 
   return lines.join("\n");
 }
 
+function tabularBirthRowDetails(parsed: ParsedRanchoMessage, maxRows = 8) {
+  const rows = tabularImportRows(parsed)
+    .filter((row) => String(row.evento_tipo || "").toLowerCase() === "parto")
+    .slice(0, maxRows);
+  if (!rows.length) return "";
 
+  const lines = rows.map((row) => {
+    const mother = row.animal_codigo || row.animal_codigo_original || "mae nao informada";
+    const status = String(row.child_status || "");
+    if (status === "complete") {
+      return `- ${mother}: cria ${[row.cria_sexo, row.cria_codigo].filter(Boolean).join(" ")}${row.pai_ref ? `, pai ${row.pai_ref}` : ""}.`;
+    }
+    if (status === "missing_child_code") return `- ${mother}: falta o codigo da cria.`;
+    if (status === "missing_child_sex") return `- ${mother}: falta o sexo da cria.`;
+    if (status === "not_registered") return `- ${mother}: marcado para registrar sem cria.`;
+    return `- ${mother}: parto sem cria cadastrada agora.`;
+  });
+
+  const total = tabularImportRows(parsed).filter((row) => String(row.evento_tipo || "").toLowerCase() === "parto").length;
+  if (total > rows.length) lines.push(`...e mais ${total - rows.length} parto(s).`);
+  return lines.join("\n");
+}
+
+function tabularBirthComplementGuidance() {
+  return [
+    "Como complementar crias antes de importar:",
+    "- Envie uma ou mais linhas, uma para cada parto.",
+    "- Formato: codigo_da_mae;codigo_da_cria;sexo_da_cria;pai_opcional.",
+    "- Exemplo com pai: 396;C-396;femea;T-50.",
+    "- Exemplo sem cadastrar cria: 5202;sem cria."
+  ].join("\n");
+}
 
 export function tabularImportConfirmationText(parsed: ParsedRanchoMessage) {
   const summary = tabularImportSummary(parsed);
@@ -417,6 +448,7 @@ export function tabularImportConfirmationText(parsed: ParsedRanchoMessage) {
   const preview = String(parsed.dados?.action_plan_preview || "").trim();
   const previewBlock = preview ?`\n\nResumo do lote:\n${preview}` : "";
   const births = summary.births || {};
+  const birthDetails = tabularBirthRowDetails(parsed);
   const birthBlock = Number(births.total_partos || 0) ?[
     "",
     "Partos no lote:",
@@ -424,11 +456,12 @@ export function tabularImportConfirmationText(parsed: ParsedRanchoMessage) {
     `- Com cria completa: ${Number(births.partos_com_cria_completa || 0)}.`,
     `- Sem cria cadastrada agora: ${Number(births.partos_sem_cria_cadastrada || 0)}.`,
     `- Com dados de cria faltando: ${Number(births.partos_com_cria_pendente || 0)}.`,
+    birthDetails ? ["", "Detalhes dos partos:", birthDetails].join("\n") : "",
     Number(births.partos_sem_cria_cadastrada || 0) || Number(births.partos_com_cria_pendente || 0)
       ? [
-        "Se confirmar sem complementar, esses partos serao salvos nas maes, mas nenhuma cria sera cadastrada.",
-        "Para cadastrar crias agora, envie uma ou mais linhas como: 094;C-094;femea;T-50 ou 398;sem cria.",
-        "Formato: codigo_da_mae;codigo_da_cria;sexo_da_cria;pai_opcional."
+        "",
+        "Se confirmar sem complementar, esses partos serao salvos nas maes, mas as crias pendentes nao serao cadastradas.",
+        tabularBirthComplementGuidance()
       ].join("\n")
       : ""
   ].filter(Boolean).join("\n") : "";

@@ -1,12 +1,15 @@
 import type { MetadataRoute } from "next";
 import { absoluteSiteUrl } from "@/lib/seo";
+import { solutionPages } from "@/lib/marketing-content";
 
 export default function robots(): MetadataRoute.Robots {
+  const publicMarketingPaths = ["/", "/landing", "/icon.svg", "/landing/screenshots/", ...solutionPages.map((page) => `/${page.slug}`)];
+
   return {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/landing", "/icon.svg", "/landing/screenshots/"],
+        allow: publicMarketingPaths,
         disallow: [
           "/api/",
           "/admin-interno",
@@ -37,7 +40,7 @@ export default function robots(): MetadataRoute.Robots {
       },
       {
         userAgent: "Googlebot",
-        allow: ["/", "/landing", "/icon.svg", "/landing/screenshots/"],
+        allow: publicMarketingPaths,
         disallow: [
           "/api/",
           "/admin-interno",

@@ -4,9 +4,9 @@ export const SITE_NAME = "Rancho";
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://rancho-seven.vercel.app";
 export const SUPPORT_EMAIL = "projeto.fazenda00@gmail.com";
 
-export const LANDING_TITLE = "Rancho | Software de gestão agropecuária e controle de rebanho";
+export const LANDING_TITLE = "Rancho | Software para fazenda, rebanho e produção de leite";
 export const LANDING_DESCRIPTION =
-  "Software de gestão agropecuária para fazendas: controle de rebanho, produção de leite, estoque, financeiro, funcionários, genealogia e bot de WhatsApp.";
+  "Software de gestão agropecuária para fazendas: controle de rebanho bovino, produção de leite, estoque rural, financeiro, funcionários e bot de WhatsApp.";
 
 export const SEO_KEYWORDS = [
   "software de gestão agropecuária",
@@ -92,6 +92,16 @@ export function landingStructuredData() {
       url,
       email: SUPPORT_EMAIL,
       logo: absoluteSiteUrl("/icon.svg"),
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "João Pessoa",
+        addressRegion: "PB",
+        addressCountry: "BR"
+      },
+      founder: [
+        { "@type": "Person", name: "Lucas Todaro" },
+        { "@type": "Person", name: "Henrique Guimarães" }
+      ],
       sameAs: []
     },
     {

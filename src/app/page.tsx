@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import LandingPage from "@/app/landing/page";
+import { MarketingHomePage } from "@/components/marketing/MarketingPages";
 import { RecoveryRedirect } from "@/app/recovery-redirect";
 import { landingMetadata } from "@/lib/seo";
 
@@ -9,7 +9,7 @@ export default function Home() {
   return (
     <>
       <RecoveryRedirect />
-      <LandingPage />
+      <MarketingHomePage />
     </>
   );
 }

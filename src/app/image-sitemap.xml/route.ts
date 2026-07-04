@@ -24,6 +24,18 @@ const landingImages = [
   {
     url: "/landing/screenshots/whatsapp.png",
     caption: "Tela do bot de WhatsApp para registros da fazenda"
+  },
+  {
+    url: "/landing/screenshots/genealogia.png",
+    caption: "Tela de genealogia bovina no Rancho"
+  },
+  {
+    url: "/landing/screenshots/funcionarios.png",
+    caption: "Tela de funcionários, equipe e ponto no Rancho"
+  },
+  {
+    url: "/landing/screenshots/configuracoes.png",
+    caption: "Tela de configurações da fazenda no Rancho"
   }
 ];
 

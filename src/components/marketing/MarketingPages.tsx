@@ -362,7 +362,7 @@ export function MarketingHomePage() {
           label="Software de gestão agropecuária"
           title="Rancho: controle de fazenda, rebanho e leite em um só sistema."
           text="Organize produção de leite, rebanho bovino, estoque rural, financeiro, funcionários, genealogia e registros pelo WhatsApp com uma experiência clara para a equipe."
-          image="/landing/screenshots/dashboard.jpg"
+          image="/landing/screenshots/dashboard.png"
           imageAlt="Dashboard do Rancho para gestão agropecuária"
           primaryCta="Quero conhecer"
           proof={["Software para fazenda", "Bot de WhatsApp integrado", "Login para acessar o sistema"]}

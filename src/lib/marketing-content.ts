@@ -76,15 +76,15 @@ export const trustSignals = [
 ];
 
 export const showcaseItems: MarketingScreenshot[] = [
-  { name: "Dashboard", detail: "Indicadores gerais", image: "/landing/screenshots/dashboard.jpg" },
-  { name: "Rebanho", detail: "Animais e ficha individual", image: "/landing/screenshots/rebanho.jpg" },
-  { name: "Genealogia", detail: "Árvore familiar dos animais", image: "/landing/screenshots/genealogia.jpg" },
-  { name: "Produção", detail: "Ordenhas e destino do leite", image: "/landing/screenshots/producao.jpg" },
-  { name: "Estoque", detail: "Entradas, baixas e saldo", image: "/landing/screenshots/estoque.jpg" },
-  { name: "Financeiro", detail: "Entradas, saídas e categorias", image: "/landing/screenshots/financeiro.jpg" },
-  { name: "Funcionários", detail: "Equipe, convites e ponto", image: "/landing/screenshots/funcionarios.jpg" },
-  { name: "WhatsApp", detail: "Bot e números autorizados", image: "/landing/screenshots/whatsapp.jpg" },
-  { name: "Configurações", detail: "Preferências e dados protegidos", image: "/landing/screenshots/configuracoes.jpg", mask: "settings" }
+  { name: "Dashboard", detail: "Indicadores gerais", image: "/landing/screenshots/dashboard.png" },
+  { name: "Rebanho", detail: "Animais e ficha individual", image: "/landing/screenshots/rebanho.png" },
+  { name: "Genealogia", detail: "Árvore familiar dos animais", image: "/landing/screenshots/genealogia.png" },
+  { name: "Produção", detail: "Ordenhas e destino do leite", image: "/landing/screenshots/producao.png" },
+  { name: "Estoque", detail: "Entradas, baixas e saldo", image: "/landing/screenshots/estoque.png" },
+  { name: "Financeiro", detail: "Entradas, saídas e categorias", image: "/landing/screenshots/financeiro.png" },
+  { name: "Funcionários", detail: "Equipe, convites e ponto", image: "/landing/screenshots/funcionarios.png" },
+  { name: "WhatsApp", detail: "Bot e números autorizados", image: "/landing/screenshots/whatsapp.png" },
+  { name: "Configurações", detail: "Preferências e dados protegidos", image: "/landing/screenshots/configuracoes.png", mask: "settings" }
 ];
 
 export const homeFeatures: MarketingFeature[] = [
@@ -137,7 +137,7 @@ export const solutionPages: MarketingPageContent[] = [
     heroLabel: "Software para fazenda",
     heroTitle: "Controle a fazenda com dados organizados e menos retrabalho.",
     heroText: "O Rancho reúne rebanho, leite, estoque, financeiro, equipe e WhatsApp em uma plataforma web feita para a rotina de quem precisa decidir rápido.",
-    heroImage: "/landing/screenshots/dashboard.jpg",
+    heroImage: "/landing/screenshots/dashboard.png",
     heroImageAlt: "Dashboard do software para fazenda Rancho",
     primaryCta: "Conhecer o sistema",
     proof: ["Painel único para a operação", "Registros com confirmação", "Acesso web para equipe e gestão"],
@@ -167,7 +167,7 @@ export const solutionPages: MarketingPageContent[] = [
     heroLabel: "Controle de rebanho",
     heroTitle: "Cada animal com histórico claro, do cadastro aos eventos da vida produtiva.",
     heroText: "Organize brincos, nomes, fases, lotes, status, genealogia, reprodução e ocorrências para saber o que aconteceu com cada animal.",
-    heroImage: "/landing/screenshots/rebanho.jpg",
+    heroImage: "/landing/screenshots/rebanho.png",
     heroImageAlt: "Tela de controle de rebanho bovino do Rancho",
     primaryCta: "Organizar meu rebanho",
     proof: ["Ficha individual por animal", "Lotes e fases produtivas", "Histórico ligado à reprodução e saúde"],
@@ -201,7 +201,7 @@ export const solutionPages: MarketingPageContent[] = [
     heroLabel: "Controle leiteiro",
     heroTitle: "Produção de leite registrada com clareza, por dia e por animal.",
     heroText: "Acompanhe litros, destino do leite, média diária e histórico de produção sem depender de planilhas manuais.",
-    heroImage: "/landing/screenshots/producao.jpg",
+    heroImage: "/landing/screenshots/producao.png",
     heroImageAlt: "Tela de produção de leite do Rancho",
     primaryCta: "Controlar produção",
     proof: ["Litros por período", "Registro por animal", "Relatórios de produção"],
@@ -235,7 +235,7 @@ export const solutionPages: MarketingPageContent[] = [
     heroLabel: "Gado leiteiro",
     heroTitle: "Gestão de gado leiteiro com produção, reprodução e histórico unidos.",
     heroText: "Acompanhe vacas em lactação, partos, prenhez, genealogia, ordenha, estoque e financeiro em uma rotina mais conectada.",
-    heroImage: "/landing/screenshots/genealogia.jpg",
+    heroImage: "/landing/screenshots/genealogia.png",
     heroImageAlt: "Tela de genealogia bovina do Rancho",
     primaryCta: "Ver gestão leiteira",
     proof: ["Lactação e reprodução", "Partos e crias", "Histórico produtivo e sanitário"],
@@ -269,7 +269,7 @@ export const solutionPages: MarketingPageContent[] = [
     heroLabel: "Financeiro rural",
     heroTitle: "Receitas, despesas e estoque conversando na mesma rotina.",
     heroText: "Controle vendas, compras, gastos operacionais e resultado da fazenda com lançamentos conectados ao estoque e aos registros do dia.",
-    heroImage: "/landing/screenshots/financeiro.jpg",
+    heroImage: "/landing/screenshots/financeiro.png",
     heroImageAlt: "Tela de financeiro rural do Rancho",
     primaryCta: "Organizar financeiro",
     proof: ["Entradas e saídas", "Categorias de custo", "Integração com estoque"],
@@ -303,7 +303,7 @@ export const solutionPages: MarketingPageContent[] = [
     heroLabel: "WhatsApp para fazenda",
     heroTitle: "A equipe registra a rotina pelo WhatsApp. O Rancho organiza no sistema.",
     heroText: "Mensagens simples podem virar registros de produção, estoque, financeiro, rebanho, reprodução, saúde animal e relatórios, sempre com confirmação antes de salvar.",
-    heroImage: "/landing/screenshots/whatsapp.jpg",
+    heroImage: "/landing/screenshots/whatsapp.png",
     heroImageAlt: "Tela do bot de WhatsApp para fazenda no Rancho",
     primaryCta: "Testar o bot",
     proof: ["Interpretação por IA", "Confirmação antes de salvar", "Dados no módulo correto"],

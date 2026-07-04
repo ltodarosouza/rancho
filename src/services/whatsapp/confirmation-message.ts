@@ -434,30 +434,32 @@ function tabularBirthRowDetails(parsed: ParsedRanchoMessage, maxRows = 8) {
 
 function tabularBirthComplementGuidance() {
   return [
-    "Como complementar crias antes de importar:",
-    "- Envie uma ou mais linhas, uma para cada parto.",
+    "Como complementar crias antes de importar: envie uma linha por parto.",
     "- Formato: codigo_da_mae;codigo_da_cria;sexo_da_cria;pai_opcional.",
-    "- Exemplo com pai: 396;C-396;femea;T-50.",
-    "- Exemplo sem cadastrar cria: 5202;sem cria."
+    "- Ex.: 396;C-396;femea;T-50 ou 5202;sem cria."
   ].join("\n");
 }
 
 export function tabularImportConfirmationText(parsed: ParsedRanchoMessage) {
   const summary = tabularImportSummary(parsed);
   const counts = tabularImportCountText(summary.eventCounts);
-  const preview = String(parsed.dados?.action_plan_preview || "").trim();
-  const previewBlock = preview ?`\n\nResumo do lote:\n${preview}` : "";
   const births = summary.births || {};
+  const totalBirths = Number(births.total_partos || 0);
+  const completeBirths = Number(births.partos_com_cria_completa || 0);
+  const noChildBirths = Number(births.partos_sem_cria_cadastrada || 0);
+  const pendingChildBirths = Number(births.partos_com_cria_pendente || 0);
   const birthDetails = tabularBirthRowDetails(parsed);
-  const birthBlock = Number(births.total_partos || 0) ?[
+  const birthSummaryLines = [
+    completeBirths ? `- Com cria completa: ${completeBirths}.` : "",
+    noChildBirths ? `- Sem cria cadastrada agora: ${noChildBirths}.` : "",
+    pendingChildBirths ? `- Com dados de cria faltando: ${pendingChildBirths}.` : ""
+  ].filter(Boolean);
+  const birthBlock = totalBirths ?[
     "",
-    "Partos no lote:",
-    `- Total: ${Number(births.total_partos || 0)}.`,
-    `- Com cria completa: ${Number(births.partos_com_cria_completa || 0)}.`,
-    `- Sem cria cadastrada agora: ${Number(births.partos_sem_cria_cadastrada || 0)}.`,
-    `- Com dados de cria faltando: ${Number(births.partos_com_cria_pendente || 0)}.`,
+    `Partos no lote: ${totalBirths}.`,
+    birthSummaryLines.join("\n"),
     birthDetails ? ["", "Detalhes dos partos:", birthDetails].join("\n") : "",
-    Number(births.partos_sem_cria_cadastrada || 0) || Number(births.partos_com_cria_pendente || 0)
+    noChildBirths || pendingChildBirths
       ? [
         "",
         "Se confirmar sem complementar, esses partos serao salvos nas maes, mas as crias pendentes nao serao cadastradas.",
@@ -487,7 +489,6 @@ export function tabularImportConfirmationText(parsed: ParsedRanchoMessage) {
       missingCodesText,
       dateText,
       typeText,
-      previewBlock,
       birthBlock,
       readyBlock,
       issueBlock,
@@ -513,7 +514,6 @@ export function tabularImportConfirmationText(parsed: ParsedRanchoMessage) {
     notFoundText,
     dateText,
     typeText,
-    previewBlock,
     birthBlock,
     readyBlock,
     issueBlock,

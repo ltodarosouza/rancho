@@ -113,23 +113,33 @@ function addMonths(dateISO: string, months: number) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
 
+const RANCH_MONTHS = [
+  "janeiro",
+  "fevereiro",
+  "marco",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro"
+];
+
 function monthIndex(value: unknown) {
   const text = normalizedText(value);
-  const months = [
-    "janeiro",
-    "fevereiro",
-    "marco",
-    "abril",
-    "maio",
-    "junho",
-    "julho",
-    "agosto",
-    "setembro",
-    "outubro",
-    "novembro",
-    "dezembro"
-  ];
-  return months.findIndex((month) => text.includes(month));
+  return RANCH_MONTHS.findIndex((month) => text.includes(month));
+}
+
+function monthNameFromText(value: unknown) {
+  const index = monthIndex(value);
+  return index >= 0 ? RANCH_MONTHS[index] : "";
+}
+
+function isOpenEndedSinceText(value: unknown) {
+  return /\b(?:desde|a\s+partir)\b/.test(normalizedText(value));
 }
 
 function normalizedText(value: unknown) {
@@ -259,6 +269,9 @@ function financeQueryDateFilter(text: unknown): FilterPlan {
   if (lastDays) return { field: "data", op: "last_days", value: Number(lastDays[1]) };
   const lastMonths = normalized.match(/\bultimos?\s+(\d+)\s+mes(?:es)?\b/);
   if (lastMonths) return { field: "data", op: "last_months", value: Number(lastMonths[1]) };
+  const namedMonth = monthIndex(normalized);
+  if (namedMonth >= 0 && !isOpenEndedSinceText(normalized)) return { field: "data", op: "between", value: { month: normalized } };
+  if (namedMonth >= 0) return { field: "data", op: "since", value: normalized };
   if (/\b(hoje|dia atual)\b/.test(normalized)) return { field: "data", op: "last_days", value: 1 };
   if (/\b(ano|anual)\b/.test(normalized)) return { field: "data", op: "current_year" };
   return { field: "data", op: "current_month" };
@@ -332,6 +345,11 @@ function dateRangeFor(filter: FilterPlan, baseDate: Date) {
 
   if (filter.op === "between") {
     const raw = filter.value as AnyRecord | unknown[];
+    const month = !Array.isArray(raw) && raw?.month ? monthIndex(raw.month) : -1;
+    if (month >= 0) {
+      const startDate = `${baseISO.slice(0, 4)}-${String(month + 1).padStart(2, "0")}-01`;
+      return { start: getRanchDayRange(startDate).start, end: getRanchDayRange(addMonths(startDate, 1)).start };
+    }
     const from = Array.isArray(raw) ? raw[0] : raw?.from;
     const to = Array.isArray(raw) ? raw[1] : raw?.to;
     const start = parseDate(from);
@@ -660,7 +678,12 @@ function normalizeFinanceQueryPlan(plan: QueryActionPlan, originalText?: string)
   const text = originalText || plan.userQuestion || "";
   if (!isFinanceQueryText(text)) return plan;
 
-  const filters = [...plan.filters];
+  const filters = plan.filters.map((filter) => {
+    if (domainDateFilterField(filter) && filter.op === "since" && monthIndex(filter.value) >= 0 && !isOpenEndedSinceText([text, filter.value].join(" "))) {
+      return { ...filter, op: "between" as const, value: { month: filter.value } };
+    }
+    return filter;
+  });
   const typeFilter = financeQueryTypeFilter(text);
   if (typeFilter && !filters.some((filter) => filter.field === "tipo")) filters.unshift(typeFilter);
   if (!filters.some((filter) => domainDateFilterField(filter))) filters.push(financeQueryDateFilter(text));
@@ -1077,8 +1100,17 @@ function periodText(plan: QueryActionPlan) {
   if (filter.op === "last_days") return `dos últimos ${filter.value} dias`;
   if (filter.op === "current_month") return "do mês atual";
   if (filter.op === "current_year") return "do ano atual";
-  if (filter.op === "since") return `desde ${filter.value}`;
-  if (filter.op === "between") return "do período informado";
+  if (filter.op === "since") {
+    const monthName = monthNameFromText(filter.value);
+    if (monthName && !isOpenEndedSinceText(filter.value)) return `em ${monthName}`;
+    return `desde ${filter.value}`;
+  }
+  if (filter.op === "between") {
+    const raw = filter.value as AnyRecord | unknown[];
+    const monthName = !Array.isArray(raw) && raw?.month ? monthNameFromText(raw.month) : "";
+    if (monthName) return `em ${monthName}`;
+    return "do período informado";
+  }
   return "";
 }
 

@@ -165,7 +165,7 @@ function parseComplementLine(line: string) {
   return { animalRef, ...patch };
 }
 
-function parseComplementLines(text: string) {
+function parseComplementLines(text: string): Array<NonNullable<ReturnType<typeof parseComplementLine>>> {
   const lines = String(text || "")
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -175,6 +175,9 @@ function parseComplementLines(text: string) {
       const patch = parseComplementLine(line);
       return patch ? [patch] : [];
     }
+
+    const lineWithCompactNotRegisteredRows = line.replace(/\s+(?=[a-zA-Z0-9-]+\s*;\s*sem\s+cria\b)/gi, "\n");
+    if (lineWithCompactNotRegisteredRows !== line) return parseComplementLines(lineWithCompactNotRegisteredRows);
 
     const compactSegments = line
       .split(/\s+(?=[a-zA-Z0-9-]+\s*;\s*[a-zA-Z0-9-]+\s*;\s*(?:macho|femea|fêmea|fem|f|m)\b)/i)

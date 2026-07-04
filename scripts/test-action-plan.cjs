@@ -1422,7 +1422,8 @@ test("ActionPlan normaliza operadores comuns de filtro", () => {
     confidence: 0.94,
     filters: [
       { field: "tipo", op: "equals", value: "despesa" },
-      { field: "data", op: "today" }
+      { field: "data", op: "today" },
+      { field: "data", op: "month", value: "junho" }
     ],
     aggregations: [{ field: "valor", op: "sum", as: "total_gasto" }],
     requiresConfirmation: false
@@ -1431,6 +1432,8 @@ test("ActionPlan normaliza operadores comuns de filtro", () => {
   assert(result.value.filters?.[0]?.op === "eq", `equals deveria virar eq: ${JSON.stringify(result.value.filters)}`);
   assert(result.value.filters?.[1]?.op === "last_days", `today deveria virar last_days: ${JSON.stringify(result.value.filters)}`);
   assert(result.value.filters?.[1]?.value === 1, `today deveria virar valor 1: ${JSON.stringify(result.value.filters)}`);
+  assert(result.value.filters?.[2]?.op === "since", `month deveria virar since: ${JSON.stringify(result.value.filters)}`);
+  assert(result.value.filters?.[2]?.value === "junho", `month deveria preservar mes nomeado: ${JSON.stringify(result.value.filters)}`);
 });
 
 test("ActionPlan infere dominio de import_table pela estrutura da tabela", () => {
@@ -1699,6 +1702,38 @@ test("executor query financeiro mes atual repara filtro invalido do ActionPlan",
   assert(result.parsed.tipo === "CONSULTA_FINANCEIRO", `consulta reparada deveria manter financeiro, recebeu ${result.parsed.tipo}`);
   assert(result.parsed.dados?.resultado?.filters?.some((filter) => filter.field === "data" && filter.op === "current_month"), "filtro current_month reparado ausente");
   assertCleanVisibleText(result.response, "resposta query financeiro reparada");
+});
+
+test("executor query financeiro quanto gastei em mes nomeado filtra saidas do mes", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "financeiro",
+      confidence: 0.9,
+      filters: [],
+      aggregations: [{ field: "valor", op: "sum", as: "total" }],
+      requiresConfirmation: false,
+      limit: 100,
+      userQuestion: "quanto gastei em junho?"
+    },
+    owner: ADMIN_OWNER,
+    currentDate: "2026-07-03",
+    originalText: "quanto gastei em junho?",
+    supabase: createActionPlanSupabase({
+      [TABLES.transacoesFinanceiras]: [
+        { id: "saida-junho-1", fazenda_id: ADMIN_OWNER.fazenda_id, tipo: "saida", valor: 300, descricao: "racao", categoria: "insumo", data_transacao: "2026-06-05" },
+        { id: "saida-junho-2", fazenda_id: ADMIN_OWNER.fazenda_id, tipo: "saida", valor: 90, descricao: "sal", categoria: "insumo", data_transacao: "2026-06-20" },
+        { id: "entrada-junho", fazenda_id: ADMIN_OWNER.fazenda_id, tipo: "entrada", valor: 1000, descricao: "leite", categoria: "venda", data_transacao: "2026-06-22" },
+        { id: "saida-julho", fazenda_id: ADMIN_OWNER.fazenda_id, tipo: "saida", valor: 150, descricao: "energia", categoria: "conta", data_transacao: "2026-07-01" }
+      ]
+    })
+  });
+
+  assert(result.ok, `query gasto em junho deveria executar: ${result.reason}`);
+  assert(result.rows.length === 2, `esperado somente duas despesas de junho, recebido ${result.rows.length}; filtros=${JSON.stringify(result.parsed.dados?.resultado?.filters || [])}`);
+  assert(result.rows.every((row) => row.tipo === "saida" && String(row.data_transacao).startsWith("2026-06")), "consulta deveria retornar apenas saidas de junho");
+  assert(result.parsed.dados?.resultado?.filters?.some((filter) => filter.field === "data" && filter.op === "between" && String(filter.value?.month || "").includes("junho")), "filtro between de junho ausente");
+  assert(result.response.includes("Total gasto: R$ 390,00."), `resposta deveria mostrar gasto de junho, recebeu: ${result.response}`);
 });
 
 test("executor query producao Mimosa desde janeiro usa relacao animal", async () => {
@@ -3156,6 +3191,35 @@ test("ActionPlan import_table reproducao aplica complemento compacto de varias c
   assert(row5202?.child_status === "complete" && row5202.cria_codigo === "C-5202" && row5202.cria_sexo === "macho", "linha 5202 nao recebeu cria completa");
   assert(row090?.child_status === "complete" && row090.cria_codigo === "C-090" && row090.cria_sexo === "femea", "linha 090 nao recebeu cria completa");
   assert(patched.dados?.resumo_partos?.partos_com_cria_completa === 2, "deveria contar 2 crias completas no formato compacto");
+});
+
+test("ActionPlan import_table reproducao aplica complemento compacto com sem cria", async () => {
+  const plan = {
+    action: "import_table",
+    domain: "reproducao",
+    confidence: 0.92,
+    data: { rows: [{ animal_ref: "396", evento: "parto" }, { animal_ref: "5202", evento: "parto" }] },
+    table: {
+      hasHeader: false,
+      columnMapping: { animal_ref: "animal_ref", evento: "evento" },
+      defaultFields: { data: "hoje" },
+      ignoredColumns: [],
+      ambiguousColumns: []
+    },
+    requiresConfirmation: true
+  };
+  const result = await executeImportTableActionPlan({ plan, text: "396:PARTO\n5202:PARTO" });
+  assert(result.ok, `partos compactos com sem cria deveriam executar: ${result.reason}`);
+
+  const patched = applyReproductionImportChildComplement(result.parsed, "396;C-396;femea;T-50 5202;sem cria");
+  assert(patched, "complemento compacto com sem cria deveria aplicar patch");
+  const rows = patched.dados?.linhas || [];
+  const row396 = rows.find((row) => row.animal_codigo === "396");
+  const row5202 = rows.find((row) => row.animal_codigo === "5202");
+  assert(row396?.child_status === "complete" && row396.cria_codigo === "C-396" && row396.cria_sexo === "femea" && row396.pai_ref === "T-50", "linha 396 nao recebeu cria completa");
+  assert(row5202?.child_status === "not_registered", "linha 5202 deveria ficar sem cria");
+  assert(patched.dados?.resumo_partos?.partos_com_cria_completa === 1, "deveria contar 1 cria completa");
+  assert(patched.dados?.resumo_partos?.partos_sem_cria_cadastrada === 1, "deveria contar 1 parto sem cria");
 });
 
 test("ActionPlan import_table reproducao aceita variacoes de complemento de crias", async () => {

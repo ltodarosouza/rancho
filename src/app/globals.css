@@ -132,24 +132,131 @@ tbody tr:hover { background: rgba(236, 253, 245, 0.48); }
 
 .animate-fade-in { animation: fade-in 280ms ease both; }
 .animate-landing-float { animation: landing-float 6s ease-in-out infinite; }
-.reveal-on-scroll { opacity: 1; }
+.reveal-on-scroll { opacity: 1; transform: none; }
+.marketing-effects-ready .reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(18px) scale(0.99);
+  transition: opacity 680ms ease, transform 680ms ease;
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.marketing-effects-ready .reveal-on-scroll.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.marketing-scroll-progress {
+  position: absolute;
+  inset: auto 0 -1px 0;
+  height: 2px;
+  transform: scaleX(var(--marketing-scroll-progress, 0));
+  transform-origin: left center;
+  background: linear-gradient(90deg, #10b981, #84cc16, #0f766e);
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.35);
+  transition: transform 80ms linear;
+}
+.marketing-hero-visual {
+  transform: scale(1.035);
+  transform-origin: center top;
+  will-change: transform;
+}
+.marketing-nav-link {
+  position: relative;
+  isolation: isolate;
+}
+.marketing-nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.7rem;
+  right: 0.7rem;
+  bottom: 0.22rem;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.55;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 240ms ease, opacity 240ms ease;
+}
+.marketing-nav-link:hover::after,
+.marketing-nav-link-active::after {
+  transform: scaleX(1);
+}
+.marketing-section-indicator span {
+  animation: fade-in 220ms ease both;
+}
+.marketing-spotlight {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.marketing-spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(240px circle at var(--spotlight-x, 50%) var(--spotlight-y, 0%), rgba(16, 185, 129, 0.14), transparent 62%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.marketing-spotlight:hover::before,
+.marketing-spotlight:focus-within::before {
+  opacity: 1;
+}
+.mobile-marketing-cta {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 60;
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid rgba(187, 247, 208, 0.45);
+  border-radius: 0.75rem;
+  background: rgba(4, 120, 87, 0.96);
+  color: white;
+  padding: 0.75rem 0.85rem;
+  box-shadow: 0 22px 46px rgba(6, 78, 59, 0.26);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(120%);
+  transition: opacity 240ms ease, transform 240ms ease;
+  backdrop-filter: blur(14px);
+}
+html[data-marketing-scrolled="true"] .mobile-marketing-cta {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
 @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes reveal-on-scroll { from { opacity: 0; transform: translateY(22px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes marketing-hero-parallax { from { transform: scale(1.035) translateY(0); } to { transform: scale(1.07) translateY(34px); } }
 @keyframes landing-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @keyframes skeleton-shimmer { 100% { transform: translateX(100%); } }
 
-@supports (animation-timeline: view()) {
-  .reveal-on-scroll {
-    opacity: 0;
-    animation: reveal-on-scroll 720ms ease-out both;
-    animation-timeline: view();
-    animation-range: entry 8% cover 28%;
+@supports (animation-timeline: scroll()) {
+  .marketing-hero-visual {
+    animation: marketing-hero-parallax linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 720px;
   }
+}
+
+@media (min-width: 640px) {
+  .mobile-marketing-cta { display: none; }
+}
+
+@media (hover: none) {
+  .marketing-spotlight::before { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  .marketing-effects-ready .reveal-on-scroll { opacity: 1; transform: none; }
+  .marketing-hero-visual { transform: none; }
+  .mobile-marketing-cta { transition: none; }
 }
 
 @media (max-width: 767px) {

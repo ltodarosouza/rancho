@@ -39,6 +39,7 @@ import {
   type MarketingPageContent,
   type MarketingScreenshot
 } from "@/lib/marketing-content";
+import { MarketingEffects } from "./MarketingEffects";
 
 const iconMap: Record<MarketingIcon, LucideIcon> = {
   "bar-chart": BarChart3,
@@ -94,7 +95,8 @@ function SectionLabel({ children, dark = false }: { children: React.ReactNode; d
 
 function MarketingHeader({ currentSlug }: { currentSlug?: string }) {
   return (
-    <header className="sticky top-0 z-50 border-b border-emerald-900/10 bg-white/92 shadow-sm shadow-slate-950/[0.04] backdrop-blur-xl">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-emerald-900/10 bg-white/95 shadow-sm shadow-slate-950/[0.04] backdrop-blur-xl">
+      <div className="marketing-scroll-progress" aria-hidden="true" />
       <nav className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 pt-3 sm:px-6 lg:px-8">
         <Link href="/" className="flex min-w-0 items-center gap-3 font-black text-slate-950" aria-label="Rancho">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-800 text-white shadow-lg shadow-emerald-900/20 sm:h-10 sm:w-10">
@@ -117,8 +119,8 @@ function MarketingHeader({ currentSlug }: { currentSlug?: string }) {
           </a>
         </div>
       </nav>
-      <div className="mx-auto max-w-7xl px-2 pb-2 pt-2 sm:px-6 sm:pt-3 lg:px-8">
-        <div className="flex gap-1.5 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50/80 p-1 text-sm font-black text-slate-600 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2 lg:inline-flex">
+      <div className="mx-auto flex max-w-7xl items-center gap-3 px-2 pb-2 pt-2 sm:px-6 sm:pt-3 lg:px-8">
+        <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50/80 p-1 text-sm font-black text-slate-600 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2 lg:inline-flex lg:flex-none">
           {marketingNavItems.map((item) => {
             const active = currentSlug === item.slug;
             return (
@@ -126,12 +128,16 @@ function MarketingHeader({ currentSlug }: { currentSlug?: string }) {
                 key={item.slug}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`whitespace-nowrap rounded-md px-2.5 py-1.5 transition sm:px-3 sm:py-2 ${active ? "bg-emerald-700 text-white shadow-sm shadow-emerald-900/15" : "hover:bg-white hover:text-emerald-800"}`}
+                className={`marketing-nav-link whitespace-nowrap rounded-md px-2.5 py-1.5 transition sm:px-3 sm:py-2 ${active ? "marketing-nav-link-active bg-emerald-700 text-white shadow-sm shadow-emerald-900/15" : "hover:bg-white hover:text-emerald-800"}`}
               >
                 {item.label}
               </Link>
             );
           })}
+        </div>
+        <div className="marketing-section-indicator hidden shrink-0 items-center gap-2 rounded-lg border border-emerald-200 bg-white/80 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-emerald-800 shadow-sm xl:inline-flex">
+          <Sparkles className="h-3.5 w-3.5" />
+          <span data-section-indicator>Início</span>
         </div>
       </div>
     </header>
@@ -170,11 +176,11 @@ function Hero({
   proof: string[];
 }) {
   return (
-    <section className="relative isolate overflow-hidden bg-slate-950 text-white">
+    <section className="relative isolate overflow-hidden bg-slate-950 text-white" data-marketing-section="inicio" data-section-label="Início">
       <div
         aria-label={imageAlt}
         role="img"
-        className="absolute inset-0 z-0 bg-cover bg-top"
+        className="marketing-hero-visual absolute inset-0 z-0 bg-cover bg-top"
         style={{ backgroundImage: `url(${image})` }}
       />
       <div className="absolute inset-0 z-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.94)_0%,rgba(2,6,23,0.78)_36%,rgba(2,6,23,0.34)_68%,rgba(2,6,23,0.08)_100%)]" />
@@ -239,7 +245,7 @@ function TrustStrip() {
 function FeatureCard({ item }: { item: MarketingFeature }) {
   const Icon = iconMap[item.icon];
   return (
-    <article className="reveal-on-scroll group rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft">
+    <article className="marketing-spotlight reveal-on-scroll group rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft">
       <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 transition group-hover:bg-emerald-700 group-hover:text-white">
         <Icon className="h-5 w-5" />
       </div>
@@ -251,7 +257,7 @@ function FeatureCard({ item }: { item: MarketingFeature }) {
 
 function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; large?: boolean }) {
   return (
-    <article className={`reveal-on-scroll group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft ${large ? "lg:col-span-2" : ""}`}>
+    <article className={`marketing-spotlight reveal-on-scroll group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft ${large ? "lg:col-span-2" : ""}`}>
       <div className="relative overflow-x-auto bg-white [scrollbar-width:thin]">
         <Image
           src={item.image}
@@ -289,7 +295,7 @@ function ExamplesGrid({ examples }: { examples: { area: string; text: string; re
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {examples.map((example) => (
-        <article key={`${example.area}-${example.text}`} className="reveal-on-scroll rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <article key={`${example.area}-${example.text}`} className="marketing-spotlight reveal-on-scroll rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{example.area}</p>
           <p className="mt-3 rounded-lg bg-slate-950 px-4 py-3 text-sm font-bold leading-6 text-white">&ldquo;{example.text}&rdquo;</p>
           <p className="mt-3 text-sm leading-6 text-slate-600">{example.result}</p>
@@ -350,8 +356,8 @@ function Footer() {
 
 function CtaBand({ title = "Quer ver o Rancho funcionando na sua fazenda?", text = "Solicite uma demonstração e veja como organizar rebanho, estoque, produção, financeiro e WhatsApp em uma rotina mais clara." }) {
   return (
-    <section id="contato" className="px-4 py-16 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl rounded-lg bg-slate-950 p-8 text-center text-white shadow-2xl shadow-emerald-950/20 sm:p-12">
+    <section id="contato" className="px-4 py-16 sm:px-6 lg:px-8" data-marketing-section="contato" data-section-label="Contato">
+      <div className="marketing-spotlight reveal-on-scroll mx-auto max-w-5xl overflow-hidden rounded-lg bg-slate-950 p-8 text-center text-white shadow-2xl shadow-emerald-950/20 sm:p-12">
         <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-lg bg-emerald-400/15 text-emerald-200">
           <Leaf className="h-7 w-7" />
         </div>
@@ -377,8 +383,9 @@ export function MarketingHomePage() {
   return (
     <>
       <StructuredData />
-      <main className="min-h-screen overflow-hidden bg-[#f8fafc] text-slate-950">
+      <main className="min-h-screen bg-[#f8fafc] text-slate-950">
         <MarketingHeader />
+        <MarketingEffects />
         <Hero
           label="Software de gestão agropecuária"
           title="Rancho: controle de fazenda, rebanho e leite em um só sistema."
@@ -390,7 +397,7 @@ export function MarketingHomePage() {
         />
         <TrustStrip />
 
-        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8" data-marketing-section="visao-geral" data-section-label="Visão geral">
           <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
             <div>
               <SectionLabel>Por que existe</SectionLabel>
@@ -411,7 +418,7 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        <section id="funcionalidades" className="bg-white py-14">
+        <section id="funcionalidades" className="bg-white py-14" data-marketing-section="funcionalidades" data-section-label="Funcionalidades">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-3xl text-center">
               <SectionLabel>Funcionalidades</SectionLabel>
@@ -424,7 +431,7 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8" data-marketing-section="areas" data-section-label="Áreas">
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
               <SectionLabel>Áreas cobertas</SectionLabel>
@@ -434,7 +441,7 @@ export function MarketingHomePage() {
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {managementAreas.slice(0, 6).map((area) => (
-                  <div key={area} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm font-black text-slate-800 shadow-sm">
+                  <div key={area} className="marketing-spotlight reveal-on-scroll flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm font-black text-slate-800 shadow-sm">
                     <ClipboardCheck className="h-5 w-5 shrink-0 text-emerald-700" />
                     {area}
                   </div>
@@ -443,7 +450,7 @@ export function MarketingHomePage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               {solutionPages.slice(0, 4).map((page) => (
-                <Link key={page.slug} href={`/${page.slug}`} className="group rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft">
+                <Link key={page.slug} href={`/${page.slug}`} className="marketing-spotlight reveal-on-scroll group rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft">
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{page.heroLabel}</p>
                   <h3 className="mt-3 text-xl font-black text-slate-950">{page.heroTitle}</h3>
                   <p className="mt-3 text-sm leading-6 text-slate-600">{page.description}</p>
@@ -457,7 +464,7 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        <section id="whatsapp" className="bg-slate-950 py-14 text-white">
+        <section id="whatsapp" className="bg-slate-950 py-14 text-white" data-marketing-section="whatsapp" data-section-label="WhatsApp">
           <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[0.82fr_1.18fr] lg:px-8">
             <div>
               <SectionLabel dark>WhatsApp integrado</SectionLabel>
@@ -478,7 +485,7 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        <section id="exemplos" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <section id="exemplos" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8" data-marketing-section="exemplos" data-section-label="Exemplos">
           <div className="mx-auto max-w-3xl text-center">
             <SectionLabel>Exemplos reais</SectionLabel>
             <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Mensagens simples viram registros organizados.</h2>
@@ -491,7 +498,7 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        <section id="prints" className="bg-white py-14">
+        <section id="prints" className="bg-white py-14" data-marketing-section="produto" data-section-label="Produto">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
               <div className="max-w-3xl">
@@ -512,7 +519,7 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        <section id="faq" className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8">
+        <section id="faq" className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8" data-marketing-section="faq" data-section-label="FAQ">
           <SectionLabel>Perguntas frequentes</SectionLabel>
           <h2 className="max-w-3xl text-2xl font-black text-slate-950 sm:text-4xl">Dúvidas comuns sobre o Rancho.</h2>
           <div className="mt-8">
@@ -538,8 +545,9 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
   return (
     <>
       <StructuredData page={page} />
-      <main className="min-h-screen overflow-hidden bg-[#f8fafc] text-slate-950">
+      <main className="min-h-screen bg-[#f8fafc] text-slate-950">
         <MarketingHeader currentSlug={page.slug} />
+        <MarketingEffects />
         <Hero
           label={page.heroLabel}
           title={page.heroTitle}
@@ -551,7 +559,7 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
         />
         <TrustStrip />
 
-        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8" data-marketing-section="visao-geral" data-section-label="Visão geral">
           <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
             <div>
               <SectionLabel>Visão geral</SectionLabel>
@@ -564,7 +572,7 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
           </div>
         </section>
 
-        <section className="bg-white py-14">
+        <section className="bg-white py-14" data-marketing-section="pratica" data-section-label="Na prática">
           <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
             <div>
               <SectionLabel>Na prática</SectionLabel>
@@ -575,7 +583,7 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {page.workflow.map((step, index) => (
-                <div key={step} className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+                <div key={step} className="marketing-spotlight reveal-on-scroll rounded-lg border border-slate-200 bg-slate-50 p-5">
                   <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-700 text-lg font-black text-white">{index + 1}</div>
                   <p className="text-lg font-black leading-7 text-slate-950">{step}</p>
                 </div>
@@ -584,7 +592,7 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
           </div>
         </section>
 
-        <section className="bg-white py-14">
+        <section className="bg-white py-14" data-marketing-section="produto" data-section-label="Produto">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl">
               <SectionLabel>Produto real</SectionLabel>
@@ -597,7 +605,7 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
           </div>
         </section>
 
-        <section className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[0.75fr_1.25fr] lg:px-8">
+        <section className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[0.75fr_1.25fr] lg:px-8" data-marketing-section="faq" data-section-label="FAQ">
           <div>
             <SectionLabel>Perguntas frequentes</SectionLabel>
             <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">O que o produtor costuma querer saber.</h2>
@@ -605,12 +613,12 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
           <FaqBlock faq={page.faq} />
         </section>
 
-        <section className="bg-slate-950 py-14 text-white">
+        <section className="bg-slate-950 py-14 text-white" data-marketing-section="relacionados" data-section-label="Relacionados">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionLabel dark>Também pode ajudar</SectionLabel>
             <div className="grid gap-4 md:grid-cols-3">
               {relatedPages.map((related) => (
-                <Link key={related.slug} href={`/${related.slug}`} className="group rounded-lg border border-white/10 bg-white/[0.06] p-5 transition hover:-translate-y-1 hover:border-emerald-300/60 hover:bg-white/[0.09]">
+                <Link key={related.slug} href={`/${related.slug}`} className="marketing-spotlight reveal-on-scroll group rounded-lg border border-white/10 bg-white/[0.06] p-5 transition hover:-translate-y-1 hover:border-emerald-300/60 hover:bg-white/[0.09]">
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-200">{related.heroLabel}</p>
                   <h3 className="mt-3 text-xl font-black text-white">{related.heroTitle}</h3>
                   <p className="mt-3 text-sm leading-6 text-slate-300">{related.description}</p>

@@ -187,7 +187,7 @@ function Hero({
       />
       <div className="absolute inset-0 z-0 bg-[linear-gradient(90deg,#020617_0%,#020617_68%,rgba(2,6,23,0.82)_100%)] lg:bg-[linear-gradient(90deg,#020617_0%,#020617_45%,rgba(2,6,23,0.86)_58%,rgba(2,6,23,0.32)_78%,rgba(2,6,23,0.08)_100%)]" />
       <div className="absolute inset-x-0 bottom-0 z-0 h-48 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent" />
-      <div className="relative z-10 mx-auto flex min-h-[68svh] max-w-7xl items-end px-4 pb-12 pt-28 sm:px-6 sm:pb-16 lg:px-8">
+      <div className="relative z-10 mx-auto flex min-h-[68svh] max-w-7xl items-end px-4 pb-12 pt-32 sm:px-6 sm:pb-16 sm:pt-36 lg:px-8">
         <div className="w-full min-w-0 max-w-3xl animate-fade-in lg:max-w-[690px]">
           <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-emerald-300/30 bg-white/10 px-3 py-1 text-sm font-black text-emerald-100 shadow-sm backdrop-blur">
             <ShieldCheck className="h-4 w-4" />

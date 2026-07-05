@@ -229,6 +229,93 @@ html[data-marketing-scrolled="true"] .mobile-marketing-cta {
   pointer-events: auto;
   transform: translateY(0);
 }
+.screenshot-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  background: rgba(2, 6, 23, 0.86);
+  padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+  backdrop-filter: blur(18px);
+}
+.screenshot-viewer-panel {
+  display: grid;
+  min-height: 0;
+  width: 100%;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+  border: 1px solid rgba(187, 247, 208, 0.26);
+  border-radius: 0.9rem;
+  background: #020617;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
+}
+.screenshot-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 0.85rem;
+}
+.screenshot-viewer-icon-button,
+.screenshot-viewer-control {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 900;
+  transition: background 160ms ease, transform 160ms ease, opacity 160ms ease;
+}
+.screenshot-viewer-icon-button {
+  width: 2.75rem;
+  flex-shrink: 0;
+}
+.screenshot-viewer-icon-button:hover,
+.screenshot-viewer-control:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.screenshot-viewer-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+.screenshot-viewer-stage {
+  min-height: 0;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(16, 185, 129, 0.14), transparent 30%),
+    #f8fafc;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  touch-action: pan-x pan-y;
+}
+.screenshot-viewer-image {
+  display: block;
+  height: auto;
+  max-width: none;
+  min-width: 100%;
+  transform-origin: center top;
+}
+.screenshot-viewer-controls {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 0.75rem;
+}
+.screenshot-viewer-zoom {
+  min-width: 3.7rem;
+  text-align: center;
+  color: #bbf7d0;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
 @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes reveal-on-scroll { from { opacity: 0; transform: translateY(22px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes marketing-hero-parallax { from { transform: scale(1.035) translateY(0); } to { transform: scale(1.07) translateY(34px); } }

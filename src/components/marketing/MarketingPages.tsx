@@ -20,6 +20,7 @@ import {
   Sparkles,
   UsersRound,
   Wallet,
+  ZoomIn,
   type LucideIcon
 } from "lucide-react";
 import {
@@ -177,16 +178,17 @@ function Hero({
 }) {
   return (
     <section className="relative isolate overflow-hidden bg-slate-950 text-white" data-marketing-section="inicio" data-section-label="Início">
+      <div className="absolute inset-0 z-0 bg-slate-950" />
       <div
         aria-label={imageAlt}
         role="img"
-        className="marketing-hero-visual absolute inset-0 z-0 bg-cover bg-top"
+        className="marketing-hero-visual absolute inset-y-0 right-0 z-0 w-full bg-cover bg-top opacity-20 lg:w-[72%] lg:opacity-95"
         style={{ backgroundImage: `url(${image})` }}
       />
-      <div className="absolute inset-0 z-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.94)_0%,rgba(2,6,23,0.78)_36%,rgba(2,6,23,0.34)_68%,rgba(2,6,23,0.08)_100%)]" />
-      <div className="absolute inset-x-0 bottom-0 z-0 h-44 bg-gradient-to-t from-slate-950 to-transparent" />
+      <div className="absolute inset-0 z-0 bg-[linear-gradient(90deg,#020617_0%,#020617_68%,rgba(2,6,23,0.82)_100%)] lg:bg-[linear-gradient(90deg,#020617_0%,#020617_45%,rgba(2,6,23,0.86)_58%,rgba(2,6,23,0.32)_78%,rgba(2,6,23,0.08)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 z-0 h-48 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent" />
       <div className="relative z-10 mx-auto flex min-h-[68svh] max-w-7xl items-end px-4 pb-12 pt-28 sm:px-6 sm:pb-16 lg:px-8">
-        <div className="w-full min-w-0 max-w-4xl animate-fade-in">
+        <div className="w-full min-w-0 max-w-3xl animate-fade-in lg:max-w-[690px]">
           <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-emerald-300/30 bg-white/10 px-3 py-1 text-sm font-black text-emerald-100 shadow-sm backdrop-blur">
             <ShieldCheck className="h-4 w-4" />
             {label}
@@ -207,7 +209,7 @@ function Hero({
               <LogIn className="h-5 w-5" />
             </Link>
           </div>
-          <div className="mt-8 grid max-w-3xl gap-3 text-sm font-bold text-slate-100 sm:grid-cols-3">
+          <div className="mt-8 grid max-w-2xl gap-3 text-sm font-bold text-slate-100 sm:grid-cols-3">
             {proof.map((item) => (
               <div key={item} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-3 py-2 backdrop-blur">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" />
@@ -279,9 +281,17 @@ function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; la
             <div className="absolute left-[60%] top-[64%] h-[19%] w-[31%] rounded-lg border border-white/50 bg-white/75 shadow-sm backdrop-blur-md" />
           </>
         ) : null}
-        <div className="absolute bottom-2 left-2 rounded-md border border-white/70 bg-white/85 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 shadow-sm backdrop-blur sm:hidden">
-          Arraste para ver
-        </div>
+        <button
+          type="button"
+          data-screenshot-open
+          data-screenshot-src={item.image}
+          data-screenshot-title={item.name}
+          data-screenshot-detail={item.detail}
+          className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-md border border-white/70 bg-white/90 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-emerald-800 shadow-sm backdrop-blur transition hover:bg-white sm:hidden"
+        >
+          <ZoomIn className="h-3.5 w-3.5" />
+          Ampliar
+        </button>
       </div>
       <div className="border-t border-slate-100 p-4">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{item.detail}</p>
@@ -330,7 +340,7 @@ function Footer() {
             <span>Rancho</span>
           </Link>
           <p className="mt-3 max-w-sm text-sm leading-6 text-slate-600">
-            Sistema em evolução para gestão agropecuária, controle de rebanho, produção de leite e registros pelo WhatsApp.
+            Plataforma para organizar rebanho, produção, estoque, financeiro e registros pelo WhatsApp.
           </p>
         </div>
         <div>
@@ -354,7 +364,7 @@ function Footer() {
   );
 }
 
-function CtaBand({ title = "Quer ver o Rancho funcionando na sua fazenda?", text = "Solicite uma demonstração e veja como organizar rebanho, estoque, produção, financeiro e WhatsApp em uma rotina mais clara." }) {
+function CtaBand({ title = "Quer ver o Rancho funcionando na sua fazenda?", text = "Agende uma demonstração e veja como o Rancho ajuda a organizar rebanho, produção, estoque, financeiro e WhatsApp em uma rotina mais simples de acompanhar." }) {
   return (
     <section id="contato" className="px-4 py-16 sm:px-6 lg:px-8" data-marketing-section="contato" data-section-label="Contato">
       <div className="marketing-spotlight reveal-on-scroll mx-auto max-w-5xl overflow-hidden rounded-lg bg-slate-950 p-8 text-center text-white shadow-2xl shadow-emerald-950/20 sm:p-12">
@@ -387,9 +397,9 @@ export function MarketingHomePage() {
         <MarketingHeader />
         <MarketingEffects />
         <Hero
-          label="Software de gestão agropecuária"
-          title="Rancho: controle de fazenda, rebanho e leite em um só sistema."
-          text="Organize produção de leite, rebanho bovino, estoque rural, financeiro, funcionários, genealogia e registros pelo WhatsApp com uma experiência clara para a equipe."
+          label="Software para fazenda"
+          title="Rancho: a fazenda no controle, do rebanho ao financeiro."
+          text="Acompanhe produção, animais, estoque, equipe, financeiro e registros pelo WhatsApp em um sistema feito para a rotina de fazenda."
           image="/landing/screenshots/dashboard.png"
           imageAlt="Dashboard do Rancho para gestão agropecuária"
           primaryCta="Quero conhecer"
@@ -401,9 +411,9 @@ export function MarketingHomePage() {
           <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
             <div>
               <SectionLabel>Por que existe</SectionLabel>
-              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">A fazenda ganha velocidade quando o dado nasce organizado.</h2>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">A fazenda trabalha melhor quando a informação não se perde.</h2>
               <p className="mt-4 text-base leading-8 text-slate-600">
-                O Rancho foi pensado para tirar a gestão da mistura entre caderno, planilha e conversa solta. A equipe registra a rotina, o sistema valida e o gestor acompanha tudo com mais confiança.
+                O Rancho foi pensado para tirar a gestão da mistura entre caderno, planilha e conversa solta. A equipe registra a rotina e o gestor acompanha tudo com mais clareza.
               </p>
               <div className="mt-6 grid gap-3 text-sm font-bold text-slate-700 sm:grid-cols-2">
                 {["Menos erro de anotação", "Histórico confiável do rebanho", "Controle financeiro mais claro", "Uso simples para a equipe"].map((item) => (
@@ -422,8 +432,8 @@ export function MarketingHomePage() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-3xl text-center">
               <SectionLabel>Funcionalidades</SectionLabel>
-              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Tudo que a fazenda precisa acompanhar, sem espalhar a informação.</h2>
-              <p className="mt-4 text-base leading-7 text-slate-600">Módulos conectados para transformar rotina operacional em dados úteis para decisão.</p>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Tudo que a fazenda precisa acompanhar, em um só lugar.</h2>
+              <p className="mt-4 text-base leading-7 text-slate-600">Módulos conectados para deixar a rotina da fazenda mais fácil de registrar, conferir e acompanhar.</p>
             </div>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {homeFeatures.slice(0, 6).map((feature) => <FeatureCard key={feature.title} item={feature} />)}
@@ -435,9 +445,9 @@ export function MarketingHomePage() {
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
               <SectionLabel>Áreas cobertas</SectionLabel>
-              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Controle completo para fazenda de leite, pecuária e operação rural.</h2>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Controle para fazenda de leite, pecuária e operação rural.</h2>
               <p className="mt-4 text-base leading-8 text-slate-600">
-                A página principal abre o caminho, e as páginas específicas ajudam o Google e o produtor a entenderem cada solução com mais profundidade.
+                Cada área conversa com as outras para o produtor enxergar melhor o que acontece na fazenda, sem depender de informação espalhada.
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {managementAreas.slice(0, 6).map((area) => (
@@ -468,12 +478,12 @@ export function MarketingHomePage() {
           <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[0.82fr_1.18fr] lg:px-8">
             <div>
               <SectionLabel dark>WhatsApp integrado</SectionLabel>
-              <h2 className="text-2xl font-black sm:text-4xl">A equipe registra a rotina onde ela já conversa.</h2>
+              <h2 className="text-2xl font-black sm:text-4xl">Registre a rotina da fazenda direto pelo WhatsApp.</h2>
               <p className="mt-5 text-base leading-8 text-slate-300">
-                O funcionário envia uma mensagem, o bot interpreta, o backend valida e a ação só é salva depois da confirmação. O resultado aparece no painel certo.
+                A equipe manda uma mensagem simples e o Rancho organiza o registro para aparecer no painel certo, sem transformar tudo em planilha.
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {["Interpretação por IA", "Confirmação antes de salvar", "Consultas e registros compostos", "Dados conectados ao painel"].map((item) => (
+                {["Bot de WhatsApp integrado", "Registro rápido da rotina", "Consultas e tabelas por mensagem", "Dados direto no painel"].map((item) => (
                   <div key={item} className="flex items-center gap-2 text-sm font-bold text-slate-200">
                     <CheckCircle2 className="h-4 w-4 text-emerald-300" />
                     {item}
@@ -488,9 +498,9 @@ export function MarketingHomePage() {
         <section id="exemplos" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8" data-marketing-section="exemplos" data-section-label="Exemplos">
           <div className="mx-auto max-w-3xl text-center">
             <SectionLabel>Exemplos reais</SectionLabel>
-            <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Mensagens simples viram registros organizados.</h2>
+            <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Mensagens simples viram controle da fazenda.</h2>
             <p className="mt-4 text-base leading-7 text-slate-600">
-              A comunicação continua natural, mas o sistema transforma o texto em dados estruturados para confirmar e salvar.
+              A mensagem continua simples para quem está no campo, e o Rancho organiza tudo para virar controle dentro do sistema.
             </p>
           </div>
           <div className="mt-10">
@@ -503,9 +513,9 @@ export function MarketingHomePage() {
             <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
               <div className="max-w-3xl">
                 <SectionLabel>Prévia do sistema</SectionLabel>
-                <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Imagens reais do produto, com dados sensíveis protegidos.</h2>
+                <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Telas reais para entender como o Rancho funciona.</h2>
                 <p className="mt-4 text-base leading-7 text-slate-600">
-                  Mantivemos os melhores prints para mostrar o produto com clareza, sem encher a página de telas repetidas.
+                  Selecionamos telas do sistema para mostrar a rotina com clareza, sem encher a página de informação repetida.
                 </p>
               </div>
               <Link href="/login" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-800 shadow-sm transition hover:-translate-y-1 hover:border-emerald-300 hover:text-emerald-700">
@@ -578,7 +588,7 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
               <SectionLabel>Na prática</SectionLabel>
               <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">{page.workflowTitle}</h2>
               <p className="mt-4 text-base leading-8 text-slate-600">
-                O fluxo foi desenhado para ser simples para a equipe e confiável para quem acompanha a gestão.
+                O fluxo foi pensado para a equipe registrar sem complicação e para a gestão acompanhar com confiança.
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -596,8 +606,8 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl">
               <SectionLabel>Produto real</SectionLabel>
-              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Telas que mostram o funcionamento, não só promessa.</h2>
-              <p className="mt-4 text-base leading-7 text-slate-600">Prints do ambiente demonstrativo do Rancho, com dados sensíveis mascarados.</p>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Telas reais para ver o Rancho em uso.</h2>
+              <p className="mt-4 text-base leading-7 text-slate-600">Prints do sistema com dados protegidos, mostrando como a rotina aparece no painel.</p>
             </div>
             <div className="mt-10 grid gap-6 lg:grid-cols-2">
               {visibleScreenshots.map((item) => <ScreenshotCard key={item.name} item={item} />)}
@@ -632,7 +642,7 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
           </div>
         </section>
 
-        <CtaBand title={`Quer usar o Rancho para ${page.heroLabel.toLowerCase()}?`} text="Solicite uma demonstração e veja como essa rotina fica dentro do sistema, do registro pelo WhatsApp ao acompanhamento no painel." />
+        <CtaBand title={`Quer usar o Rancho para ${page.heroLabel.toLowerCase()}?`} text="Agende uma demonstração e veja essa rotina funcionando no sistema, do registro pelo WhatsApp ao acompanhamento no painel." />
         <Footer />
       </main>
     </>

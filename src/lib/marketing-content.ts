@@ -64,7 +64,7 @@ export type MarketingPageContent = {
   related: string[];
 };
 
-export const CONTACT_HREF = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Quero conhecer o Rancho")}&body=${encodeURIComponent("Olá, gostaria de solicitar uma demonstração do Rancho.\n\nNome:\nFazenda:\nTelefone:")}`;
+export const CONTACT_HREF = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Quero conhecer o Rancho")}&body=${encodeURIComponent("Olá, gostaria de conhecer o Rancho e ver uma demonstração.\n\nNome:\nFazenda:\nTelefone:")}`;
 
 export const founders = ["Lucas Todaro", "Henrique Guimarães"];
 export const companyLocation = "João Pessoa, Paraíba";
@@ -88,35 +88,35 @@ export const showcaseItems: MarketingScreenshot[] = [
 ];
 
 export const homeFeatures: MarketingFeature[] = [
-  { icon: "bar-chart", title: "Dashboard geral", description: "Acompanhe produção, estoque, equipe e financeiro em uma visão simples." },
-  { icon: "paw", title: "Gestão de rebanho", description: "Organize animais, fases, lotes e histórico individual sem perder contexto." },
-  { icon: "droplets", title: "Produção de leite", description: "Registre ordenhas e acompanhe a evolução produtiva da fazenda." },
-  { icon: "boxes", title: "Estoque rural", description: "Controle entradas, baixas, unidades e itens críticos com mais previsibilidade." },
-  { icon: "wallet", title: "Financeiro rural", description: "Veja receitas, despesas e custos operacionais conectados aos registros." },
-  { icon: "users", title: "Funcionários e ponto", description: "Convide a equipe, acompanhe permissões e organize registros de ponto." },
-  { icon: "git-fork", title: "Genealogia", description: "Visualize relações familiares e dados importantes dos animais." },
-  { icon: "bot", title: "Bot de WhatsApp", description: "Registre dados por mensagem, com interpretação e confirmação antes de salvar." }
+  { icon: "bar-chart", title: "Painel da fazenda", description: "Veja produção, estoque, equipe e financeiro em uma visão fácil de acompanhar." },
+  { icon: "paw", title: "Rebanho organizado", description: "Controle animais, fases, lotes e histórico individual sem perder informação." },
+  { icon: "droplets", title: "Produção de leite", description: "Registre ordenhas e acompanhe a produção da fazenda ao longo do tempo." },
+  { icon: "boxes", title: "Estoque rural", description: "Acompanhe entradas, baixas, unidades e itens que precisam de atenção." },
+  { icon: "wallet", title: "Financeiro rural", description: "Veja receitas, despesas e custos ligados à rotina da fazenda." },
+  { icon: "users", title: "Equipe e ponto", description: "Organize funcionários, acessos e registros de trabalho em um só lugar." },
+  { icon: "git-fork", title: "Genealogia", description: "Acompanhe família, descendentes e informações importantes dos animais." },
+  { icon: "bot", title: "Bot de WhatsApp", description: "A equipe registra por mensagem e o Rancho leva o dado para o painel certo." }
 ];
 
 export const homeExamples: MarketingExample[] = [
-  { area: "Produção de leite", text: "B-002 deu 32 litros hoje", result: "Registro de ordenha pronto para confirmar." },
-  { area: "Estoque e financeiro", text: "vendi 4 sacos de milho por 320 reais", result: "Baixa no estoque e receita financeira conectadas." },
-  { area: "Compra de insumos", text: "comprei 12 sacos de ração por 960 reais", result: "Entrada no estoque e despesa lançadas juntas." },
-  { area: "Parto e cria", text: "a vaca B-5 pariu uma bezerra hoje, código B-941", result: "Parto, cria e genealogia preparados." },
-  { area: "Saúde animal", text: "apliquei vacina clostridial na B-001 hoje", result: "Evento sanitário com histórico do animal." },
-  { area: "Morte de animal", text: "a vaca Estrela morreu hoje", result: "Status do animal atualizado com segurança." },
-  { area: "Funcionários", text: "João entrou às 7h e saiu às 17h", result: "Ponto registrado para acompanhamento." },
-  { area: "Relatórios", text: "como foi o financeiro desse mês?", result: "Consulta resumida com números do período." }
+  { area: "Produção de leite", text: "B-002 deu 32 litros hoje", result: "Ordenha registrada no histórico da fazenda." },
+  { area: "Estoque e financeiro", text: "vendi 4 sacos de milho por 320 reais", result: "Estoque e financeiro atualizados juntos." },
+  { area: "Compra de insumos", text: "comprei 12 sacos de ração por 960 reais", result: "Compra organizada no estoque e no caixa." },
+  { area: "Parto e cria", text: "a vaca B-5 pariu uma bezerra hoje, código B-941", result: "Parto, cria e genealogia no mesmo fluxo." },
+  { area: "Saúde animal", text: "apliquei vacina clostridial na B-001 hoje", result: "Evento de saúde salvo no animal certo." },
+  { area: "Morte de animal", text: "a vaca Estrela morreu hoje", result: "Status do animal atualizado no rebanho." },
+  { area: "Funcionários", text: "João entrou às 7h e saiu às 17h", result: "Ponto pronto para acompanhar a equipe." },
+  { area: "Relatórios", text: "como foi o financeiro desse mês?", result: "Resumo do período em linguagem simples." }
 ];
 
 export const homeFaq: MarketingFaq[] = [
   {
     question: "O Rancho serve para controlar rebanho e produção de leite?",
-    answer: "Sim. O sistema reúne ficha dos animais, lotes, reprodução, genealogia, ordenhas, produção de leite, estoque, financeiro e relatórios."
+    answer: "Sim. O Rancho reúne ficha dos animais, lotes, reprodução, genealogia, ordenhas, produção de leite, estoque, financeiro e relatórios."
   },
   {
     question: "Consigo registrar dados da fazenda pelo WhatsApp?",
-    answer: "Sim. A equipe pode enviar mensagens simples para o bot, revisar a confirmação e salvar o registro no módulo correto do Rancho."
+    answer: "Sim. A equipe pode enviar mensagens simples para o bot e o Rancho organiza o registro no lugar certo."
   },
   {
     question: "O Rancho substitui planilhas e cadernos da fazenda?",
@@ -135,25 +135,25 @@ export const solutionPages: MarketingPageContent[] = [
     description: "Software para fazenda com controle de rebanho, produção de leite, estoque, financeiro, funcionários e registros pelo WhatsApp.",
     keywords: ["software para fazenda", "sistema para fazenda", "gestão de fazenda", "controle de fazenda"],
     heroLabel: "Software para fazenda",
-    heroTitle: "Controle a fazenda com dados organizados e menos retrabalho.",
-    heroText: "O Rancho reúne rebanho, leite, estoque, financeiro, equipe e WhatsApp em uma plataforma web feita para a rotina de quem precisa decidir rápido.",
+    heroTitle: "Controle a fazenda sem depender de caderno, planilha e memória.",
+    heroText: "O Rancho reúne rebanho, produção, estoque, financeiro, equipe e WhatsApp em uma plataforma feita para a rotina de fazenda.",
     heroImage: "/landing/screenshots/dashboard.png",
     heroImageAlt: "Dashboard do software para fazenda Rancho",
     primaryCta: "Conhecer o sistema",
-    proof: ["Painel único para a operação", "Registros com confirmação", "Acesso web para equipe e gestão"],
-    introTitle: "Uma fazenda não precisa depender de caderno, planilha e conversa perdida.",
-    introText: "Quando cada área anota de um jeito, o gestor perde histórico, tempo e confiança nos números. O Rancho conecta as rotinas principais para transformar registros simples em acompanhamento real.",
+    proof: ["Painel único da fazenda", "Registro pelo WhatsApp", "Acesso web para equipe e gestão"],
+    introTitle: "A rotina da fazenda fica mais leve quando a informação fica no lugar certo.",
+    introText: "Quando cada área anota de um jeito, o produtor perde histórico, tempo e confiança nos números. O Rancho conecta as rotinas principais para transformar registros simples em acompanhamento de verdade.",
     benefits: [
-      { icon: "bar-chart", title: "Visão geral da operação", description: "Veja produção, financeiro, rebanho e estoque sem procurar dados em vários lugares." },
-      { icon: "message", title: "Registro pelo WhatsApp", description: "A equipe informa a rotina por mensagem e o sistema organiza antes de salvar." },
-      { icon: "shield", title: "Confirmação antes de gravar", description: "O bot mostra o que entendeu para reduzir erro operacional." }
+      { icon: "bar-chart", title: "Visão geral da fazenda", description: "Veja produção, financeiro, rebanho e estoque sem procurar dado em vários lugares." },
+      { icon: "message", title: "Registro pelo WhatsApp", description: "A equipe informa a rotina por mensagem e o Rancho organiza no painel." },
+      { icon: "shield", title: "Mais segurança no registro", description: "Antes de salvar uma ação importante, o bot mostra o que entendeu." }
     ],
     workflowTitle: "Como funciona na prática",
-    workflow: ["Cadastre a fazenda e a equipe.", "Organize animais, lotes, estoque e financeiro.", "Registre pelo painel ou por mensagens no WhatsApp.", "Acompanhe indicadores, histórico e relatórios."],
+    workflow: ["Cadastre a fazenda e a equipe.", "Organize animais, lotes, estoque e financeiro.", "Registre pelo painel ou pelo WhatsApp.", "Acompanhe indicadores, histórico e relatórios."],
     examples: homeExamples.slice(0, 4),
     faq: [
       { question: "Esse software para fazenda funciona para pecuária leiteira?", answer: "Sim. O Rancho cobre produção de leite, rebanho, reprodução, estoque, financeiro e equipe." },
-      { question: "Preciso abandonar o WhatsApp da equipe?", answer: "Não. A proposta é justamente aproveitar mensagens simples e transformar em registro organizado." },
+      { question: "Preciso abandonar o WhatsApp da equipe?", answer: "Não. A proposta é aproveitar o que a equipe já usa e transformar mensagens em registros organizados." },
       { question: "O sistema tem login?", answer: "Sim. O Rancho tem área interna protegida para acessar os dados da fazenda." }
     ],
     screenshots: [showcaseItems[0], showcaseItems[1], showcaseItems[3], showcaseItems[7]],
@@ -165,28 +165,28 @@ export const solutionPages: MarketingPageContent[] = [
     description: "Controle de rebanho bovino com ficha do animal, lotes, status, eventos, genealogia, reprodução e histórico completo.",
     keywords: ["controle de rebanho", "controle de rebanho bovino", "gestão de animais", "ficha de animal bovino"],
     heroLabel: "Controle de rebanho",
-    heroTitle: "Cada animal com histórico claro, do cadastro aos eventos da vida produtiva.",
-    heroText: "Organize brincos, nomes, fases, lotes, status, genealogia, reprodução e ocorrências para saber o que aconteceu com cada animal.",
+    heroTitle: "Cada animal com ficha clara e histórico fácil de consultar.",
+    heroText: "Organize brincos, nomes, fases, lotes, status, genealogia, reprodução e ocorrências para saber a situação de cada animal.",
     heroImage: "/landing/screenshots/rebanho.png",
     heroImageAlt: "Tela de controle de rebanho bovino do Rancho",
     primaryCta: "Organizar meu rebanho",
     proof: ["Ficha individual por animal", "Lotes e fases produtivas", "Histórico ligado à reprodução e saúde"],
-    introTitle: "O rebanho precisa de histórico, não só de uma lista de nomes.",
-    introText: "O Rancho ajuda a acompanhar o animal por código, lote, fase, eventos, partos, tratamentos e relações familiares, mantendo a informação pronta para consulta.",
+    introTitle: "O rebanho precisa de histórico, não só de uma lista de animais.",
+    introText: "O Rancho ajuda a acompanhar cada animal por código, lote, fase, eventos, partos, tratamentos e família, deixando a informação pronta para consulta.",
     benefits: [
       { icon: "paw", title: "Ficha individual", description: "Tenha código, nome, categoria, sexo, raça, lote, peso e status em um só lugar." },
-      { icon: "clipboard", title: "Eventos conectados", description: "Vacinas, partos, mortes, observações e manejos ficam no histórico do animal." },
+      { icon: "clipboard", title: "Eventos no histórico", description: "Vacinas, partos, mortes, observações e manejos ficam ligados ao animal certo." },
       { icon: "git-fork", title: "Genealogia", description: "Visualize vínculos familiares e descendentes diretos." }
     ],
     workflowTitle: "Como o controle acontece",
     workflow: ["Cadastre animais individualmente ou por tabela.", "Separe por lotes e fases produtivas.", "Registre eventos pelo painel ou WhatsApp.", "Consulte histórico, genealogia e situação atual."],
     examples: [
-      { area: "Cadastro", text: "criar vaca Mimosa código B-001 no lote Lactação", result: "Ficha do animal pronta para confirmação." },
-      { area: "Lote", text: "troca o lote da B-010 para Bezerros", result: "Alteração de lote preparada com validação." },
+      { area: "Cadastro", text: "criar vaca Mimosa código B-001 no lote Lactação", result: "Ficha do animal criada para acompanhar no rebanho." },
+      { area: "Lote", text: "troca o lote da B-010 para Bezerros", result: "Mudança de lote organizada no animal certo." },
       { area: "Consulta", text: "como tá a vaca 090?", result: "Resumo da ficha e dos eventos recentes." }
     ],
     faq: [
-      { question: "Dá para importar animais por tabela?", answer: "Sim. O Rancho reconhece tabelas de animais e valida pendências antes de cadastrar." },
+      { question: "Dá para importar animais por tabela?", answer: "Sim. O Rancho lê tabelas de animais e mostra o que precisa ser ajustado antes do cadastro." },
       { question: "O sistema aceita lotes?", answer: "Sim. Os lotes ajudam a organizar manejo, fase, piquete e grupos produtivos." },
       { question: "Consigo ver histórico de cada animal?", answer: "Sim. A ficha reúne dados cadastrais e eventos relevantes." }
     ],
@@ -199,21 +199,21 @@ export const solutionPages: MarketingPageContent[] = [
     description: "Controle leiteiro para registrar ordenhas, acompanhar litros produzidos, destino do leite e evolução da produção da fazenda.",
     keywords: ["controle leiteiro", "produção de leite", "controle de ordenha", "sistema para produção de leite"],
     heroLabel: "Controle leiteiro",
-    heroTitle: "Produção de leite registrada com clareza, por dia e por animal.",
-    heroText: "Acompanhe litros, destino do leite, média diária e histórico de produção sem depender de planilhas manuais.",
+    heroTitle: "Produção de leite registrada com clareza, todo dia.",
+    heroText: "Acompanhe litros, destino do leite, média diária e histórico de produção sem depender de planilha manual.",
     heroImage: "/landing/screenshots/producao.png",
     heroImageAlt: "Tela de produção de leite do Rancho",
     primaryCta: "Controlar produção",
     proof: ["Litros por período", "Registro por animal", "Relatórios de produção"],
-    introTitle: "A ordenha só vira gestão quando os números aparecem com contexto.",
-    introText: "O Rancho transforma registros simples de produção em acompanhamento do dia, do mês e dos animais mais importantes para a fazenda.",
+    introTitle: "A ordenha vira gestão quando o número não fica perdido.",
+    introText: "O Rancho transforma registros simples de produção em acompanhamento do dia, do mês e dos animais mais importantes da fazenda.",
     benefits: [
       { icon: "droplets", title: "Litros organizados", description: "Registre produção total, por animal ou por destino." },
       { icon: "bar-chart", title: "Evolução visível", description: "Veja médias e totais para entender a tendência da fazenda." },
-      { icon: "message", title: "Entrada rápida", description: "Mensagens simples pelo WhatsApp podem virar registro de ordenha." }
+      { icon: "message", title: "Entrada rápida", description: "A produção pode ser informada pelo WhatsApp e acompanhada no painel." }
     ],
     workflowTitle: "Rotina simples de controle",
-    workflow: ["Registre a produção do dia.", "Informe animal, quantidade e destino quando necessário.", "Confirme antes de salvar.", "Consulte totais e médias por período."],
+    workflow: ["Registre a produção do dia.", "Informe animal, quantidade e destino quando precisar.", "Revise o lançamento.", "Consulte totais e médias por período."],
     examples: [
       { area: "Ordenha", text: "B-002 deu 32 litros hoje", result: "Produção registrada para a vaca B-002." },
       { area: "Consulta", text: "quanto produzi de leite hoje?", result: "Total do dia e registros encontrados." },
@@ -233,17 +233,17 @@ export const solutionPages: MarketingPageContent[] = [
     description: "Gestão de gado leiteiro com reprodução, partos, genealogia, produção, lotes, saúde animal e controle financeiro.",
     keywords: ["gestão de gado leiteiro", "sistema para gado leiteiro", "pecuária leiteira", "fazenda de leite"],
     heroLabel: "Gado leiteiro",
-    heroTitle: "Gestão de gado leiteiro com produção, reprodução e histórico unidos.",
-    heroText: "Acompanhe vacas em lactação, partos, prenhez, genealogia, ordenha, estoque e financeiro em uma rotina mais conectada.",
+    heroTitle: "Gado leiteiro com produção, reprodução e histórico no mesmo lugar.",
+    heroText: "Acompanhe vacas em lactação, partos, prenhez, genealogia, ordenha, estoque e financeiro com uma rotina mais conectada.",
     heroImage: "/landing/screenshots/genealogia.png",
     heroImageAlt: "Tela de genealogia bovina do Rancho",
     primaryCta: "Ver gestão leiteira",
     proof: ["Lactação e reprodução", "Partos e crias", "Histórico produtivo e sanitário"],
     introTitle: "Na fazenda de leite, produção e reprodução andam juntas.",
-    introText: "O Rancho ajuda a relacionar os dados do rebanho com a produção, os eventos reprodutivos, os tratamentos e os custos do dia a dia.",
+    introText: "O Rancho ajuda a relacionar rebanho, produção, reprodução, tratamentos e custos do dia a dia, sem separar tudo em controles diferentes.",
     benefits: [
-      { icon: "droplets", title: "Produção conectada", description: "Acompanhe ordenhas e evolução produtiva junto ao histórico do animal." },
-      { icon: "git-fork", title: "Partos e genealogia", description: "Registre partos, crias e vínculos familiares com mais segurança." },
+      { icon: "droplets", title: "Produção conectada", description: "Acompanhe ordenhas e evolução produtiva junto do histórico do animal." },
+      { icon: "git-fork", title: "Partos e genealogia", description: "Registre partos, crias e vínculos familiares de forma organizada." },
       { icon: "clipboard", title: "Eventos sanitários", description: "Vacinas, tratamentos e observações ficam ligados ao rebanho." }
     ],
     workflowTitle: "Do parto ao relatório",
@@ -267,28 +267,28 @@ export const solutionPages: MarketingPageContent[] = [
     description: "Financeiro rural para controlar receitas, despesas, vendas, compras de insumos, estoque e resultado da fazenda.",
     keywords: ["financeiro rural", "controle financeiro fazenda", "fluxo de caixa rural", "custos da fazenda"],
     heroLabel: "Financeiro rural",
-    heroTitle: "Receitas, despesas e estoque conversando na mesma rotina.",
-    heroText: "Controle vendas, compras, gastos operacionais e resultado da fazenda com lançamentos conectados ao estoque e aos registros do dia.",
+    heroTitle: "Financeiro rural ligado à rotina da fazenda.",
+    heroText: "Controle vendas, compras, gastos e resultado da fazenda com lançamentos conectados ao estoque e aos registros do dia.",
     heroImage: "/landing/screenshots/financeiro.png",
     heroImageAlt: "Tela de financeiro rural do Rancho",
     primaryCta: "Organizar financeiro",
     proof: ["Entradas e saídas", "Categorias de custo", "Integração com estoque"],
-    introTitle: "O financeiro rural fica mais claro quando a rotina operacional alimenta os números.",
-    introText: "Ao registrar uma compra, venda ou uso de insumo, o Rancho pode atualizar financeiro e estoque juntos, reduzindo retrabalho e divergência.",
+    introTitle: "O financeiro fica mais claro quando acompanha o que aconteceu no campo.",
+    introText: "Ao registrar compra, venda ou uso de insumo, o Rancho ajuda a manter financeiro e estoque alinhados, reduzindo retrabalho e diferença de informação.",
     benefits: [
       { icon: "wallet", title: "Fluxo de caixa", description: "Veja entradas, saídas e saldo por período." },
       { icon: "boxes", title: "Estoque conectado", description: "Compras e vendas podem movimentar produtos e insumos." },
-      { icon: "bar-chart", title: "Resumo para decisão", description: "Relatórios ajudam a entender onde a fazenda ganha e gasta." }
+      { icon: "bar-chart", title: "Resumo para decisão", description: "Relatórios ajudam a entender de onde vem o dinheiro e para onde ele vai." }
     ],
     workflowTitle: "Como os lançamentos entram",
-    workflow: ["Registre venda, compra ou despesa.", "O sistema identifica valor, categoria e item relacionado.", "Confirme a ação antes de salvar.", "Consulte resumo financeiro por período."],
+    workflow: ["Registre venda, compra ou despesa.", "Informe valor, categoria e item quando houver.", "Revise o lançamento.", "Consulte resumo financeiro por período."],
     examples: [
       { area: "Venda", text: "vendi 4 sacos de milho por 320 reais", result: "Receita e baixa de estoque conectadas." },
       { area: "Compra", text: "comprei 12 sacos de ração por 960 reais", result: "Despesa e entrada no estoque preparadas." },
       { area: "Consulta", text: "quanto gastei com ração esse mês?", result: "Resumo filtrado por categoria ou item." }
     ],
     faq: [
-      { question: "O financeiro conversa com o estoque?", answer: "Sim. O Rancho pode registrar movimentação de estoque e lançamento financeiro na mesma confirmação." },
+      { question: "O financeiro conversa com o estoque?", answer: "Sim. O Rancho pode registrar movimentação de estoque e lançamento financeiro no mesmo fluxo." },
       { question: "Consigo consultar gastos por período?", answer: "Sim. O bot e o painel ajudam a consultar hoje, mês e outros filtros." },
       { question: "Serve para pequenas fazendas?", answer: "Sim. A proposta é deixar o controle simples para quem precisa sair da planilha." }
     ],
@@ -298,28 +298,28 @@ export const solutionPages: MarketingPageContent[] = [
   {
     slug: "bot-whatsapp-fazenda",
     title: "Bot de WhatsApp para fazenda",
-    description: "Bot de WhatsApp para fazenda registrar produção, estoque, financeiro, partos, vacinas, mortes e consultas no sistema.",
+    description: "Bot de WhatsApp para fazenda registrar produção, estoque, financeiro, partos, vacinas, mortes e consultas no Rancho.",
     keywords: ["bot WhatsApp fazenda", "chatbot para fazenda", "WhatsApp agropecuária", "registrar fazenda por WhatsApp"],
     heroLabel: "WhatsApp para fazenda",
-    heroTitle: "A equipe registra a rotina pelo WhatsApp. O Rancho organiza no sistema.",
-    heroText: "Mensagens simples podem virar registros de produção, estoque, financeiro, rebanho, reprodução, saúde animal e relatórios, sempre com confirmação antes de salvar.",
+    heroTitle: "O WhatsApp da fazenda vira registro organizado no Rancho.",
+    heroText: "A equipe manda mensagens simples e acompanha produção, estoque, financeiro, rebanho, reprodução, saúde animal e relatórios no sistema.",
     heroImage: "/landing/screenshots/whatsapp.png",
     heroImageAlt: "Tela do bot de WhatsApp para fazenda no Rancho",
     primaryCta: "Testar o bot",
-    proof: ["Interpretação por IA", "Confirmação antes de salvar", "Dados no módulo correto"],
-    introTitle: "O melhor registro é aquele que a equipe realmente consegue fazer na hora.",
-    introText: "Em vez de obrigar todo mundo a abrir telas, o Rancho permite informar a rotina por mensagem e usa validações do sistema antes de gravar.",
+    proof: ["Bot de WhatsApp integrado", "Registro rápido da rotina", "Informação direto no painel"],
+    introTitle: "O melhor registro é aquele que a equipe consegue fazer na hora.",
+    introText: "Em vez de obrigar todo mundo a abrir telas, o Rancho permite informar a rotina por mensagem e organiza esses dados para a gestão acompanhar.",
     benefits: [
-      { icon: "message", title: "Mensagem natural", description: "O usuário escreve como fala na rotina da fazenda." },
-      { icon: "bot", title: "Interpretação inteligente", description: "O bot organiza campos, ações compostas e consultas." },
-      { icon: "shield", title: "Segurança antes de salvar", description: "O backend valida e pede confirmação quando a ação altera dados." }
+      { icon: "message", title: "Mensagem simples", description: "A equipe escreve como fala na rotina da fazenda." },
+      { icon: "bot", title: "Bot integrado ao Rancho", description: "O que chega pelo WhatsApp aparece organizado no sistema." },
+      { icon: "shield", title: "Mais controle", description: "Ações importantes podem ser revisadas antes de entrar no histórico da fazenda." }
     ],
-    workflowTitle: "Fluxo do bot",
-    workflow: ["O usuário envia uma mensagem.", "A IA interpreta a intenção e monta a ação.", "O sistema valida dados, permissões e riscos.", "O bot confirma e salva no lugar certo."],
+    workflowTitle: "Como funciona no dia a dia",
+    workflow: ["A equipe envia uma mensagem pelo WhatsApp.", "O Rancho entende o registro e organiza os dados.", "Você revisa quando a ação for importante.", "O lançamento aparece no painel certo."],
     examples: homeExamples,
     faq: [
-      { question: "O bot salva direto sem confirmar?", answer: "Ações que alteram dados passam por confirmação para reduzir erro." },
-      { question: "Ele entende tabelas?", answer: "Sim. O bot foi pensado para receber mensagens e tabelas de rotina da fazenda." },
+      { question: "O bot salva direto sem confirmar?", answer: "Quando a ação altera dados importantes, o Rancho pode pedir revisão antes de salvar." },
+      { question: "Ele entende tabelas?", answer: "Sim. O bot foi pensado para receber mensagens e tabelas da rotina da fazenda." },
       { question: "O WhatsApp substitui o painel?", answer: "Não. Ele facilita o registro; o painel continua sendo a visão organizada para gestão." }
     ],
     screenshots: [showcaseItems[7], showcaseItems[0], showcaseItems[4], showcaseItems[3]],

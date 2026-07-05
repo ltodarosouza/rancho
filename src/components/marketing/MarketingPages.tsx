@@ -75,6 +75,14 @@ const managementAreas = [
   "Funcionários, ponto e folha"
 ];
 
+const marketingNavItems = [
+  { label: "Software", href: "/software-para-fazenda", slug: "software-para-fazenda" },
+  { label: "Rebanho", href: "/controle-de-rebanho", slug: "controle-de-rebanho" },
+  { label: "Produção", href: "/controle-leiteiro", slug: "controle-leiteiro" },
+  { label: "WhatsApp", href: "/bot-whatsapp-fazenda", slug: "bot-whatsapp-fazenda" },
+  { label: "Financeiro", href: "/financeiro-rural", slug: "financeiro-rural" }
+];
+
 function SectionLabel({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
   return (
     <p className={`mb-3 inline-flex items-center gap-2 rounded-lg border px-3 py-1 text-xs font-black uppercase tracking-[0.16em] ${dark ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
@@ -84,38 +92,48 @@ function SectionLabel({ children, dark = false }: { children: React.ReactNode; d
   );
 }
 
-function MarketingHeader() {
+function MarketingHeader({ currentSlug }: { currentSlug?: string }) {
   return (
-    <header className="sticky top-0 z-50 border-b border-emerald-900/10 bg-white/88 shadow-sm shadow-slate-950/[0.03] backdrop-blur-xl">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-50 border-b border-emerald-900/10 bg-white/92 shadow-sm shadow-slate-950/[0.04] backdrop-blur-xl">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 pt-3 sm:px-6 lg:px-8">
         <Link href="/" className="flex min-w-0 items-center gap-3 font-black text-slate-950" aria-label="Rancho">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-800 text-white shadow-lg shadow-emerald-900/20">
-            <Leaf className="h-5 w-5" />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-800 text-white shadow-lg shadow-emerald-900/20 sm:h-10 sm:w-10">
+            <Leaf className="h-4 w-4 sm:h-5 sm:w-5" />
           </span>
           <span className="min-w-0">
             <span className="block truncate text-lg leading-tight">Rancho</span>
             <span className="block truncate text-xs font-bold text-slate-500">Gestão agropecuária</span>
           </span>
         </Link>
-        <div className="hidden items-center gap-5 text-sm font-bold text-slate-600 lg:flex">
-          <Link className="transition hover:text-emerald-700" href="/software-para-fazenda">Software</Link>
-          <Link className="transition hover:text-emerald-700" href="/controle-de-rebanho">Rebanho</Link>
-          <Link className="transition hover:text-emerald-700" href="/controle-leiteiro">Leite</Link>
-          <Link className="transition hover:text-emerald-700" href="/bot-whatsapp-fazenda">WhatsApp</Link>
-          <Link className="transition hover:text-emerald-700" href="/financeiro-rural">Financeiro</Link>
-        </div>
         <div className="flex shrink-0 items-center gap-2">
           <Link href="/login" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:border-emerald-300 hover:text-emerald-700">
             <LogIn className="h-4 w-4" />
             <span className="hidden sm:inline">Entrar</span>
           </Link>
-          <a href={CONTACT_HREF} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 text-sm font-black text-white shadow-lg shadow-emerald-800/20 transition hover:-translate-y-0.5 hover:bg-emerald-800 sm:px-4">
+          <a href={CONTACT_HREF} className="hidden h-10 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 text-sm font-black text-white shadow-lg shadow-emerald-800/20 transition hover:-translate-y-0.5 hover:bg-emerald-800 sm:inline-flex sm:px-4">
             <span className="hidden sm:inline">Solicitar demonstração</span>
             <span className="sm:hidden">Demo</span>
             <ArrowRight className="h-4 w-4" />
           </a>
         </div>
       </nav>
+      <div className="mx-auto max-w-7xl px-2 pb-2 pt-2 sm:px-6 sm:pt-3 lg:px-8">
+        <div className="flex gap-1.5 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50/80 p-1 text-sm font-black text-slate-600 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2 lg:inline-flex">
+          {marketingNavItems.map((item) => {
+            const active = currentSlug === item.slug;
+            return (
+              <Link
+                key={item.slug}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`whitespace-nowrap rounded-md px-2.5 py-1.5 transition sm:px-3 sm:py-2 ${active ? "bg-emerald-700 text-white shadow-sm shadow-emerald-900/15" : "hover:bg-white hover:text-emerald-800"}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
     </header>
   );
 }
@@ -161,16 +179,16 @@ function Hero({
       />
       <div className="absolute inset-0 z-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.94)_0%,rgba(2,6,23,0.78)_36%,rgba(2,6,23,0.34)_68%,rgba(2,6,23,0.08)_100%)]" />
       <div className="absolute inset-x-0 bottom-0 z-0 h-44 bg-gradient-to-t from-slate-950 to-transparent" />
-      <div className="relative z-10 mx-auto flex min-h-[76svh] max-w-7xl items-end px-4 pb-12 pt-24 sm:px-6 sm:pb-16 lg:px-8">
-        <div className="max-w-4xl animate-fade-in">
+      <div className="relative z-10 mx-auto flex min-h-[68svh] max-w-7xl items-end px-4 pb-12 pt-28 sm:px-6 sm:pb-16 lg:px-8">
+        <div className="w-full min-w-0 max-w-4xl animate-fade-in">
           <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-emerald-300/30 bg-white/10 px-3 py-1 text-sm font-black text-emerald-100 shadow-sm backdrop-blur">
             <ShieldCheck className="h-4 w-4" />
             {label}
           </div>
-          <h1 className="max-w-4xl text-4xl font-black leading-tight tracking-normal sm:text-5xl lg:text-6xl">
+          <h1 className="max-w-full break-words text-2xl font-black leading-tight tracking-normal sm:max-w-4xl sm:text-5xl lg:text-6xl">
             {title}
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-100">
+          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-100 sm:mt-6 sm:text-lg sm:leading-8">
             {text}
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -221,7 +239,7 @@ function TrustStrip() {
 function FeatureCard({ item }: { item: MarketingFeature }) {
   const Icon = iconMap[item.icon];
   return (
-    <article className="group rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft">
+    <article className="reveal-on-scroll group rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft">
       <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 transition group-hover:bg-emerald-700 group-hover:text-white">
         <Icon className="h-5 w-5" />
       </div>
@@ -233,8 +251,8 @@ function FeatureCard({ item }: { item: MarketingFeature }) {
 
 function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; large?: boolean }) {
   return (
-    <article className={`group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft ${large ? "lg:col-span-2" : ""}`}>
-      <div className="relative aspect-[16/10] overflow-hidden bg-white">
+    <article className={`reveal-on-scroll group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-soft ${large ? "lg:col-span-2" : ""}`}>
+      <div className="relative overflow-x-auto bg-white [scrollbar-width:thin]">
         <Image
           src={item.image}
           alt={`Tela do Rancho: ${item.name}`}
@@ -244,7 +262,7 @@ function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; la
           loading={large ? "eager" : "lazy"}
           decoding="async"
           sizes={large ? "(min-width: 1024px) 100vw, 100vw" : "(min-width: 1024px) 50vw, 100vw"}
-          className="h-full w-full object-contain object-top"
+          className="h-auto w-[760px] max-w-none object-top sm:w-full"
         />
         <div className="absolute right-[2.5%] top-[2.8%] flex min-h-8 items-center justify-center rounded-lg border border-white/50 bg-white/75 px-3 text-center text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 shadow-sm backdrop-blur-md">
           Demo protegida
@@ -255,6 +273,9 @@ function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; la
             <div className="absolute left-[60%] top-[64%] h-[19%] w-[31%] rounded-lg border border-white/50 bg-white/75 shadow-sm backdrop-blur-md" />
           </>
         ) : null}
+        <div className="absolute bottom-2 left-2 rounded-md border border-white/70 bg-white/85 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 shadow-sm backdrop-blur sm:hidden">
+          Arraste para ver
+        </div>
       </div>
       <div className="border-t border-slate-100 p-4">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{item.detail}</p>
@@ -268,7 +289,7 @@ function ExamplesGrid({ examples }: { examples: { area: string; text: string; re
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {examples.map((example) => (
-        <article key={`${example.area}-${example.text}`} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <article key={`${example.area}-${example.text}`} className="reveal-on-scroll rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{example.area}</p>
           <p className="mt-3 rounded-lg bg-slate-950 px-4 py-3 text-sm font-bold leading-6 text-white">&ldquo;{example.text}&rdquo;</p>
           <p className="mt-3 text-sm leading-6 text-slate-600">{example.result}</p>
@@ -282,7 +303,7 @@ function FaqBlock({ faq }: { faq: { question: string; answer: string }[] }) {
   return (
     <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white shadow-sm">
       {faq.map((item) => (
-        <article key={item.question} className="p-5">
+        <article key={item.question} className="reveal-on-scroll p-5">
           <h3 className="text-lg font-black text-slate-950">{item.question}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">{item.answer}</p>
         </article>
@@ -334,7 +355,7 @@ function CtaBand({ title = "Quer ver o Rancho funcionando na sua fazenda?", text
         <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-lg bg-emerald-400/15 text-emerald-200">
           <Leaf className="h-7 w-7" />
         </div>
-        <h2 className="text-3xl font-black sm:text-4xl">{title}</h2>
+        <h2 className="text-2xl font-black sm:text-4xl">{title}</h2>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-8 text-emerald-50">{text}</p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <a href={CONTACT_HREF} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-6 py-3 text-base font-black text-emerald-800 transition hover:-translate-y-1 hover:bg-emerald-50">
@@ -369,11 +390,11 @@ export function MarketingHomePage() {
         />
         <TrustStrip />
 
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
             <div>
               <SectionLabel>Por que existe</SectionLabel>
-              <h2 className="text-3xl font-black text-slate-950 sm:text-4xl">A fazenda ganha velocidade quando o dado nasce organizado.</h2>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">A fazenda ganha velocidade quando o dado nasce organizado.</h2>
               <p className="mt-4 text-base leading-8 text-slate-600">
                 O Rancho foi pensado para tirar a gestão da mistura entre caderno, planilha e conversa solta. A equipe registra a rotina, o sistema valida e o gestor acompanha tudo com mais confiança.
               </p>
@@ -390,29 +411,29 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        <section id="funcionalidades" className="bg-white py-16">
+        <section id="funcionalidades" className="bg-white py-14">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-3xl text-center">
               <SectionLabel>Funcionalidades</SectionLabel>
-              <h2 className="text-3xl font-black text-slate-950 sm:text-4xl">Tudo que a fazenda precisa acompanhar, sem espalhar a informação.</h2>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Tudo que a fazenda precisa acompanhar, sem espalhar a informação.</h2>
               <p className="mt-4 text-base leading-7 text-slate-600">Módulos conectados para transformar rotina operacional em dados úteis para decisão.</p>
             </div>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {homeFeatures.map((feature) => <FeatureCard key={feature.title} item={feature} />)}
+              {homeFeatures.slice(0, 6).map((feature) => <FeatureCard key={feature.title} item={feature} />)}
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
               <SectionLabel>Áreas cobertas</SectionLabel>
-              <h2 className="text-3xl font-black text-slate-950 sm:text-4xl">Controle completo para fazenda de leite, pecuária e operação rural.</h2>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Controle completo para fazenda de leite, pecuária e operação rural.</h2>
               <p className="mt-4 text-base leading-8 text-slate-600">
                 A página principal abre o caminho, e as páginas específicas ajudam o Google e o produtor a entenderem cada solução com mais profundidade.
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {managementAreas.map((area) => (
+                {managementAreas.slice(0, 6).map((area) => (
                   <div key={area} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm font-black text-slate-800 shadow-sm">
                     <ClipboardCheck className="h-5 w-5 shrink-0 text-emerald-700" />
                     {area}
@@ -436,11 +457,11 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        <section id="whatsapp" className="bg-slate-950 py-16 text-white">
+        <section id="whatsapp" className="bg-slate-950 py-14 text-white">
           <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[0.82fr_1.18fr] lg:px-8">
             <div>
               <SectionLabel dark>WhatsApp integrado</SectionLabel>
-              <h2 className="text-3xl font-black sm:text-4xl">A equipe registra a rotina onde ela já conversa.</h2>
+              <h2 className="text-2xl font-black sm:text-4xl">A equipe registra a rotina onde ela já conversa.</h2>
               <p className="mt-5 text-base leading-8 text-slate-300">
                 O funcionário envia uma mensagem, o bot interpreta, o backend valida e a ação só é salva depois da confirmação. O resultado aparece no painel certo.
               </p>
@@ -457,25 +478,25 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        <section id="exemplos" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <section id="exemplos" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
             <SectionLabel>Exemplos reais</SectionLabel>
-            <h2 className="text-3xl font-black text-slate-950 sm:text-4xl">Mensagens simples viram registros organizados.</h2>
+            <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Mensagens simples viram registros organizados.</h2>
             <p className="mt-4 text-base leading-7 text-slate-600">
               A comunicação continua natural, mas o sistema transforma o texto em dados estruturados para confirmar e salvar.
             </p>
           </div>
           <div className="mt-10">
-            <ExamplesGrid examples={homeExamples} />
+            <ExamplesGrid examples={homeExamples.slice(0, 4)} />
           </div>
         </section>
 
-        <section id="prints" className="bg-white py-16">
+        <section id="prints" className="bg-white py-14">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
               <div className="max-w-3xl">
                 <SectionLabel>Prévia do sistema</SectionLabel>
-                <h2 className="text-3xl font-black text-slate-950 sm:text-4xl">Imagens reais do produto, com dados sensíveis protegidos.</h2>
+                <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Imagens reais do produto, com dados sensíveis protegidos.</h2>
                 <p className="mt-4 text-base leading-7 text-slate-600">
                   Mantivemos os melhores prints para mostrar o produto com clareza, sem encher a página de telas repetidas.
                 </p>
@@ -486,14 +507,14 @@ export function MarketingHomePage() {
               </Link>
             </div>
             <div className="mt-10 grid gap-6 lg:grid-cols-2">
-              {homeScreenshots.map((item, index) => <ScreenshotCard key={item.name} item={item} large={index === 0} />)}
+              {homeScreenshots.map((item) => <ScreenshotCard key={item.name} item={item} />)}
             </div>
           </div>
         </section>
 
-        <section id="faq" className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
+        <section id="faq" className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8">
           <SectionLabel>Perguntas frequentes</SectionLabel>
-          <h2 className="max-w-3xl text-3xl font-black text-slate-950 sm:text-4xl">Dúvidas comuns sobre o Rancho.</h2>
+          <h2 className="max-w-3xl text-2xl font-black text-slate-950 sm:text-4xl">Dúvidas comuns sobre o Rancho.</h2>
           <div className="mt-8">
             <FaqBlock faq={homeFaq} />
           </div>
@@ -510,12 +531,15 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
   const relatedPages = page.related
     .map((slug) => solutionPages.find((item) => item.slug === slug))
     .filter(Boolean) as MarketingPageContent[];
+  const visibleScreenshots = page.screenshots.length % 2 === 0
+    ? page.screenshots
+    : page.screenshots.slice(0, Math.max(2, page.screenshots.length - 1));
 
   return (
     <>
       <StructuredData page={page} />
       <main className="min-h-screen overflow-hidden bg-[#f8fafc] text-slate-950">
-        <MarketingHeader />
+        <MarketingHeader currentSlug={page.slug} />
         <Hero
           label={page.heroLabel}
           title={page.heroTitle}
@@ -527,11 +551,11 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
         />
         <TrustStrip />
 
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
             <div>
               <SectionLabel>Visão geral</SectionLabel>
-              <h2 className="text-3xl font-black text-slate-950 sm:text-4xl">{page.introTitle}</h2>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">{page.introTitle}</h2>
               <p className="mt-5 text-base leading-8 text-slate-600">{page.introText}</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
@@ -540,11 +564,11 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
           </div>
         </section>
 
-        <section className="bg-white py-16">
+        <section className="bg-white py-14">
           <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
             <div>
               <SectionLabel>Na prática</SectionLabel>
-              <h2 className="text-3xl font-black text-slate-950 sm:text-4xl">{page.workflowTitle}</h2>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">{page.workflowTitle}</h2>
               <p className="mt-4 text-base leading-8 text-slate-600">
                 O fluxo foi desenhado para ser simples para a equipe e confiável para quem acompanha a gestão.
               </p>
@@ -560,39 +584,28 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-3xl text-center">
-            <SectionLabel>Exemplos</SectionLabel>
-            <h2 className="text-3xl font-black text-slate-950 sm:text-4xl">Como o Rancho aparece na rotina.</h2>
-            <p className="mt-4 text-base leading-7 text-slate-600">Exemplos de mensagens e ações que ajudam o público a entender o valor antes de pedir demonstração.</p>
-          </div>
-          <div className="mt-10">
-            <ExamplesGrid examples={page.examples} />
-          </div>
-        </section>
-
-        <section className="bg-white py-16">
+        <section className="bg-white py-14">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl">
               <SectionLabel>Produto real</SectionLabel>
-              <h2 className="text-3xl font-black text-slate-950 sm:text-4xl">Telas que mostram o funcionamento, não só promessa.</h2>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">Telas que mostram o funcionamento, não só promessa.</h2>
               <p className="mt-4 text-base leading-7 text-slate-600">Prints do ambiente demonstrativo do Rancho, com dados sensíveis mascarados.</p>
             </div>
             <div className="mt-10 grid gap-6 lg:grid-cols-2">
-              {page.screenshots.map((item, index) => <ScreenshotCard key={item.name} item={item} large={index === 0} />)}
+              {visibleScreenshots.map((item) => <ScreenshotCard key={item.name} item={item} />)}
             </div>
           </div>
         </section>
 
-        <section className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.75fr_1.25fr] lg:px-8">
+        <section className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[0.75fr_1.25fr] lg:px-8">
           <div>
             <SectionLabel>Perguntas frequentes</SectionLabel>
-            <h2 className="text-3xl font-black text-slate-950 sm:text-4xl">O que o produtor costuma querer saber.</h2>
+            <h2 className="text-2xl font-black text-slate-950 sm:text-4xl">O que o produtor costuma querer saber.</h2>
           </div>
           <FaqBlock faq={page.faq} />
         </section>
 
-        <section className="bg-slate-950 py-16 text-white">
+        <section className="bg-slate-950 py-14 text-white">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionLabel dark>Também pode ajudar</SectionLabel>
             <div className="grid gap-4 md:grid-cols-3">

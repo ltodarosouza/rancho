@@ -1,92 +1,145 @@
 # Rancho
 
-Sistema web para gestao agropecuaria, com foco em operacao de fazendas, controle de rebanho, estoque, financeiro, equipe e automacao por WhatsApp.
+![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=for-the-badge&logo=nextdotjs)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?style=for-the-badge&logo=supabase&logoColor=0B3B2E)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38BDF8?style=for-the-badge&logo=tailwindcss&logoColor=white)
 
-O projeto usa Next.js, Supabase e um bot WhatsApp com interpretador Gemini-first para transformar mensagens naturais e tabelas enviadas pelo usuario em acoes seguras no sistema.
+Rancho is a full-stack agricultural management system built to help farms organize daily operations, centralize records, and turn WhatsApp messages into safe structured actions inside the platform.
 
-## Principais recursos
+The project combines a web dashboard, Supabase persistence, multi-tenant data isolation, and an AI-assisted WhatsApp workflow that can understand natural language messages, tables, and operational updates before saving anything to the database.
 
-- Dashboard operacional com indicadores da fazenda.
-- Gestao de rebanho, lotes, genealogia, reproducao, eventos e producao de leite.
-- Controle de estoque com movimentacoes de entrada e saida.
-- Financeiro com receitas, despesas, saldo e relatorios.
-- Funcionarios, ponto, folha e convites de acesso.
-- Central WhatsApp com simulador interno, webhook Twilio/Meta e historico de mensagens.
-- Bot WhatsApp com ActionPlan, confirmacao antes de salvar e importacao de tabelas/listas.
-- Fluxo multi-tenant por fazenda/rancho usando Supabase.
-- Compatibilidade com deploy na Vercel.
+> Status: actively evolving as a portfolio and product-oriented project.
 
-## Stack
+## Why This Project Exists
 
-- Next.js 14
-- React 18
-- TypeScript
-- Tailwind CSS
-- Supabase Auth, Database e RLS
-- Twilio Sandbox / Meta WhatsApp Cloud API
-- Gemini API para interpretacao do bot
+Farm operations often happen through fragmented conversations, spreadsheets, informal notes, and memory. Rancho explores a more practical workflow: the team can manage the operation through a web system while also sending routine updates through WhatsApp, a channel that is already familiar in the field.
 
-## Arquitetura do bot WhatsApp
+The main engineering challenge is not only parsing messages with AI. The important part is making those AI-assisted actions safe: the model can interpret intent, but the backend validates the result and asks for confirmation before any real data is persisted.
 
-O bot segue um fluxo de execucao seguro:
+## Highlights
 
-```txt
-Mensagem recebida
-  -> identificacao do usuario WhatsApp
-  -> interpretacao Gemini ActionPlan
-  -> validacao local do contrato
-  -> preview e confirmacao
-  -> persistencia no Supabase
-  -> resposta ao usuario
-```
+- Multi-tenant farm management with Supabase and row-level data isolation.
+- Operational dashboard with farm indicators and quick access to core modules.
+- Livestock, lots, genealogy, reproduction, health events, and milk production records.
+- Inventory control with input and output movements.
+- Financial module for revenue, expenses, balance, and reports.
+- Employee, payroll, time tracking, and access invitation flows.
+- WhatsApp center with internal simulator, message history, and webhook integrations.
+- AI-assisted WhatsApp bot using a structured `ActionPlan` contract.
+- Confirmation-first workflow before saving real records.
+- Automated bot regression tests with mocked AI calls for CI-safe validation.
 
-Regras importantes:
+## Core Modules
 
-- Nenhum registro real deve ser salvo sem confirmacao.
-- Gemini interpreta intencao e estrutura, mas o backend valida e executa.
-- Testes automatizados usam mocks e nao fazem chamadas live ao Gemini.
-- Secrets ficam somente no servidor/Vercel.
+| Area | What it manages |
+| --- | --- |
+| Dashboard | Operational indicators and system overview |
+| Livestock | Animals, lots, genealogy, health, reproduction, and production |
+| Inventory | Stock items, entries, exits, and operational movements |
+| Finance | Revenues, expenses, balances, and reports |
+| Staff | Employees, work records, payroll, and invitations |
+| WhatsApp | Incoming messages, bot responses, previews, confirmations, and imports |
 
-## Estrutura do projeto
+## WhatsApp + AI Workflow
+
+The WhatsApp bot is designed around a safety boundary: AI interprets the message, but the application owns validation and persistence.
 
 ```txt
-src/app                    Rotas do App Router e APIs
-src/components             Componentes de layout, UI e modulos
-src/lib                    Helpers, tipos, Supabase, seguranca e NLP
-src/lib/whatsapp           Contratos, Gemini, ActionPlan e parser auxiliar
-src/services               Servicos de dominio e integracoes
-src/services/whatsapp      Fluxo principal do bot, consultas e salvamento
-scripts                    Testes, smoke tests e ferramentas internas
-supabase/migrations        Migrations versionadas
-supabase/sql               Scripts SQL auxiliares e historicos
-docs/reports               Relatorios tecnicos e auditorias historicas
-public                     Assets publicos
+Incoming WhatsApp message
+  -> identify linked user/farm
+  -> interpret intent with Gemini
+  -> produce a structured ActionPlan
+  -> validate the contract locally
+  -> show a preview to the user
+  -> wait for explicit confirmation
+  -> persist validated data in Supabase
+  -> send a final response back to WhatsApp
 ```
 
-## Requisitos
+This makes the bot useful for natural inputs such as:
 
-- Node.js compativel com Next.js 14.
-- npm.
-- Projeto Supabase configurado.
-- Variaveis de ambiente em `.env.local` para desenvolvimento.
+```txt
+Comprei 4 sacos de ração por 320 reais
+```
 
-## Configuracao local
+or table-like messages that need to become structured inventory, finance, staff, production, or animal records.
+
+## Safety Model
+
+Rancho treats AI output as untrusted input.
+
+- No real record should be saved without user confirmation.
+- Gemini generates an interpretation, not a database write.
+- The backend validates the `ActionPlan` schema and domain rules.
+- Server-only secrets stay outside the browser.
+- Automated tests use mocks and must not call Gemini live.
+- Supabase RLS and tenant identifiers protect farm-level data isolation.
+
+## Tech Stack
+
+| Layer | Tools |
+| --- | --- |
+| Frontend | Next.js 14, React 18, TypeScript, Tailwind CSS |
+| Backend | Next.js App Router APIs, server-side services |
+| Database/Auth | Supabase Auth, Postgres, RLS |
+| WhatsApp | Twilio Sandbox and Meta WhatsApp Cloud API support |
+| AI | Gemini API for message interpretation |
+| Quality | TypeScript checks, bot regression scripts, smoke tests |
+| Deploy | Vercel-compatible architecture |
+
+## Project Structure
+
+```txt
+src/app                    App Router pages, layouts, and API routes
+src/components             Reusable UI, layout, marketing, and module components
+src/lib                    Shared helpers, types, Supabase clients, and security utilities
+src/lib/whatsapp           NLP helpers, providers, contracts, and parser support
+src/services               Domain services and integration logic
+src/services/whatsapp      Main bot flow, interpreters, consultations, and save handlers
+scripts                    Tests, smoke checks, and internal tools
+supabase/migrations        Versioned database migrations
+supabase/sql               Auxiliary SQL scripts
+docs/reports               Technical notes, audits, and historical reports
+public                     Public assets
+```
+
+## Running Locally
+
+Requirements:
+
+- Node.js compatible with Next.js 14
+- npm
+- A configured Supabase project
+- Environment variables in `.env.local`
+
+Install dependencies:
 
 ```bash
 npm install
+```
+
+Create the local environment file:
+
+```bash
 cp .env.example .env.local
+```
+
+Start the development server:
+
+```bash
 npm run dev
 ```
 
-Depois acesse:
+Open:
 
 ```txt
 http://localhost:3000
 ```
 
-## Variaveis de ambiente
+## Environment Variables
 
-Use `.env.example` como referencia. As principais variaveis sao:
+Use `.env.example` as the reference. The main variables are:
 
 ```txt
 NEXT_PUBLIC_SUPABASE_URL=
@@ -110,100 +163,83 @@ GEMINI_MODEL=gemini-2.5-flash
 BOT_ALLOW_LEGACY_ROLLBACK=false
 ```
 
-Variaveis iniciadas com `NEXT_PUBLIC_` podem ir para o navegador. Chaves privadas, tokens de webhook, service role e chaves de IA devem ficar apenas no servidor.
+Only `NEXT_PUBLIC_*` variables are safe to expose to the browser. Service role keys, webhook tokens, WhatsApp credentials, and AI keys must stay server-side.
 
 ## Scripts
 
 ```bash
-npm run dev                  # servidor local
-npm run build                # build de producao
-npm run start                # iniciar build gerado
-npm run typecheck            # checagem TypeScript
-npm run test                 # typecheck + testes ActionPlan
-npm run test:bot             # regressao principal do bot
-npm run test:bot:gemini      # testes especificos do fluxo Gemini
-npm run smoke:gemini:live    # smoke manual com Gemini live
+npm run dev                  # start the local dev server
+npm run build                # create a production build
+npm run start                # run the production build
+npm run lint                 # run Next.js linting
+npm run typecheck            # run TypeScript validation
+npm run test                 # typecheck + ActionPlan tests
+npm run test:bot             # main WhatsApp bot regression suite
+npm run test:bot:gemini      # Gemini-specific bot flow tests
+npm run test:bot:heavy       # heavier bot scenarios
+npm run smoke:gemini:live    # manual live Gemini smoke test
 ```
 
-Por padrao, os testes do bot rodam em modo mockado e devem manter `Gemini live calls: 0`.
+Bot tests are expected to run with mocked AI calls. A healthy automated run should keep live Gemini calls at zero.
 
 ## Webhooks
 
 ### Twilio Sandbox
 
-Configure no Twilio:
-
 ```txt
-When a message comes in = https://SEU-DOMINIO/api/twilio/webhook
+When a message comes in = https://YOUR-DOMAIN/api/twilio/webhook
 Method = POST
 ```
 
 ### Meta WhatsApp Cloud API
 
-Configure o webhook:
-
 ```txt
-https://SEU-DOMINIO/api/whatsapp/webhook
+https://YOUR-DOMAIN/api/whatsapp/webhook
 ```
 
-## Supabase
+## Database Notes
 
-O sistema usa tabelas reais do app, com `fazenda_id`/`rancho_id` para isolamento de dados. O mapa central de nomes fica em:
+The system uses real application tables with `fazenda_id` / `rancho_id` fields for tenant-aware data access. The central table-name map lives in:
 
 ```txt
 src/lib/tables.ts
 ```
 
-Migrations versionadas ficam em:
+Database changes are versioned under:
 
 ```txt
 supabase/migrations
 ```
 
-Scripts SQL auxiliares ficam em:
+## Development Principles
 
-```txt
-supabase/sql
-```
+- Keep secrets out of Git.
+- Do not expose `SUPABASE_SERVICE_ROLE_KEY` in client code.
+- Do not bypass RLS to fix application flow.
+- Keep AI interpretation separate from persistence.
+- Confirm destructive or real-world actions before executing them.
+- Validate external payloads before insert or update operations.
+- Prefer small, traceable commits with clear intent.
 
-Relatorios tecnicos e auditorias historicas ficam em:
-
-```txt
-docs/reports
-```
-
-## Segurança
-
-- Nao commitar `.env`, `.env.local`, tokens ou chaves reais.
-- Nao expor `SUPABASE_SERVICE_ROLE_KEY` no frontend.
-- Nao desativar RLS para corrigir fluxo de aplicacao.
-- Confirmar acoes destrutivas ou persistencia real antes de executar.
-- Manter chamadas live de IA fora dos testes automatizados.
-- Validar payloads do Gemini no backend antes de qualquer insert/update.
-
-## Padrao de commits
-
-Use Conventional Commits para manter o historico legivel:
-
-```txt
-feat: add new user-facing capability
-fix: correct a bug or regression
-docs: update documentation
-chore: adjust repository, tooling or maintenance files
-refactor: reorganize code without behavior changes
-test: add or update tests
-```
-
-Evite mensagens genericas como `a`, `update` ou `ajustes`.
-
-## Qualidade
-
-Antes de abrir PR ou fazer deploy, rode:
+## Suggested Checks Before Deploy
 
 ```bash
+npm run typecheck
 npm run test
 npm run test:bot
 npm run build
 ```
 
-Se alterar o bot, priorize tambem smoke manual no simulador da aba WhatsApp.
+If the WhatsApp bot changes, also test the internal simulator and run the most relevant bot regression script.
+
+## Roadmap
+
+- Improve production onboarding for new farms.
+- Expand reports and operational analytics.
+- Add more guided imports for table-like WhatsApp messages.
+- Strengthen observability around webhook processing.
+- Continue improving bot confirmation, recovery, and error handling flows.
+
+## Author
+
+Built by Lucas Todaro de Souza as a practical full-stack project focused on real-world product thinking, AI-assisted workflows, and secure backend validation.

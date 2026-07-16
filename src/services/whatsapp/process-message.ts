@@ -645,7 +645,9 @@ function startProcessingNotice(input: ProcessWhatsappMessageInput, supabase: Sup
     if (cancelled) return;
     void (async () => {
       try {
-        await sendOutboundWhatsAppText(phone, PROCESSING_NOTICE_TEXT);
+        await sendOutboundWhatsAppText(phone, PROCESSING_NOTICE_TEXT, {
+          provider: input.provider === "meta" ? "meta" : input.provider === "twilio" ? "twilio" : undefined
+        });
         await saveWhatsAppMessage(supabase, {
           owner,
           phone,

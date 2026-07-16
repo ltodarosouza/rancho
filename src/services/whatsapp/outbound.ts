@@ -57,15 +57,16 @@ async function sendTwilioWhatsAppText(to: string, body: string) {
   return { provider: "twilio", data };
 }
 
-export async function sendOutboundWhatsAppText(phone: string, body: string) {
+export async function sendOutboundWhatsAppText(phone: string, body: string, options?: { provider?: "meta" | "twilio" }) {
   const normalizedPhone = normalizeWhatsappNumber(phone);
   if (!normalizedPhone) throw new Error("Informe um WhatsApp válido com DDD.");
 
-  if (isTwilioConfigured()) {
+  const preferredProvider = options?.provider;
+  if ((preferredProvider === "twilio" || !preferredProvider) && isTwilioConfigured()) {
     return sendTwilioWhatsAppText(normalizedPhone, body);
   }
 
-  if (isMetaConfigured()) {
+  if ((preferredProvider === "meta" || !preferredProvider) && isMetaConfigured()) {
     console.log("[WhatsApp outbound]", {
       provider: "meta",
       to: maskPhone(normalizedPhone),
@@ -79,5 +80,9 @@ export async function sendOutboundWhatsAppText(phone: string, body: string) {
     return { provider: "meta", data };
   }
 
-  throw new Error("O envio ativo pelo site ainda não está configurado. Para Twilio, configure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN e TWILIO_WHATSAPP_FROM na Vercel.");
+  if (preferredProvider === "meta") {
+    throw new Error("O envio pela WhatsApp Cloud API não está configurado. Configure META_WHATSAPP_TOKEN e META_PHONE_NUMBER_ID.");
+  }
+
+  throw new Error("O envio ativo pelo site ainda não está configurado. Configure a WhatsApp Cloud API ou o Twilio.");
 }

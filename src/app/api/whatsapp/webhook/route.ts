@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { safeErrorText, sanitizeFreeText, sanitizeWhatsappMessageText } from "@/lib/security";
-import { getIncomingMessage } from "@/services/whatsapp/meta";
-import { handleConversation } from "@/services/whatsapp/conversation";
+import { isOversizedText, maskSensitivePhone, safeErrorText, sanitizeFreeText, sanitizeWhatsappMessageText } from "@/lib/security";
+import {
+  getIncomingMessages,
+  isMetaWebhookSignatureConfigured,
+  isMetaWebhookVerificationConfigured,
+  verifyMetaWebhookSignature
+} from "@/services/whatsapp/meta";
+import { handleMetaRanchoMessage, wasMetaMessageProcessed } from "@/services/whatsapp/cloud-api";
+
+export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   const search = request.nextUrl.searchParams;
@@ -10,7 +17,12 @@ export async function GET(request: NextRequest) {
   const token = search.get("hub.verify_token");
   const challenge = search.get("hub.challenge");
 
-  if (mode === "subscribe" && token === env.whatsappVerifyToken) {
+  if (!isMetaWebhookVerificationConfigured()) {
+    console.error("[WhatsApp Cloud API] META_VERIFY_TOKEN não configurado.");
+    return NextResponse.json({ error: "Webhook da Meta não configurado" }, { status: 503 });
+  }
+
+  if (mode === "subscribe" && token === env.metaVerifyToken) {
     return new Response(challenge || "", { status: 200 });
   }
 
@@ -25,24 +37,56 @@ export async function POST(request: NextRequest) {
     }
 
     const contentLength = Number(request.headers.get("content-length") || 0);
-    if (Number.isFinite(contentLength) && contentLength > 10000) {
+    if (Number.isFinite(contentLength) && contentLength > 100_000) {
       return NextResponse.json({ ok: false, error: "Mensagem muito longa para processar com segurança." }, { status: 413 });
     }
 
-    const payload = await request.json();
-    const incoming = getIncomingMessage(payload);
+    if (!isMetaWebhookSignatureConfigured()) {
+      console.error("[WhatsApp Cloud API] META_APP_SECRET não configurado.");
+      return NextResponse.json({ ok: false, error: "Webhook da Meta não configurado." }, { status: 503 });
+    }
 
-    if (!incoming?.phone) {
+    const rawBody = await request.text();
+    if (isOversizedText(rawBody, 100_000)) {
+      return NextResponse.json({ ok: false, error: "Payload muito longo para processar com segurança." }, { status: 413 });
+    }
+
+    if (!verifyMetaWebhookSignature(rawBody, request.headers.get("x-hub-signature-256"))) {
+      console.warn("[WhatsApp Cloud API] Assinatura inválida.");
+      return NextResponse.json({ ok: false, error: "Assinatura inválida." }, { status: 401 });
+    }
+
+    const payload = JSON.parse(rawBody);
+    if (payload?.object !== "whatsapp_business_account") {
       return NextResponse.json({ ok: true, ignored: true });
     }
 
-    await handleConversation({
-      phone: sanitizeFreeText(incoming.phone, 80),
-      text: sanitizeWhatsappMessageText(incoming.text),
-      buttonId: sanitizeFreeText(incoming.buttonId, 120)
-    });
+    const incomingMessages = getIncomingMessages(payload);
 
-    return NextResponse.json({ ok: true });
+    if (!incomingMessages.length) {
+      return NextResponse.json({ ok: true, ignored: true });
+    }
+
+    const results = [];
+    for (const incoming of incomingMessages) {
+      const phone = sanitizeFreeText(incoming.phone, 80);
+      const text = sanitizeWhatsappMessageText(incoming.text);
+      if (!phone || !text) {
+        results.push({ id: incoming.id, ignored: "unsupported_message_type" });
+        continue;
+      }
+
+      if (await wasMetaMessageProcessed(incoming.id)) {
+        console.log("[WhatsApp Cloud API] Mensagem duplicada ignorada", { id: incoming.id, phone: maskSensitivePhone(phone) });
+        results.push({ id: incoming.id, ignored: "duplicate" });
+        continue;
+      }
+
+      const result = await handleMetaRanchoMessage({ ...incoming, phone, text });
+      results.push({ id: incoming.id, sent: Boolean(result.respostaTexto) });
+    }
+
+    return NextResponse.json({ ok: true, processed: results.length, results });
   } catch (error) {
     console.error("[WhatsApp webhook]", safeErrorText(error));
     return NextResponse.json({ ok: false, error: "Não foi possível processar a mensagem agora." }, { status: 500 });

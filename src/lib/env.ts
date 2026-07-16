@@ -5,7 +5,10 @@ export const env = {
   appName: process.env.NEXT_PUBLIC_APP_NAME || "Rancho Pro",
   farmName: process.env.NEXT_PUBLIC_FARM_NAME || "Fazenda Modelo",
   defaultFazendaId: process.env.SUPABASE_DEFAULT_FAZENDA_ID || "",
-  whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || "",
+  // WHATSAPP_VERIFY_TOKEN permanece como fallback para não interromper uma
+  // configuração antiga enquanto a migração para a Cloud API é concluída.
+  metaVerifyToken: process.env.META_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || "",
+  metaAppSecret: process.env.META_APP_SECRET || "",
   metaWhatsappToken: process.env.META_WHATSAPP_TOKEN || "",
   metaPhoneNumberId: process.env.META_PHONE_NUMBER_ID || "",
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || "",

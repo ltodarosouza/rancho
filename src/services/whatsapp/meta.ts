@@ -1,14 +1,46 @@
 import { env, isMetaConfigured as isMetaEnvConfigured } from "@/lib/env";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 export type WhatsAppButton = {
   id: string;
   title: string;
 };
 
+type MetaWebhookPayload = Record<string, any>;
+
+export type MetaIncomingMessage = {
+  phone: string;
+  id: string;
+  type: string;
+  text: string;
+  buttonId?: string;
+  to?: string;
+  raw: MetaWebhookPayload;
+};
+
 const apiBase = "https://graph.facebook.com/v20.0";
 
 export function isMetaConfigured() {
   return isMetaEnvConfigured();
+}
+
+export function isMetaWebhookVerificationConfigured() {
+  return Boolean(env.metaVerifyToken);
+}
+
+export function isMetaWebhookSignatureConfigured() {
+  return Boolean(env.metaAppSecret);
+}
+
+export function verifyMetaWebhookSignature(rawBody: string, signature: string | null) {
+  if (!env.metaAppSecret) return false;
+  if (!signature?.startsWith("sha256=")) return false;
+
+  const expected = `sha256=${createHmac("sha256", env.metaAppSecret).update(rawBody, "utf8").digest("hex")}`;
+  const actualBuffer = Buffer.from(signature, "utf8");
+  const expectedBuffer = Buffer.from(expected, "utf8");
+
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
 async function sendPayload(payload: any) {
@@ -59,24 +91,43 @@ export async function sendWhatsAppButtons(to: string, body: string, buttons: Wha
   });
 }
 
-export function getIncomingMessage(payload: any) {
-  const entry = payload?.entry?.[0];
-  const change = entry?.changes?.[0];
-  const value = change?.value;
-  const message = value?.messages?.[0];
-  if (!message) return null;
+export function getIncomingMessages(payload: MetaWebhookPayload): MetaIncomingMessage[] {
+  const incoming: MetaIncomingMessage[] = [];
 
-  const phone = message.from as string;
-  const text = message.text?.body as string | undefined;
-  const buttonId = message.interactive?.button_reply?.id || message.button?.payload;
-  const buttonTitle = message.interactive?.button_reply?.title || message.button?.text;
+  for (const entry of payload?.entry || []) {
+    for (const change of entry?.changes || []) {
+      const value = change?.value;
+      const displayPhoneNumber = value?.metadata?.display_phone_number;
 
-  return {
-    phone,
-    id: message.id,
-    type: message.type,
-    text: text || buttonTitle || "",
-    buttonId: buttonId as string | undefined,
-    raw: message
-  };
+      for (const message of value?.messages || []) {
+        const phone = String(message?.from || "");
+        const id = String(message?.id || "");
+        if (!phone || !id) continue;
+
+        const buttonId = message?.interactive?.button_reply?.id
+          || message?.interactive?.list_reply?.id
+          || message?.button?.payload;
+        const buttonTitle = message?.interactive?.button_reply?.title
+          || message?.interactive?.list_reply?.title
+          || message?.button?.text;
+        const text = message?.text?.body || buttonId || buttonTitle || "";
+
+        incoming.push({
+          phone,
+          id,
+          type: String(message?.type || "unknown"),
+          text: String(text),
+          buttonId: buttonId ? String(buttonId) : undefined,
+          to: displayPhoneNumber ? String(displayPhoneNumber) : undefined,
+          raw: message
+        });
+      }
+    }
+  }
+
+  return incoming;
+}
+
+export function getIncomingMessage(payload: MetaWebhookPayload) {
+  return getIncomingMessages(payload)[0] || null;
 }

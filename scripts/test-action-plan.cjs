@@ -4008,6 +4008,53 @@ test("ActionPlan query animais repara touros coletivos e retorna categoria touro
   assert(result.response.includes("Touro 50") && result.response.includes("Touro 51"), "resposta deveria listar os touros");
 });
 
+test("ActionPlan query coletiva ignora referencia generica e lista o rebanho", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "animais",
+      confidence: 0.94,
+      filters: [{ field: "animal_ref", op: "eq", value: "eu" }],
+      requiresConfirmation: false
+    },
+    originalText: "quais animais eu tenho?",
+    owner: ADMIN_OWNER,
+    supabase: createActionPlanSupabase({
+      [TABLES.animais]: [
+        { id: "animal-090", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "090", nome: "Mimosa", categoria: "vaca", sexo: "femea", status: "ativo" },
+        { id: "animal-t50", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "T-50", nome: "Touro 50", categoria: "touro", sexo: "macho", status: "ativo" }
+      ]
+    })
+  });
+  assert(result.ok, `consulta coletiva deveria executar: ${result.reason}`);
+  assert(result.rows.length === 2, `consulta coletiva deveria listar 2 animais, recebeu ${result.rows.length}`);
+  assert(result.response.includes("Mimosa") && result.response.includes("Touro 50"), "consulta coletiva deveria trazer os animais cadastrados");
+  assert(!result.parsed.dados?.resultado?.filters?.some((filter) => filter.field === "animal_ref"), "referencia generica nao deveria chegar ao banco");
+});
+
+test("ActionPlan query coletiva descarta referencia generica em outras areas", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "funcionarios",
+      confidence: 0.94,
+      filters: [{ field: "funcionario_ref", op: "eq", value: "eu" }],
+      requiresConfirmation: false
+    },
+    originalText: "quais funcionarios eu tenho?",
+    owner: ADMIN_OWNER,
+    supabase: createActionPlanSupabase({
+      [TABLES.funcionarios]: [
+        { id: "func-joao", fazenda_id: ADMIN_OWNER.fazenda_id, nome: "João", funcao: "Vaqueiro", ativo: true },
+        { id: "func-maria", fazenda_id: ADMIN_OWNER.fazenda_id, nome: "Maria", funcao: "Ordenha", ativo: true }
+      ]
+    })
+  });
+  assert(result.ok, `consulta de funcionarios deveria executar: ${result.reason}`);
+  assert(result.rows.length === 2, `consulta de funcionarios deveria listar 2 registros, recebeu ${result.rows.length}`);
+  assert(!result.parsed.dados?.resultado?.filters?.some((filter) => filter.field === "funcionario_ref"), "referencia generica nao deveria filtrar funcionarios");
+});
+
 test("Gemini-first consulta composta de vacas prenhas e inseminadas via ActionPlan", async () => {
   const text = "me manda a lista das vacas prenhas e das inseminadas";
   const fixture = fixtureByName("query-vacas-prenhas-e-inseminadas");

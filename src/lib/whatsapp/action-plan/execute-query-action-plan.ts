@@ -622,6 +622,49 @@ function isCollectiveAnimalRef(value: unknown) {
   return hasCollectiveCategory && hasQueryQualifier;
 }
 
+function isCollectiveQueryRequest(value: unknown) {
+  const text = normalizedText(value);
+  if (!text) return false;
+
+  const collectiveNoun = /\b(?:rebanho|gado|animais?|vacas?|vagas?|bois?|touros?|bezerros?|bezerras?|novilhas?|itens?|produtos?|insumos?|funcionarios?|equipe|lotes?|piquetes?|pastos?)\b/.test(text);
+  const listIntent = /\b(?:quais?|quantos?|lista|listar|dados|relatorio|resumo|meus|minhas|todos?|todas?|tenho|tem|existem|cadastrados?|cadastradas?)\b/.test(text);
+  return collectiveNoun && listIntent;
+}
+
+function isGenericReferenceValue(value: unknown) {
+  const text = normalizedText(value);
+  if (!text) return true;
+  if (isCollectiveAnimalRef(text)) return true;
+  return /^(?:eu|me|meu|minha|meus|minhas|tenho|tem|todos?|todas?|qual|quais|lista|listar|dados|relatorio|resumo|cadastrados?|cadastradas?|item|itens|produto|produtos|animal|animais|funcionario|funcionarios|equipe|lote|lotes|estoque|rebanho|gado)$/.test(text);
+}
+
+function referenceAppearsInQuestion(value: unknown, question: string) {
+  const reference = normalizedText(value);
+  return Boolean(reference && question.includes(reference) && !isGenericReferenceValue(reference));
+}
+
+function normalizeCollectiveReferenceFilters(plan: QueryActionPlan, originalText?: string): QueryActionPlan {
+  const question = normalizedText(originalText || plan.userQuestion || "");
+  if (!isCollectiveQueryRequest(question)) return plan;
+
+  const referenceFields = new Set(["animal_ref", "item_ref", "funcionario_ref", "lote_ref"]);
+  const filters = plan.filters.filter((filter) => {
+    if (!referenceFields.has(filter.field)) return true;
+    return referenceAppearsInQuestion(filter.value, question);
+  });
+
+  return { ...plan, filters, userQuestion: plan.userQuestion || originalText || null };
+}
+
+function isCollectiveAnimalQueryText(value: unknown) {
+  const text = normalizedText(value);
+  if (!text) return false;
+
+  const collectiveNoun = /\b(?:rebanho|gado|animais|vacas|vagas|bois|touros|bezerros|bezerras|novilhas)\b/.test(text);
+  const listIntent = /\b(?:quais?|quantos?|lista|listar|dados|relatorio|resumo|meus|minhas|todos?|todas?|tenho|tem|existem|cadastrados?|cadastradas?)\b/.test(text);
+  return collectiveNoun && listIntent;
+}
+
 function hasSpecificAnimalRefFilter(plan: QueryActionPlan) {
   return plan.filters.some((filter) => filter.field === "animal_ref" && !isCollectiveAnimalRef(filter.value));
 }
@@ -638,16 +681,21 @@ function specificAnimalRefFromQueryText(text?: string | null) {
 function normalizeAnimalQueryPlan(plan: QueryActionPlan, originalText?: string): QueryActionPlan {
   if (plan.domain !== "animais") return plan;
 
-  const text = normalizedText([originalText, plan.userQuestion].filter(Boolean).join(" "));
-  const collectiveText = /\b(?:dados|lista|listar|relatorio|resumo|rebanho|gado|animais|vacas?|vagas?|bois?|touros?|bezerros?|bezerras?|novilhas?|cadastrados?|cadastradas?)\b/.test(text);
+  const text = normalizedText(originalText || plan.userQuestion || "");
+  const collectiveText = isCollectiveAnimalQueryText(text);
   const collectiveFilterText = plan.filters.some((filter) => filter.field === "animal_ref" && isCollectiveAnimalRef(filter.value));
-  const cleanedFilters = plan.filters.filter((filter) => !(filter.field === "animal_ref" && isCollectiveAnimalRef(filter.value)));
-  const explicitAnimalRef = !cleanedFilters.some((filter) => filter.field === "animal_ref")
+  const requestedCategory = animalCategoryFromQueryText(text);
+  const cleanedFilters = plan.filters.filter((filter) => {
+    if (filter.field === "animal_ref") return !collectiveText && !isCollectiveAnimalRef(filter.value);
+    if (filter.field === "categoria" && collectiveText && !requestedCategory) return false;
+    return true;
+  });
+  const explicitAnimalRef = !collectiveText && !cleanedFilters.some((filter) => filter.field === "animal_ref")
     ? specificAnimalRefFromQueryText(text)
     : null;
   if (explicitAnimalRef) cleanedFilters.push({ field: "animal_ref", op: "eq", value: explicitAnimalRef });
   const existingCategory = cleanedFilters.find((filter) => filter.field === "categoria")?.value;
-  const category = existingCategory || animalCategoryFromQueryText(text || plan.filters.map((filter) => filter.value).join(" "));
+  const category = existingCategory || requestedCategory;
 
   if (!explicitAnimalRef && (collectiveText || collectiveFilterText) && category && !cleanedFilters.some((filter) => filter.field === "categoria")) {
     cleanedFilters.push({ field: "categoria", op: "eq", value: category });
@@ -1392,6 +1440,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   }
 
   let plan = validation.value as QueryActionPlan;
+  plan = normalizeCollectiveReferenceFilters(plan, input.originalText);
   if (plan.domain === "animais") {
     plan = normalizeAnimalQueryPlan(plan, input.originalText);
   }

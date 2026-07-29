@@ -190,6 +190,7 @@ const CONSULT_INTENTS = new Set<ParsedRanchoMessage["tipo"]>([
   "CONSULTA_PONTO",
   "CONSULTA_ANIMAL",
   "CONSULTA_GENEALOGIA",
+  "CONSULTA_RANCHO",
   "CONSULTA_REBANHO",
   "CONSULTA_LOTES",
   "CONSULTA_REGISTROS_HOJE",
@@ -638,15 +639,17 @@ function processingNoticeEnabled(input: ProcessWhatsappMessageInput) {
 }
 
 function startProcessingNotice(input: ProcessWhatsappMessageInput, supabase: SupabaseAdmin, owner: WhatsAppOwner, phone: string, reason: string) {
-  if (!processingNoticeEnabled(input)) return { cancel: () => undefined };
+  if (!processingNoticeEnabled(input)) return { cancel: async () => undefined };
 
   let cancelled = false;
+  let inFlight: Promise<void> | null = null;
   const timer = setTimeout(() => {
     if (cancelled) return;
-    void (async () => {
+    inFlight = (async () => {
       try {
         await sendOutboundWhatsAppText(phone, PROCESSING_NOTICE_TEXT, {
-          provider: input.provider === "meta" ? "meta" : input.provider === "twilio" ? "twilio" : undefined
+          provider: input.provider === "meta" ? "meta" : input.provider === "twilio" ? "twilio" : undefined,
+          phoneNumberId: input.phoneNumberId
         });
         await saveWhatsAppMessage(supabase, {
           owner,
@@ -679,27 +682,12 @@ function startProcessingNotice(input: ProcessWhatsappMessageInput, supabase: Sup
   }, processingNoticeDelayMs());
 
   return {
-    cancel: () => {
+    cancel: async () => {
       cancelled = true;
       clearTimeout(timer);
+      if (inFlight) await inFlight;
     }
   };
-}
-
-async function withProcessingNotice<T>(
-  input: ProcessWhatsappMessageInput,
-  supabase: SupabaseAdmin,
-  owner: WhatsAppOwner,
-  phone: string,
-  reason: string,
-  run: () => Promise<T>
-) {
-  const notice = startProcessingNotice(input, supabase, owner, phone, reason);
-  try {
-    return await run();
-  } finally {
-    notice.cancel();
-  }
 }
 
 async function logAudit(supabase: SupabaseAdmin, owner: WhatsAppOwner, entidade: string, acao: string, depois: AnyRecord) {
@@ -3944,9 +3932,7 @@ async function handleSemanticPendingPatch(
   supabase: SupabaseAdmin,
   owner: WhatsAppOwner,
   session: BotSession,
-  text: string,
-  processingInput?: ProcessWhatsappMessageInput,
-  processingPhone?: string
+  text: string
 ): Promise<ConversationActHandlingResult | null> {
   const pending = pendingFromSession(session);
   if (!pending?.tipo) return null;
@@ -3960,9 +3946,7 @@ async function handleSemanticPendingPatch(
     currentDate: getRanchTodayISO(),
     timezone: "America/Sao_Paulo"
   });
-  const patchResult = processingInput
-    ? await withProcessingNotice(processingInput, supabase, owner, processingPhone || owner.telefone_e164 || "", "pending_patch_interpreter", interpretPatch)
-    : await interpretPatch();
+  const patchResult = await interpretPatch();
 
   if (!patchResult.ok) {
     botLog("pending_patch_invalid", owner, {
@@ -4209,9 +4193,7 @@ async function handleMissingData(
   supabase: SupabaseAdmin,
   owner: WhatsAppOwner,
   session: BotSession,
-  text: string,
-  processingInput?: ProcessWhatsappMessageInput,
-  processingPhone?: string
+  text: string
 ) {
   const pending = session.dados?.pending as ParsedRanchoMessage | undefined;
   if (!pending?.tipo) return handleFreeText(supabase, owner, text);
@@ -4316,7 +4298,7 @@ async function handleMissingData(
     return "Responda 1 para dar baixa no estoque ou 2 para registrar apenas a receita.";
   }
 
-  const semanticPatch = await handleSemanticPendingPatch(supabase, owner, session, text, processingInput, processingPhone);
+  const semanticPatch = await handleSemanticPendingPatch(supabase, owner, session, text);
   if (semanticPatch?.handled) return semanticPatch.response || "";
 
   const next = await enrichWithCatalog(catalogEnrichmentDependencies(), supabase, owner, mergeRanchoMessageData(pending, text));
@@ -4728,6 +4710,7 @@ function buildProcessResult(input: {
 }
 
 export async function processWhatsappMessage(input: ProcessWhatsappMessageInput): Promise<ProcessWhatsappMessageResult> {
+  const processStartedAt = Date.now();
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return buildProcessResult({
@@ -4748,6 +4731,7 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
   let response = "";
   let eventConfirmed = false;
   let suppressPreviousPending = false;
+  let processingNotice = { cancel: async () => undefined as void };
 
   try {
     const resolvedOwner = await resolveWhatsAppOwner(supabase, input.telefone);
@@ -4790,6 +4774,8 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       }
       return buildProcessResult({ response });
     }
+
+    processingNotice = startProcessingNotice(input, supabase, owner, phone, "message_processing");
 
     const command = normalizeRanchoText(message);
     previousSession = await getSession(supabase, owner);
@@ -4880,14 +4866,14 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
     } else if (!activePendingContext && structuredDetection.isStructured && !tableParsedPreview) {
       await saveSession(supabase, owner, { etapa: "livre", dados: {} });
       suppressPreviousPending = true;
-      const interpreted = await withProcessingNotice(input, supabase, owner!, phone, "structured_interpreter", () => parseWithConfiguredInterpreter({
+      const interpreted = await parseWithConfiguredInterpreter({
         text: parserMessage,
         localParsed: localParsedPreview,
         owner: owner!,
         supabase,
         messageType: conversationAct.messageType,
         hasPendingAction: conversationAct.hasPendingAction
-      }));
+      });
       if (interpreted.kind === "clarify") {
         parsed = finalize("DESCONHECIDO", {
           ...(interpreted.debug || {}),
@@ -5027,7 +5013,7 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
         suppressPreviousPending = Boolean(handled.suppressPreviousPending);
         response = handled.response || "";
       } else {
-        response = await handleMissingData(supabase, owner, previousSession, message, input, phone);
+        response = await handleMissingData(supabase, owner, previousSession, message);
       }
     } else {
       const handled = await handleConversationActMessage(supabase, owner, previousSession, message, conversationAct);
@@ -5037,14 +5023,14 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
         response = handled.response || "";
       } else {
         const localParsed = localParsedPreview;
-        const fallback = await withProcessingNotice(input, supabase, owner!, phone, "action_plan_interpreter", () => parseWithConfiguredInterpreter({
+        const fallback = await parseWithConfiguredInterpreter({
           text: parserMessage,
           localParsed,
           owner: owner!,
           supabase,
           messageType: conversationAct.messageType,
           hasPendingAction: conversationAct.hasPendingAction
-        }));
+        });
 
         if (fallback.kind === "clarify") {
           await saveSession(supabase, owner, { etapa: "livre", dados: {} });
@@ -5075,6 +5061,7 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
     }
 
     nextSession = await getSession(supabase, owner);
+    const responseComposerStartedAt = Date.now();
     const composedResponse = await composeBotResponseWithAI({
       response,
       userMessage: message,
@@ -5085,6 +5072,14 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       modoTeste: input.modoTeste
     });
     response = composedResponse.response;
+    console.log("[BOT FLOW]", {
+      event: "message_processing_complete",
+      provider: input.provider,
+      phone: maskPhone(phone),
+      totalMs: Date.now() - processStartedAt,
+      responseComposerMs: Date.now() - responseComposerStartedAt,
+      intent: parsed?.tipo || null
+    });
 
     if (!input.modoTeste) {
       await saveWhatsAppMessage(supabase, {
@@ -5101,6 +5096,7 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       });
     }
 
+    await processingNotice.cancel();
     return buildProcessResult({
       response,
       parsed,
@@ -5110,6 +5106,7 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       suppressPreviousPending
     });
   } catch (error) {
+    await processingNotice.cancel();
     const message = safeErrorText(error) || "Erro interno no Rancho.";
     console.error("[BOT FLOW]", {
       event: "process_error",

@@ -27,6 +27,7 @@ export function intentLabel(tipo: ParsedRanchoMessage["tipo"]) {
     ATUALIZACAO_ANIMAL: "atualização de animal",
     CONSULTA_ANIMAL: "consulta de animal",
     CRIAR_LOTE: "cadastro de lote",
+    CONSULTA_RANCHO: "consulta do rancho",
     CONSULTA_REBANHO: "consulta de rebanho",
     CONSULTA_LOTES: "consulta de lotes",
     ATUALIZACAO_GENEALOGIA: "atualização de genealogia",

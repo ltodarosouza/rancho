@@ -32,6 +32,7 @@ export async function handleMetaRanchoMessage(input: MetaIncomingMessage) {
     modoTeste: false,
     messageSid: input.id,
     to: input.to,
+    phoneNumberId: input.phoneNumberId,
     raw: {
       provider: "meta",
       messageType: input.type,

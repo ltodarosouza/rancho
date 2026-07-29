@@ -34,11 +34,32 @@ function field(type: DomainFieldType, options: Omit<DomainFieldDefinition, "type
 }
 
 const allActions = ["query", "create", "update", "import_table"] as const;
+const queryOnly = ["query"] as const;
 const queryCreateImport = ["query", "create", "import_table"] as const;
 const queryCreateUpdateImport = ["query", "create", "update", "import_table"] as const;
 const queryCreate = ["query", "create"] as const;
 
 export const RANCHO_DOMAIN_MANIFEST = {
+  fazenda: {
+    domain: "fazenda",
+    label: "Rancho",
+    tableName: TABLES.fazendas,
+    allowedActions: queryOnly,
+    fields: {
+      nome: field("string"),
+      cidade: field("string"),
+      estado: field("string"),
+      descricao: field("string"),
+      responsavel: field("string")
+    },
+    requiredFieldsByAction: {},
+    searchableFields: ["nome", "cidade", "estado", "descricao", "responsavel"],
+    aggregatableFields: [],
+    dateFields: [],
+    relationFields: [],
+    enumFields: {},
+    maxLimit: 1
+  },
   animais: {
     domain: "animais",
     label: "Animais",

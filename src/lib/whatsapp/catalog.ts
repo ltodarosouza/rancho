@@ -101,7 +101,12 @@ export function resolveAnimalIdentifier<T extends CatalogRow>(
   const descriptiveMatches = uniqueRows(catalog.filter((row) => (
     labelsFrom(row, descriptiveKeys).some((label) => {
       const option = normalizeCatalogText(String(label));
-      return option === normalized || option.split(/\s+/).includes(normalized) || option.includes(normalized);
+      const optionPhrase = ` ${option} `;
+      const inputPhrase = ` ${normalized} `;
+      return option === normalized
+        || option.split(/\s+/).includes(normalized)
+        || option.includes(normalized)
+        || (option.length >= 3 && inputPhrase.includes(optionPhrase));
     })
   )));
   if (descriptiveMatches.length) return asResolution("matched", descriptiveMatches, 0.9, false);

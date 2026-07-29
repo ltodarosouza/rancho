@@ -10,6 +10,7 @@ export type ProcessWhatsappMessageInput = {
   salvarReal?: boolean;
   messageSid?: string;
   to?: string;
+  phoneNumberId?: string;
   raw?: AnyRecord;
 };
 

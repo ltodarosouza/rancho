@@ -49,6 +49,7 @@ export type ExecuteQueryActionPlanResult =
     };
 
 const SAFE_SELECT_FIELDS: Record<string, string[]> = {
+  fazenda: ["id", "nome", "cidade", "estado", "descricao", "responsavel"],
   financeiro: ["id", "tipo", "valor", "descricao", "categoria", "data_transacao", "metodo_pagamento", "created_at"],
   producao_leite: ["id", "animal_id", "litros", "ordenhado_em", "turno", "destino", "observacoes", "created_at"],
   reproducao: ["id", "animal_id", "tipo", "data_evento", "descricao", "custo", "created_at"],
@@ -63,6 +64,7 @@ const SAFE_SELECT_FIELDS: Record<string, string[]> = {
 };
 
 const QUERY_INTENT_BY_DOMAIN: Record<string, RanchoIntent> = {
+  fazenda: "CONSULTA_RANCHO",
   financeiro: "CONSULTA_FINANCEIRO",
   producao_leite: "CONSULTA_PRODUCAO",
   reproducao: "CONSULTA_REGISTROS_HOJE",
@@ -395,10 +397,13 @@ function referenceMatches(candidates: unknown[], target: unknown) {
     const normalizedCandidate = normalizedText(candidate);
     const compactCandidate = compactComparable(candidate);
     if (!normalizedCandidate) return false;
+    const candidatePhrase = ` ${normalizedCandidate} `;
+    const targetPhrase = ` ${normalizedTarget} `;
     return normalizedCandidate === normalizedTarget
       || compactCandidate === compactTarget
       || (!numericTarget && normalizedCandidate.includes(normalizedTarget))
-      || (!numericTarget && compactTarget.length >= 3 && compactCandidate.includes(compactTarget));
+      || (!numericTarget && compactTarget.length >= 3 && compactCandidate.includes(compactTarget))
+      || (!numericTarget && normalizedCandidate.length >= 3 && targetPhrase.includes(candidatePhrase));
   });
 }
 
@@ -1312,6 +1317,23 @@ function querySample(domain: DomainManifestEntry, rows: AnyRecord[], relations: 
 }
 
 function buildResponse(domain: DomainManifestEntry, rows: AnyRecord[], metrics: AnyRecord, plan: QueryActionPlan, relations: AnyRecord) {
+  if (domain.domain === "fazenda") {
+    const fazenda = rows[0];
+    if (!fazenda) return "Não encontrei os dados do seu rancho.";
+
+    const selected = new Set(plan.select || []);
+    const nameOnly = selected.size === 0 || (selected.size === 1 && selected.has("nome"));
+    if (nameOnly) return `O nome do seu rancho é ${fazenda.nome || "não informado"}.`;
+
+    const location = [fazenda.cidade, fazenda.estado].filter(Boolean).join(" - ");
+    return [
+      `Rancho: ${fazenda.nome || "nome não informado"}.`,
+      selected.has("cidade") || selected.has("estado") ? `Localização: ${location || "não informada"}.` : "",
+      selected.has("responsavel") ? `Responsável: ${fazenda.responsavel || "não informado"}.` : "",
+      selected.has("descricao") ? `Descrição: ${fazenda.descricao || "não informada"}.` : ""
+    ].filter(Boolean).join("\n");
+  }
+
   if (domain.domain === "financeiro") {
     const entradas = rows.filter((row) => normalizeFinanceType(row.tipo) === "entrada").reduce((sum, row) => sum + Number(row.valor || 0), 0);
     const saidas = rows.filter((row) => normalizeFinanceType(row.tipo) === "saida").reduce((sum, row) => sum + Number(row.valor || 0), 0);
@@ -1503,7 +1525,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   let query = input.supabase
     .from(tableName)
     .select(Array.from(new Set(selectFields)).join(","))
-    .eq("fazenda_id", input.owner.fazenda_id)
+    .eq(domain.domain === "fazenda" ? "id" : "fazenda_id", input.owner.fazenda_id)
     .limit(limit);
 
   const dateField = plan.filters.find((filter) => domain.dateFields.includes(filter.field));

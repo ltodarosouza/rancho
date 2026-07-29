@@ -73,6 +73,7 @@ const {
 } = require("../src/lib/whatsapp/action-plan/runtime.ts");
 const { executeActionPlan } = require("../src/lib/whatsapp/action-plan/execute-action-plan.ts");
 const { executeQueryActionPlan } = require("../src/lib/whatsapp/action-plan/execute-query-action-plan.ts");
+const { resolveAnimalIdentifier } = require("../src/lib/whatsapp/catalog.ts");
 const {
   executeImportTableActionPlan,
   parseStructuredTableForActionPlan,
@@ -336,6 +337,7 @@ function createActionPlanSupabase(seed) {
 }
 
 const requiredDomains = [
+  "fazenda",
   "animais",
   "lotes",
   "genealogia",
@@ -580,6 +582,7 @@ test("prompt Gemini-first inclui contrato, manifest e seguranca", () => {
   assert(prompt.includes("delete ou update em massa"), "prompt sem regra de delete");
   assert(prompt.includes("columnMapping"), "prompt sem regra de tabela");
   assert(prompt.includes("semantic") && prompt.includes("Memoria de melhoria continua"), "prompt sem bloco semantico ou memoria");
+  assert(prompt.includes("action=query domain=fazenda") && prompt.includes("select=[nome]"), "prompt sem consulta do proprio rancho");
   assert(prompt.includes("melhorar o contrato semantico geral antes de criar regra pontual"), "prompt sem memoria anti-regra-pontual");
   assert(prompt.includes("Nao retorne markdown") && prompt.includes("intent legado") && prompt.includes("SQL"), "prompt ainda permite formato legado");
 
@@ -2693,6 +2696,65 @@ test("AI Response Composer rejeita perda de opcao ou falsa afirmacao de salvamen
     ].join("\n")
   });
   assert(unsafeSave.usedAI === false && unsafeSave.reason === "unsafe_save_claim", "composer deveria rejeitar salvamento falso");
+});
+
+test("executor query fazenda responde o nome do rancho sem gerar resumo operacional", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "fazenda",
+      confidence: 0.96,
+      filters: [],
+      select: ["nome"],
+      requiresConfirmation: false,
+      limit: 1,
+      userQuestion: "qual o nome do meu rancho"
+    },
+    owner: ADMIN_OWNER,
+    originalText: "qual o nome do meu rancho",
+    supabase: createActionPlanSupabase({
+      [TABLES.fazendas]: [
+        { id: ADMIN_OWNER.fazenda_id, nome: "Rancho Todaro", cidade: "Joao Pessoa", estado: "PB" },
+        { id: "outra-fazenda", nome: "Outro Rancho", cidade: "Recife", estado: "PE" }
+      ]
+    })
+  });
+
+  assert(result.ok, `query fazenda deveria executar: ${result.reason}`);
+  assert(result.rows.length === 1, `query fazenda deveria respeitar o escopo, recebeu ${result.rows.length}`);
+  assert(result.parsed.tipo === "CONSULTA_RANCHO", `intent esperado CONSULTA_RANCHO, recebido ${result.parsed.tipo}`);
+  assert(result.response === "O nome do seu rancho é Rancho Todaro.", `resposta de nome inesperada: ${result.response}`);
+  assert(!/financeiro|rebanho|producao/i.test(result.response), "consulta de nome nao deve virar resumo operacional");
+});
+
+test("resolucao animal aceita nome dentro de referencia natural sem depender da frase exata", async () => {
+  const catalog = [
+    { id: "animal-1", brinco: "B-001", nome: "Mimosa", categoria: "vaca" },
+    { id: "animal-2", brinco: "B-002", nome: "Lua", categoria: "vaca" }
+  ];
+  const catalogResult = resolveAnimalIdentifier("dados da vaca Mimosa", catalog);
+  assert(catalogResult.status === "matched", `catalogo deveria resolver referencia natural, recebeu ${catalogResult.status}`);
+  assert(catalogResult.row?.id === "animal-1", "catalogo deveria encontrar Mimosa");
+
+  const queryResult = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "animais",
+      confidence: 0.95,
+      filters: [{ field: "animal_ref", op: "eq", value: "vaca Mimosa" }],
+      requiresConfirmation: false,
+      userQuestion: "dados da vaca Mimosa"
+    },
+    owner: ADMIN_OWNER,
+    originalText: "dados da vaca Mimosa",
+    supabase: createActionPlanSupabase({
+      [TABLES.animais]: catalog.map((animal) => ({ ...animal, fazenda_id: ADMIN_OWNER.fazenda_id, sexo: "femea", status: "ativo" }))
+    })
+  });
+
+  assert(queryResult.ok, `query animal natural deveria executar: ${queryResult.reason}`);
+  assert(queryResult.rows.length === 1 && queryResult.rows[0].id === "animal-1", "query deveria encontrar Mimosa pela referencia natural");
+  assert(queryResult.response.includes("Mimosa"), "resposta deveria trazer a ficha de Mimosa");
 });
 
 test("AI Response Composer preserva orientacao de crias em lote", () => {

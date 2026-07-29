@@ -50,6 +50,13 @@ function mandatoryLines(response: string) {
     .filter((line) => /^\d+\s*-\s+\S+/.test(line));
 }
 
+function mandatoryRecordLines(response: string) {
+  return response
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^\d+[.)]\s+\S+/.test(line));
+}
+
 function mandatoryInstructionLines(response: string) {
   return response
     .split(/\r?\n/)
@@ -161,7 +168,24 @@ function compactDataForPrompt(parsed?: ParsedRanchoMessage | null, options: { ev
     if (dados[key] !== undefined && dados[key] !== null && dados[key] !== "") compact[key] = dados[key];
   }
   const result = compactValueForPrompt(dados.resultado);
-  if (result) compact.resultado = result;
+  if (result && typeof result === "object" && !Array.isArray(result)) {
+    const safeResult = { ...(result as AnyRecord) };
+    // The sample always starts at the first row and can corrupt later pages.
+    // The validated response already contains the exact rows the user may see.
+    delete safeResult.amostra;
+    if (Object.keys(safeResult).length) compact.resultado = safeResult;
+  }
+  const actionPlan = dados.action_plan;
+  if (actionPlan && typeof actionPlan === "object" && !Array.isArray(actionPlan)) {
+    const plan = actionPlan as AnyRecord;
+    const semantic = plan.semantic && typeof plan.semantic === "object" ? plan.semantic as AnyRecord : {};
+    const report = semantic.report && typeof semantic.report === "object" ? semantic.report as AnyRecord : {};
+    compact.apresentacao_consulta = {
+      operation: plan.operation || semantic.operation || null,
+      reportType: report.type || null,
+      detailLevel: report.detailLevel || null
+    };
+  }
   const rows = compactRowsForPrompt(parsed);
   if (rows) compact.linhas_resumidas = rows;
   return Object.keys(compact).length ? compact : null;
@@ -181,6 +205,7 @@ function shouldTryAIComposition(input: ComposeBotResponseInput) {
 
 function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
   const options = mandatoryLines(input.response);
+  const records = mandatoryRecordLines(input.response);
   const instructions = mandatoryInstructionLines(input.response);
   const context = {
     userMessage: input.userMessage,
@@ -192,6 +217,7 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     missingFields: input.parsed?.perguntas_faltantes || [],
     extractedData: compactDataForPrompt(input.parsed, { eventConfirmed: input.eventConfirmed }),
     mandatoryOptionLines: options,
+    mandatoryRecordLines: records,
     mandatoryInstructionLines: instructions,
     originalResponse: polishBotResponse(input.response)
   };
@@ -203,13 +229,15 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     "",
     "Regras rigidas:",
     "- Use somente os fatos presentes em originalResponse e extractedData.",
-    "- Em consultas, extractedData.resultado contem os dados reais consultados. Voce pode reorganizar e explicar esses fatos, mas nao acrescentar nada fora deles.",
+    "- Em consultas, originalResponse e a fonte de verdade sobre quais registros pertencem a esta resposta e a esta pagina. Nao troque, repita nem acrescente registros usando outros dados do contexto.",
+    "- Resumo e lista detalhada sao modos diferentes. Se originalResponse for um resumo, nao acrescente exemplos, amostras ou transacoes que nao estejam escritos nela.",
     "- Nao invente dados, valores, codigos, animais, datas, permissoes ou salvamentos.",
     "- Nao altere a acao definida pelo backend.",
     "- Formate todo valor monetario em real brasileiro, por exemplo R$ 1.234,56. Nunca remova o simbolo, os separadores ou as duas casas decimais.",
     "- Quando eventConfirmed for true, originalResponse e a fonte da verdade sobre o que foi salvo. Nao use dados de pre-validacao antigos para criar pendencias.",
     "- Nao diga que salvou, registrou, cadastrou ou importou se originalResponse estiver pedindo confirmacao ou dizendo que nada foi salvo.",
     "- Se houver mandatoryOptionLines, copie essas linhas exatamente como estao.",
+    "- Se houver mandatoryRecordLines, preserve cada registro exatamente; voce pode apenas ajustar a organizacao ao redor deles.",
     "- Se houver mandatoryInstructionLines, preserve essas instrucoes de forma clara. O formato de complementacao de crias deve aparecer explicitamente.",
     "- Organize respostas longas em blocos curtos, por exemplo: Resumo, Partos, Como complementar, Opcoes.",
     "- Em importacoes de tabelas, explique primeiro o que foi lido, depois pendencias/opcoes, e por ultimo as opcoes numeradas.",
@@ -265,6 +293,12 @@ export function validateComposedBotResponse(originalResponse: string, composed: 
   for (const line of mandatoryLines(original)) {
     if (!includesComparable(message, line)) {
       return { response: original, usedAI: false, reason: "missing_mandatory_option" };
+    }
+  }
+
+  for (const line of mandatoryRecordLines(original)) {
+    if (!includesComparable(message, line)) {
+      return { response: original, usedAI: false, reason: "missing_mandatory_record" };
     }
   }
 

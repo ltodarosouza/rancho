@@ -2844,6 +2844,26 @@ test("AI Response Composer rejeita perda de opcao ou falsa afirmacao de salvamen
   assert(unsafeSave.usedAI === false && unsafeSave.reason === "unsafe_save_claim", "composer deveria rejeitar salvamento falso");
 });
 
+test("AI Response Composer nao troca registros de uma pagina por registros antigos", () => {
+  const original = [
+    "Mais vacas:",
+    "11. Vaca 11 (V-011) - vaca - ativo",
+    "12. Vaca 12 (V-012) - vaca - ativo",
+    "Fim da lista."
+  ].join("\n");
+  const result = validateComposedBotResponse(original, {
+    type: "bot_response_composition",
+    confidence: 0.95,
+    message: [
+      "Encontrei mais duas vacas:",
+      "1. Vaca 1 (V-001) - vaca - ativo",
+      "2. Vaca 2 (V-002) - vaca - ativo"
+    ].join("\n")
+  });
+  assert(result.usedAI === false && result.reason === "missing_mandatory_record", "composer deveria rejeitar registros de outra pagina");
+  assert(result.response.includes("V-011") && !result.response.includes("V-001"), "fallback deveria preservar a pagina correta");
+});
+
 test("executor query fazenda responde o nome do rancho sem gerar resumo operacional", async () => {
   const result = await executeQueryActionPlan({
     plan: {
@@ -5625,6 +5645,57 @@ test("ActionPlan lista transacoes com BRL periodo e paginacao", async () => {
   assert(result.response.includes("R$ 1.234,50"), `valor deveria estar em BRL: ${result.response}`);
   assert(result.response.includes("mostrar mais"), "lista financeira deveria oferecer continuacao");
   assert(result.parsed.dados?.action_plan_pagination?.offset === 10, "lista financeira deveria guardar pagina seguinte");
+});
+
+test("ActionPlan financeiro mantem resumo curto e abre detalhes sob demanda", async () => {
+  const transactions = Array.from({ length: 13 }, (_, index) => ({
+    id: `finance-summary-${index + 1}`,
+    fazenda_id: ADMIN_OWNER.fazenda_id,
+    tipo: index % 2 ? "saida" : "entrada",
+    valor: 100 + index,
+    descricao: `Movimento ${index + 1}`,
+    data_transacao: "2026-07-20"
+  }));
+  const plan = {
+    action: "query",
+    domain: "financeiro",
+    operation: "resumir",
+    confidence: 0.94,
+    semantic: { intent: "resumo_financeiro", scope: "financeiro", report: { type: "financeiro", detailLevel: "resumo" } },
+    filters: [{ field: "data", op: "last_days", value: 30 }],
+    limit: 100,
+    requiresConfirmation: false
+  };
+  const first = await executeQueryActionPlan({
+    plan,
+    originalText: "resumo financeiro",
+    currentDate: "2026-07-29",
+    owner: ADMIN_OWNER,
+    supabase: createActionPlanSupabase({ [TABLES.transacoesFinanceiras]: transactions })
+  });
+  assert(first.ok, `resumo financeiro deveria executar: ${first.reason}`);
+  assert(/(?:Resumo|Relat[oó]rio) financeiro/.test(first.response) && !/\bMovimento \d+\b/.test(first.response), `resumo nao deveria mostrar exemplos de registros: ${first.response}`);
+  const pagination = first.parsed.dados?.action_plan_pagination;
+  assert(pagination?.offset === 0 && pagination?.plan?.semantic?.report?.detailLevel === "detalhado", "resumo deveria guardar contexto para abrir detalhes");
+
+  const details = await executeActionPlan({
+    plan: {
+      action: "query",
+      domain: "financeiro",
+      confidence: 0.94,
+      semantic: { intent: "continuar_lista", scope: "financeiro", operation: "continuar_consulta" },
+      filters: [],
+      requiresConfirmation: false
+    },
+    text: "mostra mais registros",
+    owner: ADMIN_OWNER,
+    currentDate: "2026-07-29",
+    queryPagination: pagination,
+    supabase: createActionPlanSupabase({ [TABLES.transacoesFinanceiras]: transactions })
+  });
+  assert(details.ok, `detalhes financeiros deveriam executar: ${details.reason}`);
+  assert(details.response.includes("Movimento 1") && details.response.includes("mostrar mais"), "continuacao deveria abrir os primeiros registros financeiros");
+  assert(details.parsed.dados?.action_plan_pagination?.offset === 10, "detalhes deveriam guardar a pagina seguinte");
 });
 
 test("ActionPlan genealogia encontra crias e nunca exibe UUID", async () => {

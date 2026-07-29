@@ -1280,6 +1280,22 @@ function wantsDetailedList(plan: QueryActionPlan) {
   return /\b(?:lista|listar|listagem|detalhado|detalhada|detalhes|completo|completa|transacoes|movimentacoes|registros)\b/.test(queryDetailLevel(plan));
 }
 
+function financeDetailPlan(plan: QueryActionPlan): QueryActionPlan {
+  return {
+    ...plan,
+    operation: "listar",
+    semantic: {
+      ...(plan.semantic || {}),
+      operation: "listar",
+      report: {
+        ...(plan.semantic?.report || {}),
+        type: "transacoes",
+        detailLevel: "detalhado"
+      }
+    }
+  };
+}
+
 function financeLine(row: AnyRecord, index: number) {
   const type = normalizeFinanceType(row.tipo) === "saida" ? "Saída" : "Entrada";
   const description = row.descricao || row.categoria || "sem descrição";
@@ -1628,17 +1644,28 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   const offset = Math.max(0, input.pagination?.offset || 0);
   const response = buildResponse(domain, rows, metrics, plan, relationContext, { offset, pageSize });
   const nextOffset = Math.min(rows.length, offset + pageSize);
-  const pagination: ActionPlanQueryPagination | undefined = queryPaginationPageSize(domain, plan) && nextOffset < rows.length
+  const financeSummaryCanOpenDetails = domain.domain === "financeiro" && !wantsDetailedList(plan) && rows.length > 0;
+  const pagination: ActionPlanQueryPagination | undefined = financeSummaryCanOpenDetails
     ? {
         tipo: "action_plan_query",
         domain: domain.domain,
-        plan,
+        plan: financeDetailPlan(plan),
         currentDate: input.currentDate,
-        offset: nextOffset,
+        offset: 0,
         pageSize,
         total: rows.length
       }
-    : undefined;
+    : queryPaginationPageSize(domain, plan) && nextOffset < rows.length
+      ? {
+          tipo: "action_plan_query",
+          domain: domain.domain,
+          plan,
+          currentDate: input.currentDate,
+          offset: nextOffset,
+          pageSize,
+          total: rows.length
+        }
+      : undefined;
   const parsed = finalizeActionPlanParsed(QUERY_INTENT_BY_DOMAIN[domain.domain] || "DESCONHECIDO", {
     consulta: true,
     action_plan_response: response,

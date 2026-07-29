@@ -23,7 +23,21 @@ function cachedActionPlanPromptFragment(input: GeminiInterpreterInput) {
   return fragment;
 }
 
+function activeQueryContext(input: GeminiInterpreterInput) {
+  const pagination = input.session?.dados?.consulta_paginacao || input.session?.consulta_paginacao;
+  if (!pagination || typeof pagination !== "object" || Array.isArray(pagination)) return null;
+  return {
+    available: true,
+    domain: pagination.domain || pagination.plan?.domain || null,
+    offset: Number(pagination.offset || 0),
+    pageSize: Number(pagination.pageSize || 10),
+    total: Number(pagination.total || 0),
+    originalPlan: pagination.plan || null
+  };
+}
+
 export function buildGeminiSystemPrompt(input: GeminiInterpreterInput) {
+  const queryContext = activeQueryContext(input);
   return [
     `Prompt version: ${GEMINI_SYSTEM_PROMPT_VERSION}`,
     "Voce e o interpretador semantico do bot Rancho.",
@@ -37,6 +51,12 @@ export function buildGeminiSystemPrompt(input: GeminiInterpreterInput) {
     JSON.stringify(input.catalogs || {}),
     "",
     "Mensagem original:",
-    JSON.stringify(input.text)
+    JSON.stringify(input.text),
+    "",
+    "Contexto ativo de continuacao de consulta:",
+    JSON.stringify(queryContext || { available: false }),
+    queryContext
+      ? "Se a mensagem atual pedir continuacao, mais resultados, restantes ou detalhes dessa consulta, use action=query, o mesmo domain e semantic.operation=continuar_consulta. O backend reutilizara originalPlan, filtros e offset. Se for uma nova solicitacao, interprete-a normalmente."
+      : "Nao ha consulta anterior disponivel para continuar. Se a mensagem pedir apenas mais resultados sem dizer de qual consulta, use action=clarify; nunca escolha animais ou outro dominio por padrao."
   ].join("\n");
 }

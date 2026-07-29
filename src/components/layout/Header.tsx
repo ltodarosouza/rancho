@@ -118,7 +118,7 @@ export function Header() {
 
   return (
     <>
-      <header className="no-print sticky top-0 z-20 border-b border-slate-200/60 bg-white/95 px-4 py-3 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/95 md:bg-white/82 md:px-8 md:backdrop-blur-2xl md:dark:bg-slate-950/78">
+      <header className="no-print fixed inset-x-0 top-0 z-40 border-b border-slate-200/60 bg-white/95 px-4 py-3 shadow-[0_10px_28px_-24px_rgba(15,23,42,0.75)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/95 lg:left-72 md:bg-white/82 md:px-8 md:backdrop-blur-2xl md:dark:bg-slate-950/78">
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3 lg:hidden">
             <button

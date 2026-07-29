@@ -9,6 +9,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar />
         <div className="lg:pl-72">
           <Header />
+          <div className="h-[61px] md:h-[77px]" aria-hidden="true" />
           <main className="mx-auto max-w-7xl p-4 md:p-8">{children}</main>
         </div>
       </div>

@@ -40,7 +40,10 @@ export async function handleMetaRanchoMessage(input: MetaIncomingMessage) {
   });
 
   try {
-    await sendOutboundWhatsAppText(input.phone, result.respostaTexto, { provider: "meta" });
+    await sendOutboundWhatsAppText(input.phone, result.respostaTexto, {
+      provider: "meta",
+      phoneNumberId: input.phoneNumberId
+    });
     return { ...result, outboundSent: true as const };
   } catch (error) {
     if (error instanceof MetaWhatsAppApiError) {

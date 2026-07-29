@@ -57,7 +57,11 @@ async function sendTwilioWhatsAppText(to: string, body: string) {
   return { provider: "twilio", data };
 }
 
-export async function sendOutboundWhatsAppText(phone: string, body: string, options?: { provider?: "meta" | "twilio" }) {
+export async function sendOutboundWhatsAppText(
+  phone: string,
+  body: string,
+  options?: { provider?: "meta" | "twilio"; phoneNumberId?: string }
+) {
   const normalizedPhone = normalizeWhatsappNumber(phone);
   if (!normalizedPhone) throw new Error("Informe um WhatsApp válido com DDD.");
 
@@ -72,7 +76,7 @@ export async function sendOutboundWhatsAppText(phone: string, body: string, opti
       to: maskPhone(normalizedPhone),
       messageLength: body.length
     });
-    const data = await sendWhatsAppText(normalizedPhone, body);
+    const data = await sendWhatsAppText(normalizedPhone, body, { phoneNumberId: options?.phoneNumberId });
     console.log("[WhatsApp outbound ok]", {
       provider: "meta",
       to: maskPhone(normalizedPhone)

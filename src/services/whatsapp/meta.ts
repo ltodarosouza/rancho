@@ -15,7 +15,12 @@ export type MetaIncomingMessage = {
   text: string;
   buttonId?: string;
   to?: string;
+  phoneNumberId?: string;
   raw: MetaWebhookPayload;
+};
+
+type MetaSendOptions = {
+  phoneNumberId?: string;
 };
 
 const apiBase = "https://graph.facebook.com/v20.0";
@@ -69,12 +74,13 @@ export function verifyMetaWebhookSignature(rawBody: string, signature: string | 
   return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
-async function sendPayload(payload: any) {
+async function sendPayload(payload: any, options?: MetaSendOptions) {
   if (!isMetaConfigured()) {
     return { demo: true, type: payload?.type || "unknown" };
   }
 
-  const response = await fetch(`${apiBase}/${env.metaPhoneNumberId}/messages`, {
+  const phoneNumberId = options?.phoneNumberId?.trim() || env.metaPhoneNumberId;
+  const response = await fetch(`${apiBase}/${phoneNumberId}/messages`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${env.metaWhatsappToken}`,
@@ -90,16 +96,16 @@ async function sendPayload(payload: any) {
   return data;
 }
 
-export async function sendWhatsAppText(to: string, body: string) {
+export async function sendWhatsAppText(to: string, body: string, options?: MetaSendOptions) {
   return sendPayload({
     messaging_product: "whatsapp",
     to,
     type: "text",
     text: { preview_url: false, body }
-  });
+  }, options);
 }
 
-export async function sendWhatsAppButtons(to: string, body: string, buttons: WhatsAppButton[]) {
+export async function sendWhatsAppButtons(to: string, body: string, buttons: WhatsAppButton[], options?: MetaSendOptions) {
   return sendPayload({
     messaging_product: "whatsapp",
     to,
@@ -114,7 +120,7 @@ export async function sendWhatsAppButtons(to: string, body: string, buttons: Wha
         }))
       }
     }
-  });
+  }, options);
 }
 
 export function getIncomingMessages(payload: MetaWebhookPayload): MetaIncomingMessage[] {
@@ -124,6 +130,7 @@ export function getIncomingMessages(payload: MetaWebhookPayload): MetaIncomingMe
     for (const change of entry?.changes || []) {
       const value = change?.value;
       const displayPhoneNumber = value?.metadata?.display_phone_number;
+      const phoneNumberId = value?.metadata?.phone_number_id;
 
       for (const message of value?.messages || []) {
         const phone = String(message?.from || "");
@@ -145,6 +152,7 @@ export function getIncomingMessages(payload: MetaWebhookPayload): MetaIncomingMe
           text: String(text),
           buttonId: buttonId ? String(buttonId) : undefined,
           to: displayPhoneNumber ? String(displayPhoneNumber) : undefined,
+          phoneNumberId: phoneNumberId ? String(phoneNumberId) : undefined,
           raw: message
         });
       }

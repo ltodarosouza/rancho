@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v10";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v11";
 
 const EXAMPLES = [
   {
@@ -27,6 +27,23 @@ const EXAMPLES = [
         { field: "categoria", op: "eq", value: "vaca" }
       ],
       limit: 100, requiresConfirmation: false
+    }
+  },
+  {
+    user: "faz quanto tempo que a Estrela esta em pre-parto?",
+    plan: {
+      action: "query", domain: "reproducao", confidence: 0.94,
+      semantic: {
+        intent: "consultar_duracao_estado",
+        scope: "animal",
+        entities: { animal: "Estrela" },
+        attributes: { status_reprodutivo: "pre_parto", medida: "duracao" }
+      },
+      filters: [
+        { field: "animal_ref", op: "eq", value: "Estrela" },
+        { field: "status_reprodutivo", op: "eq", value: "pre_parto" }
+      ],
+      limit: 20, requiresConfirmation: false
     }
   },
   {
@@ -264,6 +281,24 @@ const EXAMPLES = [
     }
   },
   {
+    user: "qual animal produziu mais leite neste mes?",
+    plan: {
+      action: "query", domain: "producao_leite", confidence: 0.94,
+      semantic: {
+        intent: "comparar_producao_por_animal",
+        scope: "rebanho",
+        period: "mes_atual",
+        attributes: { metrica: "litros", ordenacao: "desc" },
+        report: { type: "ranking", detailLevel: "primeiro" }
+      },
+      filters: [{ field: "data", op: "current_month" }],
+      aggregations: [{ field: "litros", op: "sum", as: "total_litros" }],
+      groupBy: ["animal_ref"],
+      orderBy: { field: "litros", direction: "desc" },
+      limit: 1, requiresConfirmation: false
+    }
+  },
+  {
     user: "comprei 10 sacos de racao por 500 reais",
     plan: {
       action: "execute", capability: "registrar_movimento_estoque", operation: "compra_estoque", confidence: 0.92,
@@ -459,6 +494,8 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Perguntas sobre o proprio rancho, como nome, cidade, estado, descricao ou responsavel, usam action=query domain=fazenda. Se o usuario pedir somente o nome, use select=[nome], filters=[] e nao gere resumo operacional de rebanho, producao ou financeiro. Perguntar qual e um campo nao significa filtrar por esse campo.",
     "Consultas coletivas como dados do rebanho, dados das vacas, dados das vagas, lista das vacas, vacas cadastradas ou meus animais usam action=query domain=animais. Nao use animal_ref para plural/coletivo; use categoria quando houver vaca, boi, bezerro, novilha ou touro.",
     "Consultas de um animal especifico com brinco/codigo/nome claro, como dados da vaca B-001, ficha da Mimosa ou historico do animal 120, usam action=query domain=animais com filtro animal_ref. Nao transforme isso em consulta coletiva.",
+    "Perguntas sobre ha quanto tempo, desde quando ou quantos dias um animal esta em um estado reprodutivo usam action=query domain=reproducao com animal_ref e status_reprodutivo/evento. Nao aplique filtro de periodo: a data do evento que iniciou o estado precisa permanecer na consulta para o backend calcular a duracao. Isso vale para qualquer animal e estado reprodutivo suportado.",
+    "Comparacoes, rankings, maior, menor, primeiro, ultimo ou top por entidade usam aggregations + groupBy na entidade + orderBy na metrica. Para producao por animal, agrupe por animal_ref, agregue litros com sum e ordene litros desc para maior ou asc para menor; use limit=1 quando a pergunta pedir somente qual animal e um limite maior quando pedir ranking/lista.",
     "Consultas de funcionarios, equipe, dados dos funcionarios, salarios ou cargos usam action=query domain=funcionarios. Consultas de ponto, presenca, quem bateu ponto, entradas ou saidas de funcionario usam action=query domain=ponto_funcionario.",
     "Cadastro de animal: nao use a mesma palavra solta como nome e brinco/codigo. Se a mensagem disser apenas 'criar vaca Felipe', trate Felipe como nome e deixe brinco/codigo faltando. So preencha brinco/codigo quando houver marcador explicito (brinco, codigo, numero) ou formato claro de codigo com numero/hifen.",
     "Consultas genericas como quais eventos teve hoje, eventos de hoje, registros de hoje, o que aconteceu hoje, movimentacoes de hoje, resumo do dia ou fechamento de hoje usam action=query domain=observacoes, operation=eventos_gerais, requiresConfirmation=false.",

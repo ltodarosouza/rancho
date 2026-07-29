@@ -25,6 +25,7 @@ type ParseWithInterpreterInput = {
   text: string;
   localParsed: ParsedRanchoMessage;
   owner: WhatsAppOwner;
+  currentDate?: string;
   geminiMockId?: string | null;
   supabase?: ActionPlanSupabaseLike | null;
   messageType?: string | null;
@@ -1358,7 +1359,7 @@ async function convertActionPlanSequenceInterpretation(
         usuario_id: input.owner.usuario_id
       },
       supabase: input.supabase || null,
-      currentDate: getRanchTodayISO()
+      currentDate: input.currentDate || getRanchTodayISO()
     });
 
     if (!result.ok) {
@@ -1602,7 +1603,7 @@ async function convertActionPlanInterpretation(
       usuario_id: input.owner.usuario_id
     },
     supabase: input.supabase || null,
-    currentDate: getRanchTodayISO()
+    currentDate: input.currentDate || getRanchTodayISO()
   });
 
   if (!result.ok) {
@@ -1801,7 +1802,7 @@ async function convertGeminiTableImport(
       usuario_id: input.owner.usuario_id
     },
     supabase: input.supabase || null,
-    currentDate: getRanchTodayISO()
+    currentDate: input.currentDate || getRanchTodayISO()
   });
 
   if (!result.ok) {
@@ -1933,7 +1934,7 @@ async function parseWithGeminiPrimary(input: ParseWithInterpreterInput): Promise
     rancho: {
       fazenda_id: input.owner.fazenda_id
     },
-    currentDate: getRanchTodayISO(),
+    currentDate: input.currentDate || getRanchTodayISO(),
     timezone: process.env.TZ || "America/Fortaleza",
     geminiMockId: input.geminiMockId || null
   });

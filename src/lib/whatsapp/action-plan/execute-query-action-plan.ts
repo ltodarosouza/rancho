@@ -538,6 +538,38 @@ function monthKey(row: AnyRecord, domain: DomainManifestEntry, plan: QueryAction
   return parsed ? `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}` : "sem_data";
 }
 
+function groupDescriptor(row: AnyRecord, fieldName: string, domain: DomainManifestEntry, plan: QueryActionPlan, relations: AnyRecord) {
+  if (fieldName === "month") {
+    const value = monthKey(row, domain, plan, relations);
+    return { key: value, value };
+  }
+  if (fieldName === "animal_ref") {
+    const animalId = String(row.animal_id || row.id || "");
+    const animal = domain.domain === "animais" ? row : relations.animalsById?.get(animalId);
+    return { key: animalId || normalizedText(animalLabel(animal)), value: animalLabel(animal) };
+  }
+  if (fieldName === "funcionario_ref") {
+    const employeeId = String(row.funcionario_id || row.id || "");
+    const employee = domain.domain === "funcionarios" ? row : relations.employeesById?.get(employeeId);
+    return { key: employeeId || normalizedText(employee?.nome), value: employee?.nome || employeeId || "Funcionario" };
+  }
+  const value = rowValue(row, domain, fieldName, relations);
+  return { key: normalizedText(value) || "sem_valor", value };
+}
+
+function aggregationMetricKey(aggregation: AggregationPlan) {
+  return aggregation.as || `${aggregation.op}_${aggregation.field}`;
+}
+
+function groupedAggregationValue(group: AnyRecord, plan: QueryActionPlan) {
+  const orderField = plan.orderBy?.field;
+  const aggregation = plan.aggregations?.find((item) => item.field === orderField || aggregationMetricKey(item) === orderField)
+    || plan.aggregations?.[0];
+  if (aggregation) return Number(group.metrics?.[aggregationMetricKey(aggregation)] || 0);
+  const groupedValue = orderField ? group.values?.[orderField] : undefined;
+  return typeof groupedValue === "number" ? groupedValue : normalizedText(groupedValue);
+}
+
 function buildAggregations(rows: AnyRecord[], plan: QueryActionPlan, domain: DomainManifestEntry, relations: AnyRecord) {
   const aggregations = plan.aggregations || [];
   const totals = Object.fromEntries(
@@ -547,27 +579,45 @@ function buildAggregations(rows: AnyRecord[], plan: QueryActionPlan, domain: Dom
     ])
   );
 
-  if (!plan.groupBy?.includes("month")) return { totals };
+  if (!plan.groupBy?.length) return { totals };
 
-  const groups = new Map<string, AnyRecord[]>();
+  const groupedRows = new Map<string, { values: AnyRecord; rows: AnyRecord[] }>();
   for (const row of rows) {
-    const key = monthKey(row, domain, plan, relations);
-    groups.set(key, [...(groups.get(key) || []), row]);
+    const descriptors = plan.groupBy.map((fieldName) => groupDescriptor(row, fieldName, domain, plan, relations));
+    const key = descriptors.map((descriptor) => descriptor.key).join("::");
+    const values = Object.fromEntries(plan.groupBy.map((fieldName, index) => [fieldName, descriptors[index].value]));
+    const current = groupedRows.get(key);
+    groupedRows.set(key, { values: current?.values || values, rows: [...(current?.rows || []), row] });
   }
 
-  const byMonth = Object.fromEntries(
-    Array.from(groups.entries()).sort(([left], [right]) => left.localeCompare(right)).map(([key, groupRows]) => [
-      key,
-      Object.fromEntries(
-        aggregations.map((aggregation) => [
-          aggregation.as || `${aggregation.op}_${aggregation.field}`,
-          aggregationValue(groupRows, aggregation, domain, relations)
-        ])
-      )
-    ])
-  );
+  const groups = Array.from(groupedRows.entries()).map(([key, group]) => ({
+    key,
+    label: plan.groupBy?.map((fieldName) => String(group.values[fieldName] ?? "")).filter(Boolean).join(" / ") || key,
+    values: group.values,
+    metrics: Object.fromEntries(
+      aggregations.map((aggregation) => [
+        aggregationMetricKey(aggregation),
+        aggregationValue(group.rows, aggregation, domain, relations)
+      ])
+    ),
+    registros: group.rows.length
+  }));
 
-  return { totals, byMonth };
+  if (plan.orderBy) {
+    const direction = plan.orderBy.direction === "asc" ? 1 : -1;
+    groups.sort((left, right) => {
+      const leftValue = groupedAggregationValue(left, plan);
+      const rightValue = groupedAggregationValue(right, plan);
+      if (typeof leftValue === "number" && typeof rightValue === "number") return (leftValue - rightValue) * direction;
+      return String(leftValue).localeCompare(String(rightValue), "pt-BR") * direction;
+    });
+  }
+
+  const byMonth = plan.groupBy.includes("month")
+    ? Object.fromEntries(groups.map((group) => [String(group.values.month), group.metrics]))
+    : undefined;
+
+  return { totals, ...(byMonth ? { byMonth } : {}), groups };
 }
 
 function money(value: number) {
@@ -586,7 +636,9 @@ function shortDate(value: unknown) {
 function daysSince(value: unknown, baseDate: Date) {
   const parsed = parseDate(value);
   if (!parsed) return null;
-  const diff = Math.floor((baseDate.getTime() - parsed.getTime()) / 86400000);
+  const baseDay = getRanchDayRange(dateOnly(baseDate)).start;
+  const eventDay = getRanchDayRange(dateOnly(parsed)).start;
+  const diff = Math.floor((baseDay.getTime() - eventDay.getTime()) / 86400000);
   return Number.isFinite(diff) && diff >= 0 ? diff : null;
 }
 
@@ -784,12 +836,13 @@ function normalizeProductionQueryPlan(plan: QueryActionPlan, originalText?: stri
   const aggregations = plan.aggregations?.length
     ? plan.aggregations
     : [{ field: "litros", op: "sum", as: "total_litros" } as AggregationPlan];
+  const groupedQuery = Boolean(plan.groupBy?.length);
 
   return {
     ...plan,
     filters,
     aggregations,
-    limit: Math.max(plan.limit || 0, 100),
+    limit: groupedQuery ? Math.max(1, plan.limit || 10) : Math.max(plan.limit || 0, 100),
     userQuestion: plan.userQuestion || originalText || null
   };
 }
@@ -875,6 +928,10 @@ function activeReproductionEventForKind(events: AnyRecord[], kind?: string) {
     const pregnancy = latestEventOfKind(events, "prenhez");
     return pregnancy && !hasLaterReproductiveOutcome(events, pregnancy, ["parto"]) ? pregnancy : null;
   }
+  if (kind === "pre_parto") {
+    const preBirth = latestEventOfKind(events, "pre_parto");
+    return preBirth && !hasLaterReproductiveOutcome(events, preBirth, ["parto"]) ? preBirth : null;
+  }
   if (kind === "protocolo" || kind === "reteste") return latestEventOfKind(events, kind);
   return latestEventOfKind(events, kind);
 }
@@ -922,19 +979,26 @@ function targetReproductionKinds(plan: QueryActionPlan, originalText?: string) {
   return order.filter((kind) => kinds.has(kind));
 }
 
-function reproductionTitle(kind?: string) {
-  if (kind === "prenhez") return "Vacas prenhas";
-  if (kind === "inseminacao") return "Vacas inseminadas";
-  if (kind === "parto") return "Vacas paridas";
-  if (kind === "protocolo") return "Vacas em protocolo";
-  if (kind === "reteste") return "Vacas em reteste";
+function reproductionSubject(plan: QueryActionPlan, originalText?: string) {
+  const category = plan.filters.find((filter) => filter.field === "categoria")?.value;
+  return animalCategoryFromQueryText([category, originalText, plan.userQuestion].filter(Boolean).join(" ")) === "vaca" ? "Vacas" : "Animais";
+}
+
+function reproductionTitle(kind?: string, subject = "Animais") {
+  const cows = subject === "Vacas";
+  if (kind === "prenhez") return `${subject} ${cows ? "prenhas" : "prenhes"}`;
+  if (kind === "inseminacao") return `${subject} ${cows ? "inseminadas" : "inseminados"}`;
+  if (kind === "parto") return `${subject} ${cows ? "paridas" : "com parto"}`;
+  if (kind === "protocolo") return `${subject} em protocolo`;
+  if (kind === "reteste") return `${subject} em reteste`;
+  if (kind === "pre_parto") return `${subject} em pré-parto`;
   return "Eventos reprodutivos";
 }
 
-function reproductionTitleForKinds(kinds: string[]) {
-  if (kinds.length <= 1) return reproductionTitle(kinds[0]);
-  const labels = kinds.map((kind) => reproductionTitle(kind).replace(/^Vacas\s+/i, "").toLowerCase());
-  return `Vacas ${labels.join(" e ")}`;
+function reproductionTitleForKinds(kinds: string[], subject = "Animais") {
+  if (kinds.length <= 1) return reproductionTitle(kinds[0], subject);
+  const labels = kinds.map((kind) => reproductionTitle(kind, subject).replace(new RegExp(`^${subject}\\s+`, "i"), "").toLowerCase());
+  return `${subject} ${labels.join(" e ")}`;
 }
 
 function emptyReproductionText(kind?: string) {
@@ -946,9 +1010,45 @@ function emptyReproductionText(kind?: string) {
   return "Não encontrei eventos reprodutivos para esse período.";
 }
 
-function emptyReproductionTextForKinds(kinds: string[]) {
+function emptyReproductionTextForKinds(kinds: string[], subject = "Animais") {
   if (kinds.length <= 1) return emptyReproductionText(kinds[0]);
-  return `Não encontrei registros ativos para ${reproductionTitleForKinds(kinds).toLowerCase()} no momento.`;
+  return `Não encontrei registros ativos para ${reproductionTitleForKinds(kinds, subject).toLowerCase()} no momento.`;
+}
+
+function reproductionAnimalMatches(animal: AnyRecord, plan: QueryActionPlan) {
+  return plan.filters.every((filter) => {
+    if (filter.field === "animal_ref") {
+      const candidates = [animal.brinco, animal.nome, animal.id].filter(Boolean);
+      if (filter.op === "in") {
+        const values = Array.isArray(filter.value) ? filter.value : [filter.value];
+        return values.some((value) => referenceMatches(candidates, value));
+      }
+      if (filter.op === "neq") return !referenceMatches(candidates, filter.value);
+      return referenceMatches(candidates, filter.value);
+    }
+    if (filter.field === "categoria") {
+      if (filter.op === "in") {
+        const values = Array.isArray(filter.value) ? filter.value : [filter.value];
+        return values.some((value) => animalCategoryMatches(animal, value));
+      }
+      if (filter.op === "neq") return !animalCategoryMatches(animal, filter.value);
+      return animalCategoryMatches(animal, filter.value);
+    }
+    return true;
+  });
+}
+
+function specificReproductionResponse(row: AnyRecord, animal: AnyRecord | undefined, kind: string | undefined, baseDate: Date) {
+  const label = animalLabel(animal);
+  const eventLabel = reproductiveEventLabel((kind || row.kind) as Parameters<typeof reproductiveEventLabel>[0]).toLowerCase();
+  const date = row.data_evento ? shortDate(row.data_evento) : null;
+  const days = row.data_evento ? daysSince(row.data_evento, baseDate) : null;
+  if (days !== null && date) {
+    const duration = `${days} ${days === 1 ? "dia" : "dias"}`;
+    return `${label} está em ${eventLabel} há ${duration}, desde ${date}.`;
+  }
+  if (date) return `${label}: ${eventLabel} registrado em ${date}.`;
+  return `${label} está em ${eventLabel}, mas o registro não tem uma data para calcular a duração.`;
 }
 
 async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan: QueryActionPlan, domain: DomainManifestEntry): Promise<ExecuteQueryActionPlanResult> {
@@ -987,10 +1087,16 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
   if (eventError) throw new Error(eventError.message);
   if (animalError) throw new Error(animalError.message);
 
-  const animalsById = new Map(((animalData || []) as AnyRecord[]).map((animal) => [String(animal.id), animal]));
+  const animals = (animalData || []) as AnyRecord[];
+  const animalsById = new Map(animals.map((animal) => [String(animal.id), animal]));
+  const matchingAnimals = animals.filter((animal) => reproductionAnimalMatches(animal, plan));
+  const matchingAnimalIds = new Set(matchingAnimals.map((animal) => String(animal.id)));
+  const hasAnimalScope = plan.filters.some((filter) => ["animal_ref", "categoria"].includes(filter.field));
+  const specificAnimalFilter = plan.filters.find((filter) => filter.field === "animal_ref" && !isCollectiveAnimalRef(filter.value));
   const allEvents: AnyRecord[] = ((eventData || []) as AnyRecord[])
     .map((event): AnyRecord => ({ ...event, kind: queryEventKind(event) }))
     .filter((event): event is AnyRecord => Boolean(event.kind))
+    .filter((event) => !hasAnimalScope || matchingAnimalIds.has(String(event.animal_id || "")))
     .sort((left: AnyRecord, right: AnyRecord) => String(right.data_evento || right.created_at || "").localeCompare(String(left.data_evento || left.created_at || "")));
 
   let rows: AnyRecord[];
@@ -1006,7 +1112,7 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
       .filter((event): event is AnyRecord => Boolean(event));
     if (kinds.includes("prenhez")) {
       const existing = new Set(rows.map((event) => String(event.animal_id || "")));
-      for (const animal of (animalData || []) as AnyRecord[]) {
+      for (const animal of matchingAnimals) {
         if (existing.has(String(animal.id))) continue;
         if (["gestante", "prenhe", "prenha"].includes(normalizedText(animal.fase))) {
           rows.push({ animal_id: animal.id, kind: "prenhez", tipo: "prenhez", data_evento: null, descricao: "Status atual do animal" });
@@ -1026,8 +1132,14 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
       return true;
     })
     .slice(0, limit);
-  const title = reproductionTitleForKinds(kinds);
-  const response = rows.length
+  const subject = reproductionSubject(plan, input.originalText);
+  const title = reproductionTitleForKinds(kinds, subject);
+  const singleAnimal = specificAnimalFilter && matchingAnimals.length === 1 ? matchingAnimals[0] : undefined;
+  const response = singleAnimal && rows.length === 1
+    ? specificReproductionResponse(rows[0], singleAnimal, kind, baseDate)
+    : specificAnimalFilter && !matchingAnimals.length
+      ? `Não encontrei o animal ${String(specificAnimalFilter.value || "informado")} no rebanho.`
+    : rows.length
     ? [
         `${title}:`,
         ...rows.slice(0, 12).map((row, index) => {
@@ -1040,7 +1152,9 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
         }),
         rows.length > 12 ? `...e mais ${rows.length - 12} registro(s).` : ""
       ].filter(Boolean).join("\n")
-    : emptyReproductionTextForKinds(kinds);
+    : specificAnimalFilter && matchingAnimals.length === 1 && kind
+      ? `${animalLabel(matchingAnimals[0])} não está em ${reproductiveEventLabel(kind as Parameters<typeof reproductiveEventLabel>[0]).toLowerCase()} no momento.`
+      : emptyReproductionTextForKinds(kinds, subject);
 
   const parsed = finalizeActionPlanParsed(QUERY_INTENT_BY_DOMAIN[domain.domain] || "CONSULTA_REGISTROS_HOJE", {
     consulta: true,
@@ -1316,6 +1430,46 @@ function querySample(domain: DomainManifestEntry, rows: AnyRecord[], relations: 
   return rows.slice(0, 12);
 }
 
+function buildProductionResponse(rows: AnyRecord[], metrics: AnyRecord, plan: QueryActionPlan) {
+  const period = periodText(plan);
+  const groups = Array.isArray(metrics.groups) ? [...metrics.groups] as AnyRecord[] : [];
+  if (plan.groupBy?.includes("animal_ref")) {
+    const aggregation = plan.aggregations?.find((item) => item.field === "litros") || plan.aggregations?.[0];
+    const metricKey = aggregation ? aggregationMetricKey(aggregation) : "total_litros";
+    const direction = plan.orderBy?.direction === "asc" ? "asc" : "desc";
+    groups.sort((left, right) => {
+      const difference = Number(left.metrics?.[metricKey] || 0) - Number(right.metrics?.[metricKey] || 0);
+      return direction === "asc" ? difference : -difference;
+    });
+    if (!groups.length) return `Não encontrei produção de leite registrada${period ? ` ${period}` : ""}.`;
+
+    const requested = Math.max(1, Math.min(plan.limit || groups.length, 12));
+    const selected = groups.slice(0, requested);
+    if (requested === 1) {
+      const top = selected[0];
+      const title = direction === "asc" ? "Menor produção de leite" : "Maior produção de leite";
+      return `${title}${period ? ` ${period}` : ""}: ${top.label}, com ${numberText(Number(top.metrics?.[metricKey] || 0))} litros.`;
+    }
+
+    const title = direction === "asc" ? "Ranking de menor produção de leite" : "Ranking de produção de leite";
+    return [
+      `${title}${period ? ` ${period}` : ""}:`,
+      ...selected.map((group, index) => `${index + 1}. ${group.label}: ${numberText(Number(group.metrics?.[metricKey] || 0))} litros.`),
+      groups.length > selected.length ? `...e mais ${groups.length - selected.length} animal(is).` : ""
+    ].filter(Boolean).join("\n");
+  }
+
+  const total = Number(metrics.totals?.total_litros || metrics.totals?.sum_litros || 0);
+  const average = rows.length ? total / rows.length : 0;
+  const animal = plan.filters.find((filter) => filter.field === "animal_ref")?.value;
+  return [
+    `Produção de leite${animal ? ` da ${animal}` : ""}:`,
+    `Registros: ${rows.length}.`,
+    `Total: ${numberText(total)} litros.`,
+    `Média por registro: ${numberText(average)} litros.`
+  ].join("\n");
+}
+
 function buildResponse(domain: DomainManifestEntry, rows: AnyRecord[], metrics: AnyRecord, plan: QueryActionPlan, relations: AnyRecord) {
   if (domain.domain === "fazenda") {
     const fazenda = rows[0];
@@ -1373,15 +1527,7 @@ function buildResponse(domain: DomainManifestEntry, rows: AnyRecord[], metrics: 
   }
 
   if (domain.domain === "producao_leite") {
-    const total = Number(metrics.totals?.total_litros || metrics.totals?.sum_litros || 0);
-    const average = rows.length ? total / rows.length : 0;
-    const animal = plan.filters.find((filter) => filter.field === "animal_ref")?.value;
-    return [
-      `Produção de leite${animal ? ` da ${animal}` : ""}:`,
-      `Registros: ${rows.length}.`,
-      `Total: ${numberText(total)} litros.`,
-      `Média por registro: ${numberText(average)} litros.`
-    ].join("\n");
+    return buildProductionResponse(rows, metrics, plan);
   }
 
   if (domain.domain === "animais") {
@@ -1517,6 +1663,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   }
 
   const limit = Math.min(plan.limit || domain.maxLimit, domain.maxLimit);
+  const sourceLimit = plan.groupBy?.length || plan.aggregations?.length ? domain.maxLimit : limit;
   const fieldDefinitions = Object.values(domain.fields) as DomainFieldDefinition[];
   const selectFields = SAFE_SELECT_FIELDS[domain.domain] || [
     "id",
@@ -1526,7 +1673,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
     .from(tableName)
     .select(Array.from(new Set(selectFields)).join(","))
     .eq(domain.domain === "fazenda" ? "id" : "fazenda_id", input.owner.fazenda_id)
-    .limit(limit);
+    .limit(sourceLimit);
 
   const dateField = plan.filters.find((filter) => domain.dateFields.includes(filter.field));
   if (dateField && shouldApplyRemoteDateFilter(domain)) {
@@ -1545,7 +1692,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   const baseDate = currentDate(input.currentDate);
   const rows = ((data || []) as AnyRecord[])
     .filter((row) => plan.filters.every((filter) => filterMatches(row, domain, filter, relationContext, baseDate)))
-    .slice(0, limit);
+    .slice(0, sourceLimit);
   const metrics = buildAggregations(rows, plan, domain, relationContext);
   const response = buildResponse(domain, rows, metrics, plan, relationContext);
   const parsed = finalizeActionPlanParsed(QUERY_INTENT_BY_DOMAIN[domain.domain] || "DESCONHECIDO", {

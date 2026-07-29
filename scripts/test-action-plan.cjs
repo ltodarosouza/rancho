@@ -1798,6 +1798,47 @@ test("executor query producao hoje soma registros mesmo com data principal ausen
   assert(result.response.includes("Total: 32 litros."), `resposta deveria mostrar 32 litros, recebeu: ${result.response}`);
 });
 
+test("executor query producao cria ranking agregado por animal no periodo", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "producao_leite",
+      confidence: 0.94,
+      filters: [{ field: "data", op: "current_month" }],
+      aggregations: [{ field: "litros", op: "sum", as: "total_litros" }],
+      groupBy: ["animal_ref"],
+      orderBy: { field: "litros", direction: "desc" },
+      requiresConfirmation: false,
+      limit: 1,
+      userQuestion: "qual animal produziu mais leite neste mes?"
+    },
+    owner: ADMIN_OWNER,
+    currentDate: "2026-07-29",
+    originalText: "qual animal produziu mais leite neste mes?",
+    supabase: createActionPlanSupabase({
+      [TABLES.animais]: [
+        { id: "animal-luna", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "B-010", nome: "Luna", categoria: "vaca" },
+        { id: "animal-mimosa", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "B-020", nome: "Mimosa", categoria: "vaca" },
+        { id: "animal-estrela", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "N-030", nome: "Estrela", categoria: "novilha" }
+      ],
+      [TABLES.ordenhas]: [
+        { id: "luna-1", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-luna", litros: 40, ordenhado_em: "2026-07-05T08:00:00Z" },
+        { id: "luna-2", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-luna", litros: 50, ordenhado_em: "2026-07-20T08:00:00Z" },
+        { id: "mimosa-1", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-mimosa", litros: 60, ordenhado_em: "2026-07-10T08:00:00Z" },
+        { id: "estrela-1", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-estrela", litros: 30, ordenhado_em: "2026-07-12T08:00:00Z" },
+        { id: "fora-periodo", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-mimosa", litros: 100, ordenhado_em: "2026-06-30T08:00:00Z" }
+      ]
+    })
+  });
+
+  assert(result.ok, `ranking de producao deveria executar: ${result.reason}`);
+  assert(result.rows.length === 4, `ranking deve considerar todos os registros do periodo, recebeu ${result.rows.length}`);
+  assert(result.response.includes("Luna (B-010)"), `maior produtora deveria ser Luna: ${result.response}`);
+  assert(result.response.includes("90 litros"), `ranking deveria somar as duas ordenhas de Luna: ${result.response}`);
+  assert(!result.response.includes("Mimosa"), "consulta singular deve mostrar somente o primeiro lugar");
+  assert(result.parsed.dados?.resultado?.metrics?.groups?.length === 3, "ranking deveria agrupar os tres animais");
+});
+
 test("executor query animais trata dados das vagas como resumo coletivo de vacas", async () => {
   const result = await executeQueryActionPlan({
     plan: {
@@ -3026,6 +3067,67 @@ test("ActionPlan query reproducao separa prenhas de inseminadas ativas", async (
   assert(!inseminatedIds.has("animal-306"), "animal prenhe nao pode aparecer como inseminada ativa");
   assert(inseminatedIds.has("animal-307"), "protocolo deve permitir coexistencia com inseminada");
   assert(inseminatedIds.has("animal-308"), "reteste deve permitir coexistencia com inseminada");
+});
+
+test("ActionPlan query reproducao respeita animal e calcula duracao de estados variados", async () => {
+  const animals = [
+    { id: "animal-luna", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "B-010", nome: "Luna", categoria: "vaca", status: "ativo" },
+    { id: "animal-sol", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "B-011", nome: "Sol", categoria: "vaca", status: "ativo" },
+    { id: "animal-estrela", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "N-030", nome: "Estrela", categoria: "novilha", status: "ativo" }
+  ];
+  const events = [
+    { id: "pre-luna", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-luna", tipo: "observacao", data_evento: "2026-07-19T12:00:00Z", descricao: "[Reproducao Animal] Pre-parto" },
+    { id: "pre-sol", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-sol", tipo: "observacao", data_evento: "2026-07-09T12:00:00Z", descricao: "[Reproducao Animal] Pre-parto" },
+    { id: "protocolo-estrela", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-estrela", tipo: "observacao", data_evento: "2026-07-25T12:00:00Z", descricao: "[Reproducao Animal] Protocolo IA" }
+  ];
+
+  const luna = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "reproducao",
+      confidence: 0.94,
+      filters: [
+        { field: "animal_ref", op: "eq", value: "Luna" },
+        { field: "status_reprodutivo", op: "eq", value: "pre_parto" }
+      ],
+      requiresConfirmation: false,
+      limit: 20
+    },
+    owner: ADMIN_OWNER,
+    currentDate: "2026-07-29",
+    originalText: "faz quanto tempo que a Luna esta em pre-parto?",
+    supabase: createActionPlanSupabase({ [TABLES.animais]: animals, [TABLES.eventosAnimal]: events })
+  });
+
+  assert(luna.ok, `consulta individual de pre-parto deveria executar: ${luna.reason}`);
+  assert(luna.rows.length === 1, `consulta de Luna deveria retornar um registro, recebeu ${luna.rows.length}`);
+  assert(String(luna.rows[0]?.animal_id) === "animal-luna", "consulta nao pode incluir outro animal em pre-parto");
+  assert(luna.response.includes("Luna (B-010)"), `resposta deveria identificar Luna: ${luna.response}`);
+  assert(luna.response.includes("10 dias"), `resposta deveria calcular dez dias: ${luna.response}`);
+  assert(!luna.response.includes("Sol"), "resposta individual nao pode listar Sol");
+
+  const estrela = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "reproducao",
+      confidence: 0.94,
+      filters: [
+        { field: "animal_ref", op: "eq", value: "N-030" },
+        { field: "status_reprodutivo", op: "eq", value: "em_protocolo" }
+      ],
+      requiresConfirmation: false,
+      limit: 20
+    },
+    owner: ADMIN_OWNER,
+    currentDate: "2026-07-29",
+    originalText: "desde quando a novilha N-030 esta em protocolo?",
+    supabase: createActionPlanSupabase({ [TABLES.animais]: animals, [TABLES.eventosAnimal]: events })
+  });
+
+  assert(estrela.ok, `consulta de protocolo por brinco deveria executar: ${estrela.reason}`);
+  assert(estrela.rows.length === 1 && String(estrela.rows[0]?.animal_id) === "animal-estrela", "consulta deve funcionar para outra categoria e outro estado");
+  assert(estrela.response.includes("Estrela (N-030)"), `resposta deveria identificar Estrela: ${estrela.response}`);
+  assert(estrela.response.includes("4 dias"), `resposta deveria calcular quatro dias: ${estrela.response}`);
 });
 
 test("ActionPlan clarify 777 pariu cria pendencia e pergunta sexo", async () => {
@@ -4353,6 +4455,7 @@ test("Gemini-first ActionPlan sequence aceita lista reprodutiva compacta com mul
       text,
       localParsed: parseRanchoMessage(text),
       owner: ADMIN_OWNER,
+      currentDate: "2026-07-03",
       supabase: createActionPlanSupabase({
         [TABLES.animais]: [
           { id: "animal-090", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "090", nome: "Vaca 090", categoria: "vaca" },

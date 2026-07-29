@@ -222,7 +222,7 @@ export const moduleConfigs: ModuleConfig[] = [
         label: "Item de estoque para receber o leite",
         type: "relation",
         tableVisible: false,
-        helper: "Prefira itens cadastrados em litros, como Leite Cru.",
+        helper: "Prefira itens cadastrados em litros, como Leite.",
         relation: { tableName: TABLES.estoqueItens, labelColumn: "nome", descriptionColumn: "unidade_medida", orderBy: "nome" }
       },
       { name: "observacoes", label: "Observações", type: "textarea", tableVisible: false }

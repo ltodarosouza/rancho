@@ -136,6 +136,11 @@ function monthIndex(value: unknown) {
 }
 
 function monthNameFromText(value: unknown) {
+  const explicit = String(value || "").match(/^(\d{4})-(\d{2})$/);
+  if (explicit) {
+    const month = RANCH_MONTHS[Number(explicit[2]) - 1];
+    if (month) return `${month} de ${explicit[1]}`;
+  }
   const index = monthIndex(value);
   return index >= 0 ? RANCH_MONTHS[index] : "";
 }
@@ -196,6 +201,7 @@ function eventReportPeriod(input: { text?: string; plan: QueryActionPlan }) {
   if (/\bhoje\b/.test(semanticNormalized)) return { period: "hoje" };
   if (/\bontem\b/.test(semanticNormalized)) return { period: "ontem" };
   if (/\bsemana\b/.test(semanticNormalized)) return { period: "semana" };
+  if (/\b(?:mes passado|mes anterior|ultimo mes)\b/.test(semanticNormalized.replace(/_/g, " "))) return { period: "mes_passado" };
   if (/\bmes\b/.test(semanticNormalized)) return { period: "mes" };
   if (/\bano\b/.test(semanticNormalized)) return { period: "ano" };
   if (/\bhoje\b/.test(normalized)) return { period: "hoje" };
@@ -208,6 +214,7 @@ function eventReportPeriod(input: { text?: string; plan: QueryActionPlan }) {
   const daysMatch = normalized.match(/\bultim[oa]s?\s+(\d+)\s+dias?\b/);
   if (daysMatch) return { period: `ultimos_${daysMatch[1]}`, days: Number(daysMatch[1]) };
   if (dateFilter?.op === "current_month") return { period: "mes" };
+  if (dateFilter?.op === "previous_month") return { period: "mes_passado" };
   if (dateFilter?.op === "current_year") return { period: "ano" };
   if (dateFilter?.op === "last_days" && Number(dateFilter.value) === 1) return { period: "hoje" };
   if (dateFilter?.op === "last_days" && Number(dateFilter.value)) return { period: `ultimos_${Number(dateFilter.value)}`, days: Number(dateFilter.value) };
@@ -327,6 +334,15 @@ function dateRangeFor(filter: FilterPlan, baseDate: Date) {
     return { start: getRanchDayRange(startDate).start, end };
   }
 
+  if (filter.op === "previous_month") {
+    const currentMonthStart = monthStart(baseISO);
+    const previousMonthStart = addMonths(currentMonthStart, -1);
+    return {
+      start: getRanchDayRange(previousMonthStart).start,
+      end: getRanchDayRange(currentMonthStart).start
+    };
+  }
+
   if (filter.op === "current_month") {
     const startDate = monthStart(baseISO);
     return { start: getRanchDayRange(startDate).start, end: getRanchDayRange(addMonths(startDate, 1)).start };
@@ -347,6 +363,11 @@ function dateRangeFor(filter: FilterPlan, baseDate: Date) {
 
   if (filter.op === "between") {
     const raw = filter.value as AnyRecord | unknown[];
+    const explicitMonth = !Array.isArray(raw) && raw?.month ? String(raw.month).match(/^(\d{4})-(\d{2})$/) : null;
+    if (explicitMonth) {
+      const startDate = `${explicitMonth[1]}-${explicitMonth[2]}-01`;
+      return { start: getRanchDayRange(startDate).start, end: getRanchDayRange(addMonths(startDate, 1)).start };
+    }
     const month = !Array.isArray(raw) && raw?.month ? monthIndex(raw.month) : -1;
     if (month >= 0) {
       const startDate = `${baseISO.slice(0, 4)}-${String(month + 1).padStart(2, "0")}-01`;
@@ -427,6 +448,10 @@ function relationCandidateValues(row: AnyRecord, domain: DomainManifestEntry, fi
 }
 
 function rowValue(row: AnyRecord, domain: DomainManifestEntry, fieldName: string, relations: AnyRecord) {
+  if (fieldName === "animal_categoria") {
+    if (domain.domain === "animais") return row.categoria;
+    return relations.animalsById?.get(String(row.animal_id || ""))?.categoria;
+  }
   if (fieldName === "animal_ref") {
     if (domain.domain === "genealogia" || domain.domain === "animais") return [row.brinco, row.nome, row.categoria].filter(Boolean).join(" ");
     const animal = relations.animalsById?.get(String(row.animal_id || ""));
@@ -476,6 +501,13 @@ function filterMatches(row: AnyRecord, domain: DomainManifestEntry, filter: Filt
   if (domain.domain === "animais" && filter.field === "categoria") {
     if (filter.op === "eq") return animalCategoryMatches(row, filter.value);
     if (filter.op === "neq") return !animalCategoryMatches(row, filter.value);
+  }
+  if (filter.field === "animal_categoria") {
+    const animal = domain.domain === "animais"
+      ? row
+      : relations.animalsById?.get(String(row.animal_id || ""));
+    if (filter.op === "eq") return animalCategoryMatches(animal || {}, filter.value);
+    if (filter.op === "neq") return !animalCategoryMatches(animal || {}, filter.value);
   }
 
   const relationCandidates = relationCandidateValues(row, domain, filter.field, relations);
@@ -828,7 +860,11 @@ function normalizeProductionQueryPlan(plan: QueryActionPlan, originalText?: stri
   const text = [originalText, plan.userQuestion].filter(Boolean).join(" ");
   if (!isProductionQueryText(text)) return plan;
 
-  const filters = plan.filters.filter((filter) => !(filter.field === "animal_ref" && isNoisyProductionAnimalRef(filter.value)));
+  const filters = plan.filters.flatMap((filter) => {
+    if (filter.field !== "animal_ref" || !isNoisyProductionAnimalRef(filter.value)) return [filter];
+    const category = animalCategoryFromQueryText(filter.value) || animalCategoryFromQueryText(text);
+    return category ? [{ field: "animal_categoria", op: "eq", value: category } as FilterPlan] : [];
+  });
   if (!filters.some((filter) => domainDateFilterField(filter)) && /\b(?:hoje|dia atual)\b/.test(normalizedText(text))) {
     filters.push({ field: "data", op: "last_days", value: 1 });
   }
@@ -1261,10 +1297,11 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
 }
 
 function periodText(plan: QueryActionPlan) {
-  const filter = plan.filters.find((item) => ["last_months", "last_days", "current_month", "current_year", "since", "between"].includes(item.op));
+  const filter = plan.filters.find((item) => ["last_months", "last_days", "previous_month", "current_month", "current_year", "since", "between"].includes(item.op));
   if (!filter) return "";
   if (filter.op === "last_months") return `dos últimos ${filter.value} meses`;
   if (filter.op === "last_days") return `dos últimos ${filter.value} dias`;
+  if (filter.op === "previous_month") return "do mês anterior";
   if (filter.op === "current_month") return "do mês atual";
   if (filter.op === "current_year") return "do ano atual";
   if (filter.op === "since") {

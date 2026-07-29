@@ -1572,6 +1572,56 @@ test("query normaliza confirmacao para nao bloquear consulta segura", () => {
   assert(result.value.requiresConfirmation === false, "query deve executar sem confirmacao apos normalizacao");
 });
 
+test("query normaliza mes anterior, alias agregado e categoria relacional", () => {
+  const result = assertValid("ranking producao com variacoes do modelo", {
+    action: "query",
+    domain: "producao_leite",
+    confidence: 0.94,
+    semantic: {
+      intent: "comparar_producao_por_animal",
+      period: "mes_anterior"
+    },
+    filters: [
+      { field: "data", op: "last_months", value: 1 },
+      {
+        field: "animal_ref",
+        op: "in",
+        subquery: {
+          domain: "animais",
+          filters: [{ field: "categoria", op: "eq", value: "novilha" }]
+        }
+      }
+    ],
+    aggregations: [{ field: "litros", op: "sum", as: "total_litros" }],
+    groupBy: ["animal_ref"],
+    orderBy: { field: "total_litros", direction: "desc" },
+    limit: 1,
+    requiresConfirmation: false
+  });
+
+  assert(result.value.filters.some((filter) => filter.field === "data" && filter.op === "previous_month"), "periodo deveria virar previous_month");
+  assert(result.value.filters.some((filter) => filter.field === "animal_categoria" && filter.value === "novilha"), "subquery segura deveria virar animal_categoria");
+  assert(result.value.orderBy.field === "litros", "alias agregado deveria virar campo de origem seguro");
+});
+
+test("query normaliza operador alternativo de mes especifico", () => {
+  const result = assertValid("ranking producao em mes nomeado", {
+    action: "query",
+    domain: "producao_leite",
+    confidence: 0.94,
+    filters: [{ field: "data", op: "in_month", value: "2026-06" }],
+    aggregations: [{ field: "litros", op: "sum", as: "total_litros" }],
+    groupBy: ["animal_ref"],
+    orderBy: { field: "litros", direction: "desc" },
+    limit: 1,
+    requiresConfirmation: false
+  });
+
+  const dateFilter = result.value.filters.find((filter) => filter.field === "data");
+  assert(dateFilter?.op === "between", "in_month deveria virar between");
+  assert(dateFilter?.value?.month === "2026-06", "mes explicito deveria ser preservado");
+});
+
 test("create update e import_table normalizam confirmacao obrigatoria", () => {
   const create = assertValid("create sem confirmacao", {
     action: "create",
@@ -1837,6 +1887,54 @@ test("executor query producao cria ranking agregado por animal no periodo", asyn
   assert(result.response.includes("90 litros"), `ranking deveria somar as duas ordenhas de Luna: ${result.response}`);
   assert(!result.response.includes("Mimosa"), "consulta singular deve mostrar somente o primeiro lugar");
   assert(result.parsed.dados?.resultado?.metrics?.groups?.length === 3, "ranking deveria agrupar os tres animais");
+});
+
+test("executor query producao ranqueia categoria somente no mes anterior", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "producao_leite",
+      confidence: 0.94,
+      semantic: {
+        intent: "comparar_producao_por_animal",
+        period: "mes_passado"
+      },
+      filters: [
+        { field: "data", op: "last_months", value: 1 },
+        { field: "animal_ref", op: "eq", value: "vaca" }
+      ],
+      aggregations: [{ field: "litros", op: "sum", as: "total_litros" }],
+      groupBy: ["animal_ref"],
+      orderBy: { field: "total_litros", direction: "desc" },
+      requiresConfirmation: false,
+      limit: 1,
+      userQuestion: "qual vaca produziu mais leite no ultimo mes?"
+    },
+    owner: ADMIN_OWNER,
+    currentDate: "2026-07-29",
+    originalText: "qual vaca produziu mais leite no ultimo mes?",
+    supabase: createActionPlanSupabase({
+      [TABLES.animais]: [
+        { id: "animal-luna", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "B-010", nome: "Luna", categoria: "vaca" },
+        { id: "animal-mimosa", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "B-020", nome: "Mimosa", categoria: "vaca" },
+        { id: "animal-estrela", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "N-030", nome: "Estrela", categoria: "novilha" }
+      ],
+      [TABLES.ordenhas]: [
+        { id: "luna-junho-1", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-luna", litros: 40, ordenhado_em: "2026-06-05T08:00:00Z" },
+        { id: "luna-junho-2", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-luna", litros: 50, ordenhado_em: "2026-06-20T08:00:00Z" },
+        { id: "mimosa-junho", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-mimosa", litros: 60, ordenhado_em: "2026-06-10T08:00:00Z" },
+        { id: "estrela-junho", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-estrela", litros: 200, ordenhado_em: "2026-06-12T08:00:00Z" },
+        { id: "luna-julho", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-luna", litros: 500, ordenhado_em: "2026-07-12T08:00:00Z" }
+      ]
+    })
+  });
+
+  assert(result.ok, `ranking do mes anterior deveria executar: ${result.reason}`);
+  assert(result.rows.length === 3, `deveria considerar apenas as ordenhas de junho das vacas, recebeu ${result.rows.length}`);
+  assert(result.response.includes("Luna (B-010)"), `maior vaca do mes anterior deveria ser Luna: ${result.response}`);
+  assert(result.response.includes("90 litros"), `ranking deveria somar 90 litros de Luna: ${result.response}`);
+  assert(result.response.includes("mês anterior"), `resposta deveria explicar o periodo: ${result.response}`);
+  assert(!result.response.includes("Estrela"), "novilha nao deveria entrar no ranking de vacas");
 });
 
 test("executor query animais trata dados das vagas como resumo coletivo de vacas", async () => {

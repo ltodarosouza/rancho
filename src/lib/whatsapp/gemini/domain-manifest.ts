@@ -212,6 +212,7 @@ export const RANCHO_DOMAIN_MANIFEST = {
     fields: {
       animal_ref: field("relation", { relationDomain: "animais", sourceField: "animal_id" }),
       animal_id: field("relation", { relationDomain: "animais" }),
+      animal_categoria: field("enum", { enumValues: ["vaca", "boi", "bezerro", "bezerra", "novilha", "touro", "outro"] }),
       litros: field("number"),
       data: field("date", { sourceField: "ordenhado_em" }),
       hora: field("string"),
@@ -224,11 +225,12 @@ export const RANCHO_DOMAIN_MANIFEST = {
       create: ["animal_ref", "litros"],
       import_table: ["animal_ref", "litros", "data"]
     },
-    searchableFields: ["animal_ref", "turno", "destino", "observacoes"],
+    searchableFields: ["animal_ref", "animal_categoria", "turno", "destino", "observacoes"],
     aggregatableFields: ["litros"],
     dateFields: ["data", "ordenhado_em"],
     relationFields: ["animal_ref", "animal_id"],
     enumFields: {
+      animal_categoria: ["vaca", "boi", "bezerro", "bezerra", "novilha", "touro", "outro"],
       turno: ["manha", "tarde", "noite"],
       destino: ["tanque", "venda", "consumo", "descarte"]
     },

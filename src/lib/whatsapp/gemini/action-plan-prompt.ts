@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v11";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v12";
 
 const EXAMPLES = [
   {
@@ -281,17 +281,20 @@ const EXAMPLES = [
     }
   },
   {
-    user: "qual animal produziu mais leite neste mes?",
+    user: "qual vaca produziu mais leite no ultimo mes?",
     plan: {
       action: "query", domain: "producao_leite", confidence: 0.94,
       semantic: {
         intent: "comparar_producao_por_animal",
         scope: "rebanho",
-        period: "mes_atual",
+        period: "mes_anterior",
         attributes: { metrica: "litros", ordenacao: "desc" },
         report: { type: "ranking", detailLevel: "primeiro" }
       },
-      filters: [{ field: "data", op: "current_month" }],
+      filters: [
+        { field: "data", op: "previous_month" },
+        { field: "animal_categoria", op: "eq", value: "vaca" }
+      ],
       aggregations: [{ field: "litros", op: "sum", as: "total_litros" }],
       groupBy: ["animal_ref"],
       orderBy: { field: "litros", direction: "desc" },
@@ -496,6 +499,8 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Consultas de um animal especifico com brinco/codigo/nome claro, como dados da vaca B-001, ficha da Mimosa ou historico do animal 120, usam action=query domain=animais com filtro animal_ref. Nao transforme isso em consulta coletiva.",
     "Perguntas sobre ha quanto tempo, desde quando ou quantos dias um animal esta em um estado reprodutivo usam action=query domain=reproducao com animal_ref e status_reprodutivo/evento. Nao aplique filtro de periodo: a data do evento que iniciou o estado precisa permanecer na consulta para o backend calcular a duracao. Isso vale para qualquer animal e estado reprodutivo suportado.",
     "Comparacoes, rankings, maior, menor, primeiro, ultimo ou top por entidade usam aggregations + groupBy na entidade + orderBy na metrica. Para producao por animal, agrupe por animal_ref, agregue litros com sum e ordene litros desc para maior ou asc para menor; use limit=1 quando a pergunta pedir somente qual animal e um limite maior quando pedir ranking/lista.",
+    "Em consultas de producao por categoria, como vaca, novilha ou outro tipo de animal, use animal_categoria. animal_ref e somente para nome, brinco ou codigo de um animal especifico. Nao gere subquery ou filtro aninhado.",
+    "Diferencie periodos de calendario: este mes/agora usa current_month; mes passado, mes anterior ou ultimo mes usa previous_month; ultimos N meses usa last_months com value=N. previous_month nao recebe value.",
     "Consultas de funcionarios, equipe, dados dos funcionarios, salarios ou cargos usam action=query domain=funcionarios. Consultas de ponto, presenca, quem bateu ponto, entradas ou saidas de funcionario usam action=query domain=ponto_funcionario.",
     "Cadastro de animal: nao use a mesma palavra solta como nome e brinco/codigo. Se a mensagem disser apenas 'criar vaca Felipe', trate Felipe como nome e deixe brinco/codigo faltando. So preencha brinco/codigo quando houver marcador explicito (brinco, codigo, numero) ou formato claro de codigo com numero/hifen.",
     "Consultas genericas como quais eventos teve hoje, eventos de hoje, registros de hoje, o que aconteceu hoje, movimentacoes de hoje, resumo do dia ou fechamento de hoje usam action=query domain=observacoes, operation=eventos_gerais, requiresConfirmation=false.",

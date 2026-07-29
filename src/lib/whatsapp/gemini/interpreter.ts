@@ -29,7 +29,7 @@ function isRepairableActionPlanContractError(reason: unknown) {
   const text = String(reason || "");
   if (!text) return false;
   if (/\b(?:delete|sql|perigoso|segredo|senha|token|api|escopo|massa|bloqueado|blocked)\b/i.test(text)) return false;
-  return /\b(?:invalid_json|invalid_schema|schema|contract|contrato|intent|intencao|action|acao|steps|sequence|requiresConfirmation|domain|dominio|manifest|field|campo|table|tabela|column|coluna|columnMapping|import_table|semantic\.domains|semantic\.effects)\b/i.test(text);
+  return /\b(?:invalid_json|invalid_schema|schema|contract|contrato|intent|intencao|action|acao|steps|sequence|requiresConfirmation|domain|dominio|manifest|field|campo|filter|filtro|operator|operador|op|table|tabela|column|coluna|columnMapping|import_table|semantic\.domains|semantic\.effects)\b/i.test(text);
 }
 
 function buildActionPlanRepairPrompt(input: GeminiInterpreterInput, originalJson: unknown, reason: string) {
@@ -39,6 +39,9 @@ function buildActionPlanRepairPrompt(input: GeminiInterpreterInput, originalJson
     "Voce deve devolver SOMENTE um objeto JSON valido. Pode ser o ActionPlan direto ou {\"action_plan\": {...}}.",
     "Nao altere a intencao do usuario. Nao invente dados. Nao execute delete. Mutacoes precisam de requiresConfirmation=true. Consultas precisam de requiresConfirmation=false.",
     "Se o erro for nome de dominio/tabela/campo, escolha o dominio e os campos canonicos mais adequados pelo contrato abaixo.",
+    "Reconstrua o plano completo, nao apenas o minimo para passar no schema. Comparacoes e rankings precisam preservar filters, aggregations, groupBy, orderBy e limit.",
+    "Em ranking de producao por animal, use sum de litros, groupBy animal_ref e orderBy litros. Categoria do animal usa animal_categoria; nunca use subquery ou filtros aninhados.",
+    "Periodos de calendario: este mes usa current_month; mes passado, mes anterior ou ultimo mes usa previous_month; ultimos N meses usa last_months.",
     "",
     `Mensagem do usuario: ${JSON.stringify(input.text)}`,
     `Erro de validacao: ${reason}`,

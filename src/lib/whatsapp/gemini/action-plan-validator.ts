@@ -535,6 +535,11 @@ const FILTER_OPERATOR_ALIASES: Record<string, FilterPlan["op"]> = {
   ultimos_meses: "last_months",
   últimos_meses: "last_months",
   last_months: "last_months",
+  mes_anterior: "previous_month",
+  mes_passado: "previous_month",
+  ultimo_mes: "previous_month",
+  previous_month: "previous_month",
+  last_month: "previous_month",
   mes_atual: "current_month",
   mês_atual: "current_month",
   this_month: "current_month",
@@ -550,6 +555,9 @@ function normalizeFilterOperator(rawOperator: unknown, field: string, domain: Do
   const raw = normalizeLooseText(rawOperator || "eq").replace(/\s+/g, "_");
   if (["hoje", "today", "current_day", "dia_atual"].includes(raw) && domain.dateFields.includes(field)) {
     return { op: "last_days" as const, value: 1 };
+  }
+  if (["in_month", "month_is", "mes_especifico"].includes(raw) && domain.dateFields.includes(field)) {
+    return { op: "between" as const, value: isPlainObject(value) ? value : { month: value } };
   }
   const op = FILTER_OPERATOR_ALIASES[raw] || (FILTER_OPERATORS.includes(raw as FilterPlan["op"]) ? raw as FilterPlan["op"] : null);
   if (!op) return { op: rawOperator as FilterPlan["op"], value };
@@ -571,12 +579,52 @@ function normalizeAggregationsForDomain(domainName: string, domain: DomainManife
   });
 }
 
-function normalizeOrderByForDomain(domainName: string, domain: DomainManifestEntry, value: unknown) {
+function normalizeOrderByForDomain(
+  domainName: string,
+  domain: DomainManifestEntry,
+  value: unknown,
+  aggregations: unknown
+) {
   if (!isPlainObject(value)) return value;
+  const requestedField = String(value.field || "").trim();
+  const aggregation = Array.isArray(aggregations)
+    ? aggregations.find((item) => isPlainObject(item) && normalizeKey(item.as) === normalizeKey(requestedField))
+    : null;
   return {
     ...value,
-    field: fieldNameForDomain(domainName, domain, value.field) || value.field
+    field: fieldNameForDomain(domainName, domain, requestedField)
+      || (isPlainObject(aggregation) ? aggregation.field : null)
+      || requestedField
   };
+}
+
+function normalizedRelationSubqueryFilter(
+  domainName: string,
+  domain: DomainManifestEntry,
+  filter: AnyRecord
+): FilterPlan | null {
+  if (!isPlainObject(filter.subquery)) return null;
+  const relationField = fieldNameForDomain(domainName, domain, filter.field) || String(filter.field || "");
+  const relationDomainName = domain.fields[relationField]?.relationDomain;
+  if (!relationDomainName || normalizeKey(filter.subquery.domain) !== normalizeKey(relationDomainName)) return null;
+
+  const relationDomain = domainFromContext(relationDomainName, RANCHO_DOMAIN_MANIFEST);
+  const nestedFilters = Array.isArray(filter.subquery.filters) ? filter.subquery.filters : [];
+  const categoryFilter = nestedFilters.find((item) => {
+    if (!isPlainObject(item) || !relationDomain) return false;
+    return fieldNameForDomain(relationDomainName, relationDomain, item.field) === "categoria";
+  });
+  const virtualField = `${relationField.replace(/_ref$/, "")}_categoria`;
+  if (!isPlainObject(categoryFilter) || !domain.fields[virtualField] || !hasValue(categoryFilter.value)) return null;
+
+  const normalizedOperator = normalizeFilterOperator(categoryFilter.op, virtualField, domain, categoryFilter.value);
+  return { field: virtualField, op: normalizedOperator.op, value: normalizedOperator.value };
+}
+
+function semanticRequestsPreviousMonth(plan: QueryActionPlan) {
+  if (!isPlainObject(plan.semantic)) return false;
+  const period = normalizeLooseText(plan.semantic.period || plan.semantic.date || "").replace(/_/g, " ");
+  return /\b(?:mes passado|mes anterior|ultimo mes|previous month|last month)\b/.test(period);
 }
 
 function normalizeColumnMappingForDomain(domainName: string, columnMapping: unknown): Record<string, string | number> {
@@ -647,6 +695,8 @@ function normalizeQueryDataToFilters(
   const filters: FilterPlan[] = Array.isArray(plan.filters)
     ? plan.filters.map((filter) => {
       if (!isPlainObject(filter)) return filter as FilterPlan;
+      const relationFilter = normalizedRelationSubqueryFilter(domainName, domain, filter);
+      if (relationFilter) return relationFilter;
       const field = fieldNameForDomain(domainName, domain, filter.field) || String(filter.field || "");
       const normalizedOperator = normalizeFilterOperator(filter.op, field, domain, filter.value);
       return {
@@ -657,6 +707,21 @@ function normalizeQueryDataToFilters(
       };
     })
     : [];
+
+  if (semanticRequestsPreviousMonth(plan)) {
+    let foundDateFilter = false;
+    for (let index = 0; index < filters.length; index += 1) {
+      const filter = filters[index];
+      if (!domain.dateFields.includes(filter.field)) continue;
+      foundDateFilter = true;
+      if (filter.op === "current_month" || (filter.op === "last_months" && Number(filter.value) === 1)) {
+        filters[index] = { field: filter.field, op: "previous_month" };
+      }
+    }
+    if (!foundDateFilter && domain.dateFields[0]) {
+      filters.push({ field: domain.dateFields[0], op: "previous_month" });
+    }
+  }
 
   const data = stripDataMetaFields(plan.data);
   if (isPlainObject(data)) {
@@ -674,14 +739,15 @@ function normalizeQueryDataToFilters(
     }
   }
 
+  const aggregations = normalizeAggregationsForDomain(domainName, domain, plan.aggregations) as QueryActionPlan["aggregations"];
   return {
     ...plan,
     requiresConfirmation: false,
     filters,
     select: normalizeFieldArrayForDomain(domainName, domain, plan.select) as QueryActionPlan["select"],
-    aggregations: normalizeAggregationsForDomain(domainName, domain, plan.aggregations) as QueryActionPlan["aggregations"],
+    aggregations,
     groupBy: normalizeFieldArrayForDomain(domainName, domain, plan.groupBy) as QueryActionPlan["groupBy"],
-    orderBy: normalizeOrderByForDomain(domainName, domain, plan.orderBy) as QueryActionPlan["orderBy"]
+    orderBy: normalizeOrderByForDomain(domainName, domain, plan.orderBy, aggregations) as QueryActionPlan["orderBy"]
   };
 }
 
@@ -965,7 +1031,7 @@ function validateFilterOperator(
   const isText = isTextLikeField(definition);
   const enumValues = enumValuesFor(domain, filter.field, definition);
 
-  if (["last_days", "last_months", "current_month", "current_year", "since"].includes(filter.op) && !isDate) {
+  if (["last_days", "last_months", "previous_month", "current_month", "current_year", "since"].includes(filter.op) && !isDate) {
     errors.push(`${path}.${filter.op} so pode ser usado em campo de data`);
   }
   if (filter.op === "contains" && !isText) {
@@ -994,7 +1060,8 @@ function validateFilterOperator(
   if (filter.op === "between") {
     const validArray = Array.isArray(filter.value) && filter.value.length === 2;
     const validObject = isPlainObject(filter.value) && hasValue(filter.value.from) && hasValue(filter.value.to);
-    if (!validArray && !validObject) errors.push(`${path}.value deve ter intervalo com dois limites`);
+    const validMonth = isPlainObject(filter.value) && hasValue(filter.value.month);
+    if (!validArray && !validObject && !validMonth) errors.push(`${path}.value deve ter intervalo com dois limites`);
   }
   if (["eq", "neq", "contains", "gte", "lte", "since"].includes(filter.op) && !hasValue(filter.value)) {
     errors.push(`${path}.value obrigatorio para ${filter.op}`);

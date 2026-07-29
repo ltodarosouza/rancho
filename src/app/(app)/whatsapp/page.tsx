@@ -15,18 +15,14 @@ import { canManageData } from "@/lib/permissions";
 import { isWhatsappSandboxEnvironment, publicWhatsappConfig } from "@/lib/public-env";
 import { getFriendlyErrorMessage } from "@/lib/errors";
 import { withAsyncTimeout } from "@/lib/async";
+import { BOT_ROLE_OPTIONS, botRoleLabel, normalizeBotRole } from "@/lib/whatsapp/bot-access";
 import { createRecord, deleteRecord, deleteRecords, listRecords, updateRecord } from "@/services/crud";
 import type { AnyRecord } from "@/lib/types";
-
-const roleOptions = [
-  { value: "usuario", label: "Usuário" },
-  { value: "admin", label: "Administrador" }
-];
 
 const initialDraft = {
   nome: "",
   whatsapp: "",
-  papel_bot: "usuario",
+  papel_bot: "funcionario",
   ativo: true
 };
 
@@ -77,15 +73,15 @@ const WHATSAPP_USERS_SELECT = [
 ].join(",");
 
 function roleLabel(value: unknown) {
-  return roleOptions.find((option) => option.value === roleFromDatabase(value))?.label || "Usuário";
+  return botRoleLabel(value);
 }
 
 function roleFromDatabase(value: unknown) {
-  return value === "admin" ? "admin" : "usuario";
+  return normalizeBotRole(value);
 }
 
 function roleToDatabase(value: string) {
-  return value === "admin" ? "admin" : "funcionario";
+  return normalizeBotRole(value);
 }
 
 export default function WhatsAppPage() {
@@ -520,8 +516,11 @@ export default function WhatsAppPage() {
               <label className="block space-y-2">
                 <span className="text-sm font-bold">Função</span>
                 <select className="input" value={draft.papel_bot} onChange={(event) => updateDraft("papel_bot", event.target.value)} disabled={!canManage || busy}>
-                  {roleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  {BOT_ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {BOT_ROLE_OPTIONS.find((option) => option.value === draft.papel_bot)?.description}
+                </span>
               </label>
               <label className="block space-y-2">
                 <span className="text-sm font-bold">Status</span>

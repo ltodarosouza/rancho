@@ -6,6 +6,7 @@ import { CPFInput, CurrencyInput, WhatsAppInput } from "@/components/ui/MaskedIn
 import { formatBrazilianPhone, formatCPF, formatCurrencyForInput, isValidBrazilianPhone, isValidCPF, normalizeBrazilianWhatsApp, onlyDigits, parseCurrencyInput } from "@/lib/input-format";
 import { todayISO } from "@/lib/utils";
 import type { AnyRecord } from "@/lib/types";
+import { BOT_ROLE_OPTIONS, normalizeBotRole } from "@/lib/whatsapp/bot-access";
 
 type EmployeeValues = {
   nome: string;
@@ -16,6 +17,7 @@ type EmployeeValues = {
   data_admissao: string;
   carga_horaria_mensal: string;
   valor_hora_extra: string;
+  papel_bot: string;
   ativo: boolean;
 };
 
@@ -29,6 +31,7 @@ function initialValues(employee?: AnyRecord | null): EmployeeValues {
     data_admissao: String(employee?.data_admissao || todayISO()),
     carga_horaria_mensal: String(employee?.carga_horaria_mensal ?? 220),
     valor_hora_extra: formatCurrencyForInput(employee?.valor_hora_extra),
+    papel_bot: normalizeBotRole(employee?.papel_bot),
     ativo: employee?.ativo !== false
   };
 }
@@ -88,6 +91,7 @@ export function EmployeeForm({
       data_admissao: values.data_admissao || null,
       carga_horaria_mensal: Number(values.carga_horaria_mensal || 0),
       valor_hora_extra: parseCurrencyInput(values.valor_hora_extra),
+      papel_bot: normalizeBotRole(values.papel_bot),
       ativo: values.ativo
     });
   }
@@ -144,6 +148,17 @@ export function EmployeeForm({
             <span className="text-sm font-bold">Valor hora extra</span>
             <CurrencyInput value={values.valor_hora_extra} onChange={(value) => update("valor_hora_extra", value)} />
           </label>
+          {requiresWhatsApp ? (
+            <label className="space-y-2">
+              <span className="text-sm font-bold">Permissões no bot</span>
+              <select className="input" value={values.papel_bot} onChange={(event) => update("papel_bot", event.target.value)}>
+                {BOT_ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <span className="block text-xs text-slate-500 dark:text-slate-400">
+                {BOT_ROLE_OPTIONS.find((option) => option.value === values.papel_bot)?.description}
+              </span>
+            </label>
+          ) : null}
           <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm font-bold dark:border-slate-800 dark:bg-slate-900/70">
             <input type="checkbox" checked={values.ativo} onChange={(event) => update("ativo", event.target.checked)} />
             Funcionário ativo

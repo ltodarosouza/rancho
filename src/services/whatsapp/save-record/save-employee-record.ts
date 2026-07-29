@@ -6,6 +6,7 @@ import { calfCategoryForSex, normalizeCalfSex } from "@/lib/whatsapp/nlp-core/bi
 import { normalizeRanchoText } from "@/lib/whatsapp/nlp";
 import { DESTRUCTIVE_BULK_ACTION_MESSAGE } from "@/lib/whatsapp/nlp-core/safety-guards";
 import { whatsappNumbersMatch } from "@/lib/phone";
+import { normalizeBotRole } from "@/lib/whatsapp/bot-access";
 import type { SaveRecordHandlerContext, SaveResult } from "@/services/whatsapp/save-record/types";
 import { createSaveRecordScope, prepareAnimalRecord } from "@/services/whatsapp/save-record/helpers";
 
@@ -164,7 +165,7 @@ export async function saveEmployeeRecord(ctx: SaveRecordHandlerContext): Promise
         usuario_id: null,
         funcionario_id: employee.id,
         nome_exibicao: dados.funcionario_nome,
-        papel_bot: "funcionario",
+        papel_bot: normalizeBotRole(dados.papel_bot || dados.permissao_bot),
         ativo: true
       };
 
@@ -237,7 +238,7 @@ export async function saveEmployeeRecord(ctx: SaveRecordHandlerContext): Promise
 
       const { data: whatsappRows, error: whatsappError } = await supabase
         .from(TABLES.whatsappUsuarios)
-        .select("id,telefone_e164,funcionario_id,ativo,nome_exibicao")
+        .select("id,telefone_e164,funcionario_id,ativo,nome_exibicao,papel_bot")
         .eq("fazenda_id", owner.fazenda_id)
         .limit(2000);
       if (whatsappError) throw new Error(whatsappError.message);
@@ -303,7 +304,7 @@ export async function saveEmployeeRecord(ctx: SaveRecordHandlerContext): Promise
         usuario_id: null,
         funcionario_id: found.row.id,
         nome_exibicao: payload.nome || found.row.nome,
-        papel_bot: "funcionario",
+        papel_bot: normalizeBotRole(dados.papel_bot || dados.permissao_bot || current?.papel_bot),
         ativo: true
       };
       if (current?.id) {

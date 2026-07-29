@@ -30,6 +30,7 @@ type ParseWithInterpreterInput = {
   supabase?: ActionPlanSupabaseLike | null;
   messageType?: string | null;
   hasPendingAction?: boolean;
+  session?: AnyRecord | null;
 };
 
 const REPRODUCTION_EVENT_BY_INTENT: Record<string, string> = {
@@ -1356,7 +1357,8 @@ async function convertActionPlanSequenceInterpretation(
       text: sequenceStepExecutionText(step, input.text),
       owner: {
         fazenda_id: input.owner.fazenda_id,
-        usuario_id: input.owner.usuario_id
+        usuario_id: input.owner.usuario_id,
+        papel_bot: input.owner.papel_bot
       },
       supabase: input.supabase || null,
       currentDate: input.currentDate || getRanchTodayISO()
@@ -1600,10 +1602,12 @@ async function convertActionPlanInterpretation(
     text: input.text,
     owner: {
       fazenda_id: input.owner.fazenda_id,
-      usuario_id: input.owner.usuario_id
+      usuario_id: input.owner.usuario_id,
+      papel_bot: input.owner.papel_bot
     },
     supabase: input.supabase || null,
-    currentDate: input.currentDate || getRanchTodayISO()
+    currentDate: input.currentDate || getRanchTodayISO(),
+    queryPagination: input.session?.dados?.consulta_paginacao || input.session?.consulta_paginacao || null
   });
 
   if (!result.ok) {
@@ -1799,7 +1803,8 @@ async function convertGeminiTableImport(
     text: input.text,
     owner: {
       fazenda_id: input.owner.fazenda_id,
-      usuario_id: input.owner.usuario_id
+      usuario_id: input.owner.usuario_id,
+      papel_bot: input.owner.papel_bot
     },
     supabase: input.supabase || null,
     currentDate: input.currentDate || getRanchTodayISO()
@@ -1927,6 +1932,7 @@ async function parseWithGeminiPrimary(input: ParseWithInterpreterInput): Promise
 
   const gemini = await interpretWithGemini({
     text: input.text,
+    session: input.session || null,
     user: {
       papel_bot: input.owner.papel_bot,
       nome: input.owner.nome_exibicao || null

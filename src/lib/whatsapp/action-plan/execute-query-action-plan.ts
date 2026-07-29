@@ -14,6 +14,7 @@ import {
   semanticPeriod,
   semanticReportType
 } from "@/lib/whatsapp/gemini/action-plan-semantic";
+import { botQueryDeniedMessage, canQueryBotDomain } from "@/lib/whatsapp/bot-access";
 
 type QueryBuilderLike = AnyRecord;
 
@@ -24,6 +25,18 @@ export type ActionPlanSupabaseLike = {
 export type ActionPlanOwnerContext = {
   fazenda_id?: string | null;
   usuario_id?: string | null;
+  papel_bot?: string | null;
+};
+
+export type ActionPlanQueryPagination = {
+  tipo: "action_plan_query";
+  domain: string;
+  plan: QueryActionPlan;
+  originalText?: string;
+  currentDate?: string;
+  offset: number;
+  pageSize: number;
+  total: number;
 };
 
 export type ExecuteQueryActionPlanInput = {
@@ -32,6 +45,7 @@ export type ExecuteQueryActionPlanInput = {
   owner: ActionPlanOwnerContext;
   currentDate?: string;
   originalText?: string;
+  pagination?: { offset: number; pageSize?: number };
 };
 
 export type ExecuteQueryActionPlanResult =
@@ -413,6 +427,8 @@ function referenceMatches(candidates: unknown[], target: unknown) {
   const normalizedTarget = normalizedText(target);
   const compactTarget = compactComparable(target);
   const numericTarget = /\d/.test(normalizedTarget);
+  const identifierTarget = normalizedTarget.match(/\b[a-z]{0,4}-?\d+[a-z0-9-]*\b/)?.[0];
+  const compactIdentifierTarget = compactComparable(identifierTarget);
   if (!normalizedTarget) return false;
   return candidates.some((candidate) => {
     const normalizedCandidate = normalizedText(candidate);
@@ -422,6 +438,7 @@ function referenceMatches(candidates: unknown[], target: unknown) {
     const targetPhrase = ` ${normalizedTarget} `;
     return normalizedCandidate === normalizedTarget
       || compactCandidate === compactTarget
+      || Boolean(compactIdentifierTarget && compactCandidate === compactIdentifierTarget)
       || (!numericTarget && normalizedCandidate.includes(normalizedTarget))
       || (!numericTarget && compactTarget.length >= 3 && compactCandidate.includes(compactTarget))
       || (!numericTarget && normalizedCandidate.length >= 3 && targetPhrase.includes(candidatePhrase));
@@ -443,6 +460,17 @@ function relationCandidateValues(row: AnyRecord, domain: DomainManifestEntry, fi
   }
   if (fieldName === "item_ref") {
     return [row.item_id, row.item_ref, row.nome].filter(Boolean);
+  }
+  if (domain.domain === "genealogia" && fieldName === "pai_ref") {
+    const father = relations.animalsById?.get(String(row.pai_id || ""));
+    return [father?.brinco, father?.nome, father?.id, row.pai_id].filter(Boolean);
+  }
+  if (domain.domain === "genealogia" && fieldName === "mae_ref") {
+    const mother = relations.animalsById?.get(String(row.mae_id || ""));
+    return [mother?.brinco, mother?.nome, mother?.id, row.mae_id].filter(Boolean);
+  }
+  if (domain.domain === "genealogia" && fieldName === "filho_ref") {
+    return [row.brinco, row.nome, row.id].filter(Boolean);
   }
   return [];
 }
@@ -653,7 +681,9 @@ function buildAggregations(rows: AnyRecord[], plan: QueryActionPlan, domain: Dom
 }
 
 function money(value: number) {
-  return `R$ ${value.toFixed(2).replace(".", ",")}`;
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+    .format(Number(value || 0))
+    .replace(/\u00a0/g, " ");
 }
 
 function numberText(value: number) {
@@ -899,7 +929,7 @@ function countByText(rows: AnyRecord[], selector: (row: AnyRecord) => unknown) {
     .join(", ");
 }
 
-function buildAnimalCollectiveResponse(rows: AnyRecord[], plan: QueryActionPlan) {
+function buildAnimalCollectiveResponse(rows: AnyRecord[], plan: QueryActionPlan, offset = 0, pageSize = 10) {
   const category = plan.filters.find((filter) => filter.field === "categoria")?.value || animalCategoryFromQueryText(plan.userQuestion);
   const label = animalCategoryPlural(category);
   if (!rows.length) return `Não encontrei ${label} cadastrados no rebanho.`;
@@ -907,11 +937,21 @@ function buildAnimalCollectiveResponse(rows: AnyRecord[], plan: QueryActionPlan)
   const active = rows.filter((row) => !["morto", "inativo", "vendido"].includes(normalizedText(row.status || "ativo"))).length;
   const categories = countByText(rows, (row) => row.categoria || "sem categoria");
   const statuses = countByText(rows, (row) => row.status || "ativo");
-  const sample = rows.slice(0, 8).map((row, index) => {
+  const pageRows = rows.slice(offset, offset + pageSize);
+  const sample = pageRows.map((row, index) => {
     const categoryText = row.categoria ? ` - ${row.categoria}` : "";
     const statusText = row.status ? ` - ${row.status}` : "";
-    return `${index + 1}. ${animalLabel(row)}${categoryText}${statusText}`;
+    return `${offset + index + 1}. ${animalLabel(row)}${categoryText}${statusText}`;
   });
+
+  if (offset) {
+    const nextOffset = offset + pageRows.length;
+    return [
+      `Mais ${label}:`,
+      ...sample,
+      nextOffset < rows.length ? `...e mais ${rows.length - nextOffset} animal(is). Responda "mostrar mais" para continuar.` : "Fim da lista."
+    ].join("\n");
+  }
 
   return [
     category ? `Dados das ${label}:` : "Resumo do rebanho:",
@@ -922,7 +962,7 @@ function buildAnimalCollectiveResponse(rows: AnyRecord[], plan: QueryActionPlan)
     "",
     "Amostra:",
     ...sample,
-    rows.length > sample.length ? `...e mais ${rows.length - sample.length} animal(is).` : ""
+    rows.length > sample.length ? `...e mais ${rows.length - sample.length} animal(is). Responda "mostrar mais" para continuar.` : ""
   ].filter(Boolean).join("\n");
 }
 
@@ -1350,7 +1390,7 @@ function employeeDetailLine(row: AnyRecord, index: number) {
   return parts.join(" - ");
 }
 
-function buildEmployeeResponse(rows: AnyRecord[], plan: QueryActionPlan) {
+function buildEmployeeResponse(rows: AnyRecord[], plan: QueryActionPlan, offset = 0, pageSize = 10) {
   const specificEmployee = plan.filters.some((filter) => filter.field === "funcionario_ref");
   if (!rows.length) return specificEmployee ? "Nao encontrei esse funcionario." : "Nao encontrei funcionarios cadastrados.";
 
@@ -1369,7 +1409,16 @@ function buildEmployeeResponse(rows: AnyRecord[], plan: QueryActionPlan) {
   const active = rows.filter((row) => employeeStatus(row) === "ativo").length;
   const inactive = rows.length - active;
   const roles = countByText(rows, (row) => row.funcao || "sem funcao");
-  const sample = rows.slice(0, 12).map((row, index) => employeeDetailLine(row, index));
+  const pageRows = rows.slice(offset, offset + pageSize);
+  const sample = pageRows.map((row, index) => employeeDetailLine(row, offset + index));
+  if (offset) {
+    const nextOffset = offset + pageRows.length;
+    return [
+      "Mais funcionários:",
+      ...sample,
+      nextOffset < rows.length ? `...e mais ${rows.length - nextOffset} funcionário(s). Responda "mostrar mais" para continuar.` : "Fim da lista."
+    ].join("\n");
+  }
   return [
     "Dados dos funcionarios:",
     `Total encontrado: ${rows.length}.`,
@@ -1379,7 +1428,7 @@ function buildEmployeeResponse(rows: AnyRecord[], plan: QueryActionPlan) {
     "",
     "Lista:",
     ...sample,
-    rows.length > sample.length ? `...e mais ${rows.length - sample.length} funcionario(s).` : ""
+    rows.length > sample.length ? `...e mais ${rows.length - sample.length} funcionário(s). Responda "mostrar mais" para continuar.` : ""
   ].filter(Boolean).join("\n");
 }
 
@@ -1464,7 +1513,90 @@ function querySample(domain: DomainManifestEntry, rows: AnyRecord[], relations: 
       };
     });
   }
+  if (domain.domain === "genealogia") {
+    return rows.slice(0, 12).map((row) => ({
+      animal: animalLabel(row),
+      pai: row.pai_id ? animalLabel(relations.animalsById?.get(String(row.pai_id))) : null,
+      mae: row.mae_id ? animalLabel(relations.animalsById?.get(String(row.mae_id))) : null,
+      data_nascimento: row.data_nascimento || null
+    }));
+  }
   return rows.slice(0, 12);
+}
+
+function queryDetailLevel(plan: QueryActionPlan) {
+  return normalizedText([
+    plan.operation,
+    plan.semantic?.operation,
+    plan.semantic?.report?.type,
+    plan.semantic?.report?.detailLevel
+  ].filter(Boolean).join(" "));
+}
+
+function wantsDetailedList(plan: QueryActionPlan) {
+  return /\b(?:lista|listar|listagem|detalhado|detalhada|detalhes|completo|completa|transacoes|movimentacoes|registros)\b/.test(queryDetailLevel(plan));
+}
+
+function financeLine(row: AnyRecord, index: number) {
+  const type = normalizeFinanceType(row.tipo) === "saida" ? "Saída" : "Entrada";
+  const description = row.descricao || row.categoria || "sem descrição";
+  return `${index}. ${shortDate(row.data_transacao || row.created_at)} - ${type} - ${description}: ${money(Number(row.valor || 0))}`;
+}
+
+function buildFinanceDetailedResponse(rows: AnyRecord[], plan: QueryActionPlan, offset = 0, pageSize = 10) {
+  const pageRows = rows.slice(offset, offset + pageSize);
+  const period = periodText(plan);
+  if (!pageRows.length) return "Não há mais transações para mostrar.";
+  const title = offset
+    ? `Mais ${pageRows.length} transações financeiras:`
+    : `Transações financeiras${period ? ` ${period}` : ""}:`;
+  const nextOffset = offset + pageRows.length;
+  return [
+    title,
+    ...pageRows.map((row, index) => financeLine(row, offset + index + 1)),
+    nextOffset < rows.length ? `...e mais ${rows.length - nextOffset} transação(ões). Responda "mostrar mais" para continuar.` : "Fim da lista."
+  ].join("\n");
+}
+
+function buildGenealogyResponse(rows: AnyRecord[], plan: QueryActionPlan, relations: AnyRecord, offset = 0, pageSize = 10) {
+  const fatherFilter = plan.filters.find((filter) => filter.field === "pai_ref");
+  const motherFilter = plan.filters.find((filter) => filter.field === "mae_ref");
+  const childFilter = plan.filters.find((filter) => ["animal_ref", "filho_ref"].includes(filter.field));
+  const parentFilter = fatherFilter || motherFilter;
+  const pageRows = rows.slice(offset, offset + pageSize);
+
+  if (!rows.length) {
+    if (parentFilter) return `Não encontrei crias vinculadas a ${String(parentFilter.value || "esse animal")}.`;
+    return childFilter
+      ? `Não encontrei a genealogia de ${String(childFilter.value || "esse animal")}.`
+      : "Não encontrei registros de genealogia no rebanho.";
+  }
+
+  if (childFilter && rows.length === 1) {
+    const animal = rows[0];
+    const father = animal.pai_id ? relations.animalsById?.get(String(animal.pai_id)) : null;
+    const mother = animal.mae_id ? relations.animalsById?.get(String(animal.mae_id)) : null;
+    return [
+      `Genealogia de ${animalLabel(animal)}:`,
+      `Pai: ${father ? animalLabel(father) : "não informado"}.`,
+      `Mãe: ${mother ? animalLabel(mother) : "não informada"}.`
+    ].join("\n");
+  }
+
+  const title = parentFilter
+    ? `${offset ? "Mais crias" : "Crias"} de ${String(parentFilter.value)}:`
+    : offset ? "Mais animais com genealogia:" : "Genealogia do rebanho:";
+  const nextOffset = offset + pageRows.length;
+  return [
+    title,
+    ...pageRows.map((row, index) => {
+      const father = row.pai_id ? relations.animalsById?.get(String(row.pai_id)) : null;
+      const mother = row.mae_id ? relations.animalsById?.get(String(row.mae_id)) : null;
+      const parents = [father ? `pai ${animalLabel(father)}` : "", mother ? `mãe ${animalLabel(mother)}` : ""].filter(Boolean).join(", ");
+      return `${offset + index + 1}. ${animalLabel(row)}${parents ? ` - ${parents}` : ""}`;
+    }),
+    nextOffset < rows.length ? `...e mais ${rows.length - nextOffset} registro(s). Responda "mostrar mais" para continuar.` : ""
+  ].filter(Boolean).join("\n");
 }
 
 function buildProductionResponse(rows: AnyRecord[], metrics: AnyRecord, plan: QueryActionPlan) {
@@ -1507,7 +1639,14 @@ function buildProductionResponse(rows: AnyRecord[], metrics: AnyRecord, plan: Qu
   ].join("\n");
 }
 
-function buildResponse(domain: DomainManifestEntry, rows: AnyRecord[], metrics: AnyRecord, plan: QueryActionPlan, relations: AnyRecord) {
+function buildResponse(
+  domain: DomainManifestEntry,
+  rows: AnyRecord[],
+  metrics: AnyRecord,
+  plan: QueryActionPlan,
+  relations: AnyRecord,
+  pagination?: { offset: number; pageSize: number }
+) {
   if (domain.domain === "fazenda") {
     const fazenda = rows[0];
     if (!fazenda) return "Não encontrei os dados do seu rancho.";
@@ -1526,6 +1665,9 @@ function buildResponse(domain: DomainManifestEntry, rows: AnyRecord[], metrics: 
   }
 
   if (domain.domain === "financeiro") {
+    if (wantsDetailedList(plan) || pagination?.offset) {
+      return buildFinanceDetailedResponse(rows, plan, pagination?.offset || 0, pagination?.pageSize || 10);
+    }
     const entradas = rows.filter((row) => normalizeFinanceType(row.tipo) === "entrada").reduce((sum, row) => sum + Number(row.valor || 0), 0);
     const saidas = rows.filter((row) => normalizeFinanceType(row.tipo) === "saida").reduce((sum, row) => sum + Number(row.valor || 0), 0);
     const total = Number(Object.values(metrics.totals || {})[0] || entradas + saidas);
@@ -1572,7 +1714,9 @@ function buildResponse(domain: DomainManifestEntry, rows: AnyRecord[], metrics: 
     if (!rows.length) {
       return specificAnimal ? "Não encontrei esse animal no rebanho." : buildAnimalCollectiveResponse(rows, plan);
     }
-    if (!specificAnimal || rows.length > 1) return buildAnimalCollectiveResponse(rows, plan);
+    if (!specificAnimal || rows.length > 1) {
+      return buildAnimalCollectiveResponse(rows, plan, pagination?.offset || 0, pagination?.pageSize || 10);
+    }
 
     const animal = rows[0];
     return [
@@ -1588,11 +1732,15 @@ function buildResponse(domain: DomainManifestEntry, rows: AnyRecord[], metrics: 
   }
 
   if (domain.domain === "funcionarios") {
-    return buildEmployeeResponse(rows, plan);
+    return buildEmployeeResponse(rows, plan, pagination?.offset || 0, pagination?.pageSize || 10);
   }
 
   if (domain.domain === "ponto_funcionario") {
     return buildPointResponse(rows, plan, relations);
+  }
+
+  if (domain.domain === "genealogia") {
+    return buildGenealogyResponse(rows, plan, relations, pagination?.offset || 0, pagination?.pageSize || 10);
   }
 
   return [
@@ -1608,7 +1756,7 @@ async function loadRelationContext(supabase: ActionPlanSupabaseLike | null | und
   if (plan.domain === "animais" || plan.domain === "genealogia" || ["reproducao", "saude_sanitario", "producao_leite"].includes(plan.domain) || plan.filters.some((filter) => filter.field === "animal_ref")) {
     const { data } = await supabase
       .from(TABLES.animais)
-      .select("id,brinco,nome,categoria")
+      .select("id,brinco,nome,categoria,pai_id,mae_id")
       .eq("fazenda_id", owner.fazenda_id)
       .limit(1000);
     relations.animalsById = new Map(((data || []) as AnyRecord[]).map((animal) => [String(animal.id), animal]));
@@ -1624,6 +1772,14 @@ async function loadRelationContext(supabase: ActionPlanSupabaseLike | null | und
   }
 
   return relations;
+}
+
+function queryPaginationPageSize(domain: DomainManifestEntry, plan: QueryActionPlan) {
+  if (domain.domain === "animais" && !hasSpecificAnimalRefFilter(plan)) return 10;
+  if (domain.domain === "financeiro" && wantsDetailedList(plan)) return 10;
+  if (domain.domain === "funcionarios" && !plan.filters.some((filter) => filter.field === "funcionario_ref")) return 10;
+  if (domain.domain === "genealogia" && !plan.filters.some((filter) => ["animal_ref", "filho_ref"].includes(filter.field))) return 10;
+  return 0;
 }
 
 export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput): Promise<ExecuteQueryActionPlanResult> {
@@ -1645,6 +1801,14 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   }
 
   let plan = validation.value as QueryActionPlan;
+  if (!canQueryBotDomain(input.owner.papel_bot, plan.domain)) {
+    return {
+      ok: false,
+      status: "blocked",
+      reason: "bot_role_query_denied",
+      message: botQueryDeniedMessage(plan.domain)
+    };
+  }
   plan = normalizeCollectiveReferenceFilters(plan, input.originalText);
   if (plan.domain === "animais") {
     plan = normalizeAnimalQueryPlan(plan, input.originalText);
@@ -1731,10 +1895,26 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
     .filter((row) => plan.filters.every((filter) => filterMatches(row, domain, filter, relationContext, baseDate)))
     .slice(0, sourceLimit);
   const metrics = buildAggregations(rows, plan, domain, relationContext);
-  const response = buildResponse(domain, rows, metrics, plan, relationContext);
+  const pageSize = Math.max(1, input.pagination?.pageSize || queryPaginationPageSize(domain, plan) || 10);
+  const offset = Math.max(0, input.pagination?.offset || 0);
+  const response = buildResponse(domain, rows, metrics, plan, relationContext, { offset, pageSize });
+  const nextOffset = Math.min(rows.length, offset + pageSize);
+  const pagination: ActionPlanQueryPagination | undefined = queryPaginationPageSize(domain, plan) && nextOffset < rows.length
+    ? {
+        tipo: "action_plan_query",
+        domain: domain.domain,
+        plan,
+        originalText: input.originalText,
+        currentDate: input.currentDate,
+        offset: nextOffset,
+        pageSize,
+        total: rows.length
+      }
+    : undefined;
   const parsed = finalizeActionPlanParsed(QUERY_INTENT_BY_DOMAIN[domain.domain] || "DESCONHECIDO", {
     consulta: true,
     action_plan_response: response,
+    action_plan_pagination: pagination,
     resultado: {
       registros: rows.length,
       metrics,

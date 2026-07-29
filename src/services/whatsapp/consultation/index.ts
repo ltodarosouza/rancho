@@ -3,6 +3,7 @@ import type { AnyRecord } from "@/lib/types";
 import type { ParsedRanchoMessage } from "@/lib/whatsapp/nlp";
 import type { WhatsAppOwner } from "@/services/whatsapp/identity";
 import type { ConsultationDependencies, SupabaseAdmin } from "@/services/whatsapp/consultation/types";
+import { botQueryDeniedMessage, canAccessBotStaffData, canQueryBotDomain } from "@/lib/whatsapp/bot-access";
 
 export async function handleConsultation(
   deps: ConsultationDependencies,
@@ -47,13 +48,18 @@ export async function handleConsultation(
   if (parsed.tipo === "AJUDA") return helpText();
 
   if (parsed.dados?.action_plan_response) {
-    if (["CONSULTA_FUNCIONARIO", "CONSULTA_PONTO"].includes(parsed.tipo) && !isBotAdmin(owner)) {
-      return parsed.tipo === "CONSULTA_PONTO"
-        ? "VocÃª nÃ£o tem permissÃ£o para consultar ponto pelo WhatsApp."
-        : "VocÃª nÃ£o tem permissÃ£o para consultar dados de funcionÃ¡rios pelo WhatsApp.";
+    const domain = String(parsed.dados.action_plan_domain || "");
+    if (domain && !canQueryBotDomain(owner.papel_bot, domain)) {
+      await saveSession(supabase, owner, { etapa: "livre", dados: {} });
+      return botQueryDeniedMessage(domain);
     }
     parsed.dados.consulta_executada = parsed.dados.consulta_executada || "action_plan";
-    await saveSession(supabase, owner, { etapa: "livre", dados: {} });
+    await saveSession(supabase, owner, {
+      etapa: "livre",
+      dados: parsed.dados.action_plan_pagination
+        ? { consulta_paginacao: parsed.dados.action_plan_pagination }
+        : {}
+    });
     return String(parsed.dados.action_plan_response);
   }
 
@@ -252,7 +258,7 @@ export async function handleConsultation(
 
   if (parsed.tipo === "CONSULTA_FUNCIONARIO") {
     if (parsed.dados.funcionario_nome) {
-      if (!isBotAdmin(owner)) return "Você não tem permissão para consultar dados de funcionários pelo WhatsApp.";
+      if (!canAccessBotStaffData(owner.papel_bot)) return "Você não tem permissão para consultar dados de funcionários pelo WhatsApp.";
       const found = await findEmployee(supabase, owner, String(parsed.dados.funcionario_nome));
       if (found) {
         const field = String(parsed.dados.consulta_campo || "");
@@ -282,12 +288,12 @@ export async function handleConsultation(
   if (parsed.tipo === "CONSULTA_FOLHA") {
     const consultaFolha = String(parsed.dados.consulta_folha || "");
     const isGeneral = ["geral", "faltantes", "resumo"].includes(consultaFolha) || !parsed.dados.funcionario_nome;
-    if (isGeneral && !isBotAdmin(owner)) return "Você não tem permissão para consultar folha geral pelo WhatsApp.";
+    if (isGeneral && !canAccessBotStaffData(owner.papel_bot)) return "Você não tem permissão para consultar folha geral pelo WhatsApp.";
 
     const competencia = monthStartFromPaymentPeriod(String(parsed.dados.periodo_pagamento || "mes_atual"));
 
     if (parsed.dados.funcionario_nome) {
-      if (!isBotAdmin(owner)) return "Você não tem permissão para consultar folha de funcionários pelo WhatsApp.";
+      if (!canAccessBotStaffData(owner.papel_bot)) return "Você não tem permissão para consultar folha de funcionários pelo WhatsApp.";
       const found = await findEmployee(supabase, owner, String(parsed.dados.funcionario_nome));
       if (!found?.row) return `Não encontrei o funcionário "${parsed.dados.funcionario_nome}".`;
 
@@ -335,7 +341,7 @@ export async function handleConsultation(
   }
 
   if (parsed.tipo === "CONSULTA_PONTO") {
-    if (!isBotAdmin(owner)) return "Você não tem permissão para consultar ponto pelo WhatsApp.";
+    if (!canAccessBotStaffData(owner.papel_bot)) return "Você não tem permissão para consultar ponto pelo WhatsApp.";
     const period = String(parsed.dados.periodo || parsed.dados.data_referencia || "hoje");
     const range = periodRange(period);
     let employeeId: string | null = null;

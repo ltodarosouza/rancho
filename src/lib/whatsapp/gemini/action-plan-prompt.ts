@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v12";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v14";
 
 const EXAMPLES = [
   {
@@ -492,7 +492,10 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Pedido destrutivo, SQL, delete ou update em massa deve usar block com safety.risk=high.",
     "Lancamento financeiro puro sem item fisico usa create domain=financeiro. Entrada, entrou, recebi, receita e ganhei viram tipo=entrada/receita. Saida, saiu, paguei, gastei e despesa viram tipo=saida/despesa.",
     "Consultas financeiras com termo, como 'quanto gastei com racao esse mes', devem preservar tipo=despesa quando houver gasto/paguei e filtro descricao/categoria contains com o termo mencionado.",
+    "Quando o usuario pedir todas as transacoes, lista, detalhes, lancamentos ou movimentacoes financeiras, use semantic.report.detailLevel=detalhado e operation=listar. Preserve todos os filtros de periodo, tipo, categoria, pessoa ou descricao; nao transforme a lista pedida em mero resumo.",
+    "Se o contexto de sessao tiver consulta_paginacao e a nova mensagem pedir para continuar, mostrar mais, ver os restantes ou a proxima pagina, retorne action=query no mesmo dominio com semantic.operation=continuar_consulta. Nao crie novos filtros nem transforme a consulta em relatorio geral; o backend reutiliza o plano anterior validado.",
     "Compra ou venda de item fisico com quantidade, unidade, item e valor deve usar domain=estoque, gera_financeiro=true. Compra vira entrada de estoque + despesa; venda vira saida de estoque + receita. Nao use somente financeiro nesses casos.",
+    "Venda de leite e uma venda de item fisico, nao uma ordenha. Frases com vendi/vendeu/venda/cliente/recebi por mais quantidade em litros de leite usam estoque com saida e, quando houver valor, financeiro com receita. Producao de leite usa verbos de ordenha ou producao, como produziu, deu, ordenhei ou tirei, sem contexto de venda.",
     "Cadastro de item/produto/insumo/material no estoque, sem verbo de compra/venda/entrada/saida/uso, deve usar action=execute capability=cadastrar_item_estoque ou action=create domain=estoque. Quantidade inicial pode ficar ausente para o backend perguntar ao usuario.",
     "Perguntas sobre o proprio rancho, como nome, cidade, estado, descricao ou responsavel, usam action=query domain=fazenda. Se o usuario pedir somente o nome, use select=[nome], filters=[] e nao gere resumo operacional de rebanho, producao ou financeiro. Perguntar qual e um campo nao significa filtrar por esse campo.",
     "Consultas coletivas como dados do rebanho, dados das vacas, dados das vagas, lista das vacas, vacas cadastradas ou meus animais usam action=query domain=animais. Nao use animal_ref para plural/coletivo; use categoria quando houver vaca, boi, bezerro, novilha ou touro.",
@@ -500,8 +503,11 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Perguntas sobre ha quanto tempo, desde quando ou quantos dias um animal esta em um estado reprodutivo usam action=query domain=reproducao com animal_ref e status_reprodutivo/evento. Nao aplique filtro de periodo: a data do evento que iniciou o estado precisa permanecer na consulta para o backend calcular a duracao. Isso vale para qualquer animal e estado reprodutivo suportado.",
     "Comparacoes, rankings, maior, menor, primeiro, ultimo ou top por entidade usam aggregations + groupBy na entidade + orderBy na metrica. Para producao por animal, agrupe por animal_ref, agregue litros com sum e ordene litros desc para maior ou asc para menor; use limit=1 quando a pergunta pedir somente qual animal e um limite maior quando pedir ranking/lista.",
     "Em consultas de producao por categoria, como vaca, novilha ou outro tipo de animal, use animal_categoria. animal_ref e somente para nome, brinco ou codigo de um animal especifico. Nao gere subquery ou filtro aninhado.",
+    "Resumo, historico ou total de producao de um animal especifico deve manter filtro animal_ref e nunca virar total do rebanho. O valor de animal_ref pode conter a forma natural completa, como 'vaca 090'; o backend resolve nome ou brinco.",
     "Diferencie periodos de calendario: este mes/agora usa current_month; mes passado, mes anterior ou ultimo mes usa previous_month; ultimos N meses usa last_months com value=N. previous_month nao recebe value.",
     "Consultas de funcionarios, equipe, dados dos funcionarios, salarios ou cargos usam action=query domain=funcionarios. Consultas de ponto, presenca, quem bateu ponto, entradas ou saidas de funcionario usam action=query domain=ponto_funcionario.",
+    "Ao cadastrar funcionario com WhatsApp, papel_bot representa o perfil de acesso e so pode ser funcionario, veterinario, contador, gerente ou admin. Se o usuario informar o perfil, preserve-o; se nao informar, use funcionario, que tem menor privilegio.",
+    "Consultas de genealogia, ascendencia, pais ou crias usam action=query domain=genealogia. Para perguntar crias de um pai ou mae, filtre pai_ref ou mae_ref; para genealogia de um animal, filtre animal_ref ou filho_ref. Nunca use UUID ou ID interno como referencia nem como resposta ao usuario.",
     "Cadastro de animal: nao use a mesma palavra solta como nome e brinco/codigo. Se a mensagem disser apenas 'criar vaca Felipe', trate Felipe como nome e deixe brinco/codigo faltando. So preencha brinco/codigo quando houver marcador explicito (brinco, codigo, numero) ou formato claro de codigo com numero/hifen.",
     "Consultas genericas como quais eventos teve hoje, eventos de hoje, registros de hoje, o que aconteceu hoje, movimentacoes de hoje, resumo do dia ou fechamento de hoje usam action=query domain=observacoes, operation=eventos_gerais, requiresConfirmation=false.",
     "Nao classifique consulta generica de eventos como saude_sanitario ou reproducao. Use saude_sanitario apenas quando houver vacina, tratamento, medicamento, vermifugo, antibiotico, doenca, morte, saude ou sanitario; use reproducao apenas quando houver parto, prenhez, inseminacao, protocolo, reteste ou cio.",

@@ -69,6 +69,7 @@ const EMPLOYEE_LIST_SELECT = [
 
 const EMPLOYEE_POINT_SELECT = "id,funcionario_id,tipo,registrado_em,observacao,created_at";
 const EMPLOYEE_PAYROLL_SELECT = "id,funcionario_id,competencia,salario_base,total_liquido,status,pago_em,created_at";
+const EMPLOYEE_WHATSAPP_SELECT = "id,funcionario_id,papel_bot,ativo";
 
 function exportEmployeesCsv(rows: AnyRecord[]) {
   const header = ["Nome", "Função", "Salário", "E-mail", "WhatsApp", "Tipo de acesso", "Ativo"];
@@ -115,7 +116,7 @@ export function EmployeeScreen() {
     setLoading(true);
     setError("");
     try {
-      const [nextEmployees, nextTimeEntries, nextPayrolls] = await withAsyncTimeout(Promise.all([
+      const [nextEmployees, nextTimeEntries, nextPayrolls, nextWhatsAppUsers] = await withAsyncTimeout(Promise.all([
         listRecords(TABLES.funcionarios, {
           orderBy: "created_at",
           fazendaId: farmId,
@@ -139,10 +140,28 @@ export function EmployeeScreen() {
           select: EMPLOYEE_PAYROLL_SELECT,
           cache: true,
           forceRefresh
+        }),
+        listRecords(TABLES.whatsappUsuarios, {
+          orderBy: "created_at",
+          fazendaId: farmId,
+          usuarioId: userId,
+          select: EMPLOYEE_WHATSAPP_SELECT,
+          cache: true,
+          forceRefresh
         })
       ]), "A equipe demorou para carregar. Tente novamente.");
       if (loadRequestRef.current !== requestId) return;
-      const visibleEmployees = nextEmployees.filter((employee) => !employee.deleted_at);
+      const botRoleByEmployee = new Map(
+        nextWhatsAppUsers
+          .filter((row) => row.funcionario_id && row.ativo !== false)
+          .map((row) => [String(row.funcionario_id), row.papel_bot])
+      );
+      const visibleEmployees: AnyRecord[] = nextEmployees
+        .filter((employee) => !employee.deleted_at)
+        .map((employee) => ({
+          ...employee,
+          papel_bot: botRoleByEmployee.get(String(employee.id)) || "funcionario"
+        } as AnyRecord));
       setEmployees(visibleEmployees);
       setTimeEntries(nextTimeEntries);
       setPayrolls(nextPayrolls);
@@ -162,11 +181,13 @@ export function EmployeeScreen() {
     const unsubscribeEmployees = subscribeTable(TABLES.funcionarios, refresh);
     const unsubscribePoints = subscribeTable(TABLES.registrosPonto, refresh);
     const unsubscribePayrolls = subscribeTable(TABLES.folhaPagamento, refresh);
+    const unsubscribeWhatsAppUsers = subscribeTable(TABLES.whatsappUsuarios, refresh);
     return () => {
       loadRequestRef.current += 1;
       unsubscribeEmployees();
       unsubscribePoints();
       unsubscribePayrolls();
+      unsubscribeWhatsAppUsers();
     };
   }, [load]);
 
@@ -243,11 +264,12 @@ export function EmployeeScreen() {
     try {
       if (!canManage) throw new Error(PERMISSION_DENIED_MESSAGE);
       const accessMode = editing?.tipo_acesso || formAccessMode;
-      const hasWhatsApp = Boolean(values.contato_whatsapp);
-      const baseEmployee = editing?.id ? { ...editing, ...values } : values;
+      const { papel_bot, ...employeeValues } = values;
+      const hasWhatsApp = Boolean(employeeValues.contato_whatsapp);
+      const baseEmployee = editing?.id ? { ...editing, ...employeeValues } : employeeValues;
       const contato_whatsapp = hasWhatsApp ? await assertUniqueActiveEmployeeWhatsApp(baseEmployee, dataContext) : null;
       const payload = {
-        ...values,
+        ...employeeValues,
         contato_whatsapp,
         tipo_acesso: accessMode,
         papel_sistema: accessMode === "bot_only" ? "bot_only" : editing?.papel_sistema || null
@@ -256,14 +278,14 @@ export function EmployeeScreen() {
       if (editing?.id) {
         const saved = await updateRecord(TABLES.funcionarios, editing.id, payload, dataContext);
         if (contato_whatsapp) {
-          await syncEmployeeWhatsAppUser({ ...editing, ...payload, ...saved, id: editing.id }, dataContext);
+          await syncEmployeeWhatsAppUser({ ...editing, ...payload, ...saved, papel_bot, id: editing.id }, dataContext);
         } else {
           await deactivateEmployeeWhatsAppUser({ ...editing, ...payload, id: editing.id }, dataContext);
         }
         await syncEmployeePanelAccess(editing.id, session?.access_token);
       } else {
         const saved = await createRecord(TABLES.funcionarios, payload, dataContext);
-        if (contato_whatsapp) await syncEmployeeWhatsAppUser(saved, dataContext);
+        if (contato_whatsapp) await syncEmployeeWhatsAppUser({ ...saved, papel_bot }, dataContext);
         await syncEmployeePanelAccess(saved.id, session?.access_token);
       }
       notifyDashboardUpdated();

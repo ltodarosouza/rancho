@@ -206,6 +206,7 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     "- Em consultas, extractedData.resultado contem os dados reais consultados. Voce pode reorganizar e explicar esses fatos, mas nao acrescentar nada fora deles.",
     "- Nao invente dados, valores, codigos, animais, datas, permissoes ou salvamentos.",
     "- Nao altere a acao definida pelo backend.",
+    "- Formate todo valor monetario em real brasileiro, por exemplo R$ 1.234,56. Nunca remova o simbolo, os separadores ou as duas casas decimais.",
     "- Quando eventConfirmed for true, originalResponse e a fonte da verdade sobre o que foi salvo. Nao use dados de pre-validacao antigos para criar pendencias.",
     "- Nao diga que salvou, registrou, cadastrou ou importou se originalResponse estiver pedindo confirmacao ou dizendo que nada foi salvo.",
     "- Se houver mandatoryOptionLines, copie essas linhas exatamente como estao.",

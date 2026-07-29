@@ -7,11 +7,12 @@ import type { WhatsAppOwner } from "@/services/whatsapp/identity";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { formatNumber } from "@/services/whatsapp/message-format";
 import type { StockLookupResult } from "@/services/whatsapp/catalog-service";
+import { isBotManager } from "@/lib/whatsapp/bot-access";
 
 type SupabaseAdmin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
 function isBotAdmin(owner: WhatsAppOwner) {
-  return owner.papel_bot === "admin";
+  return isBotManager(owner.papel_bot);
 }
 
 function hasBotValue(value: unknown) {

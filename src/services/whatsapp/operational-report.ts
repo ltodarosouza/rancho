@@ -4,6 +4,7 @@ import type { AnyRecord } from "@/lib/types";
 import { addRanchDays, getRanchDayRange, getRanchTodayISO, resolveDefaultEventDate } from "@/lib/dates/ranch-time";
 import { formatStockUnit, normalizeRanchoText, parseRanchoMessage } from "@/lib/whatsapp/nlp";
 import type { WhatsAppOwner } from "@/services/whatsapp/identity";
+import { canAccessBotFinance, canAccessBotStaffData, isBotManager } from "@/lib/whatsapp/bot-access";
 
 type SupabaseAdmin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -74,7 +75,7 @@ const CONSULT_INTENTS = new Set([
 ]);
 
 function isBotAdmin(owner: WhatsAppOwner) {
-  return owner.papel_bot === "admin";
+  return isBotManager(owner.papel_bot);
 }
 
 function dateOnly(date = new Date()) {
@@ -200,7 +201,9 @@ export function operationalReportPeriodLabel(period?: string) {
 }
 
 function formatMoney(value: number | string | null | undefined) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+    .format(Number(value || 0))
+    .replace(/\u00a0/g, " ");
 }
 
 function formatNumber(value: number | string | null | undefined, suffix = "") {
@@ -340,7 +343,7 @@ async function queryProduction(supabase: SupabaseAdmin, owner: WhatsAppOwner, pe
 }
 
 async function queryFinance(supabase: SupabaseAdmin, owner: WhatsAppOwner, period: string) {
-  if (!isBotAdmin(owner)) return { rows: [] as AnyRecord[], allowed: false, totals: { entrada: 0, saida: 0, resultado: 0 }, entradaCategorias: [] as string[], saidaCategorias: [] as string[] };
+  if (!canAccessBotFinance(owner.papel_bot)) return { rows: [] as AnyRecord[], allowed: false, totals: { entrada: 0, saida: 0, resultado: 0 }, entradaCategorias: [] as string[], saidaCategorias: [] as string[] };
   const range = operationalReportPeriodRange(period);
   const { data, error } = await supabase
     .from(TABLES.transacoesFinanceiras)
@@ -400,7 +403,7 @@ async function queryEvents(supabase: SupabaseAdmin, owner: WhatsAppOwner, period
 }
 
 async function queryPoint(supabase: SupabaseAdmin, owner: WhatsAppOwner, period: string) {
-  if (!isBotAdmin(owner)) return { rows: [] as AnyRecord[], allowed: false, entradas: 0, funcionarios: 0 };
+  if (!canAccessBotStaffData(owner.papel_bot)) return { rows: [] as AnyRecord[], allowed: false, entradas: 0, funcionarios: 0 };
   const range = operationalReportPeriodRange(period);
   const { data, error } = await supabase
     .from(TABLES.registrosPonto)
@@ -420,7 +423,7 @@ async function queryPoint(supabase: SupabaseAdmin, owner: WhatsAppOwner, period:
 }
 
 async function queryEmployees(supabase: SupabaseAdmin, owner: WhatsAppOwner) {
-  if (!isBotAdmin(owner)) return { rows: [] as AnyRecord[], allowed: false, active: 0 };
+  if (!canAccessBotStaffData(owner.papel_bot)) return { rows: [] as AnyRecord[], allowed: false, active: 0 };
   const { data, error } = await supabase
     .from(TABLES.funcionarios)
     .select("id,nome,funcao,ativo,deleted_at")

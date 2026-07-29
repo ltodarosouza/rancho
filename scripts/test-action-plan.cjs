@@ -5468,6 +5468,187 @@ test("mutacao com pedido explicito de relatorio agenda consulta para apos confir
   });
 });
 
+test("ActionPlan pagina consulta coletiva sem perder filtros", async () => {
+  const animals = Array.from({ length: 23 }, (_, index) => ({
+    id: `animal-${index + 1}`,
+    fazenda_id: ADMIN_OWNER.fazenda_id,
+    brinco: `V-${String(index + 1).padStart(3, "0")}`,
+    nome: `Vaca ${index + 1}`,
+    categoria: "vaca",
+    status: "ativo"
+  }));
+  const plan = {
+    action: "query",
+    domain: "animais",
+    confidence: 0.94,
+    filters: [{ field: "categoria", op: "eq", value: "vaca" }],
+    limit: 100,
+    requiresConfirmation: false,
+    userQuestion: "quais vacas eu tenho"
+  };
+  const first = await executeQueryActionPlan({
+    plan,
+    originalText: "quais vacas eu tenho",
+    owner: ADMIN_OWNER,
+    supabase: createActionPlanSupabase({ [TABLES.animais]: animals })
+  });
+  assert(first.ok, `primeira pagina deveria executar: ${first.reason}`);
+  const pagination = first.parsed.dados?.action_plan_pagination;
+  assert(pagination?.offset === 10, `offset esperado 10, recebido ${pagination?.offset}`);
+  assert(first.response.includes("V-001") && !first.response.includes("V-011"), "primeira pagina deveria mostrar somente os primeiros 10");
+
+  const second = await executeActionPlan({
+    plan: {
+      action: "query",
+      domain: "animais",
+      confidence: 0.94,
+      semantic: { intent: "continuar_lista", scope: "animais", operation: "continuar_consulta" },
+      filters: [],
+      limit: 100,
+      requiresConfirmation: false
+    },
+    text: "mostre as dez vacas que faltam",
+    owner: ADMIN_OWNER,
+    queryPagination: pagination,
+    supabase: createActionPlanSupabase({ [TABLES.animais]: animals })
+  });
+  assert(second.ok, `segunda pagina deveria executar: ${second.reason}`);
+  assert(second.response.includes("V-011") && !second.response.includes("V-001"), "continuacao semantica deveria reutilizar a consulta anterior");
+});
+
+test("ActionPlan restringe consultas sensiveis por perfil antes do banco", async () => {
+  let reads = 0;
+  const supabase = {
+    from() {
+      reads += 1;
+      return new ActionPlanQueryBuilder([]);
+    }
+  };
+  const employee = await executeQueryActionPlan({
+    plan: { action: "query", domain: "financeiro", confidence: 0.94, filters: [], limit: 100, requiresConfirmation: false },
+    originalText: "resumo financeiro",
+    owner: { ...ADMIN_OWNER, papel_bot: "funcionario" },
+    supabase
+  });
+  assert(!employee.ok && employee.reason === "bot_role_query_denied", "funcionario deveria ser bloqueado no financeiro");
+  assert(reads === 0, `consulta bloqueada nao deveria ler o banco, mas realizou ${reads} leitura(s)`);
+
+  const accountant = await executeQueryActionPlan({
+    plan: { action: "query", domain: "financeiro", confidence: 0.94, filters: [], limit: 100, requiresConfirmation: false },
+    originalText: "resumo financeiro",
+    owner: { ...ADMIN_OWNER, papel_bot: "contador" },
+    supabase: createActionPlanSupabase({ [TABLES.transacoesFinanceiras]: [] })
+  });
+  assert(accountant.ok, `perfil financeiro deveria consultar: ${accountant.reason}`);
+});
+
+test("ActionPlan lista transacoes com BRL periodo e paginacao", async () => {
+  const transactions = Array.from({ length: 13 }, (_, index) => ({
+    id: `finance-${index + 1}`,
+    fazenda_id: ADMIN_OWNER.fazenda_id,
+    tipo: index % 2 ? "saida" : "entrada",
+    valor: 1234.5 + index,
+    descricao: `Lancamento ${index + 1}`,
+    categoria: "geral",
+    data_transacao: `2026-07-${String(28 - index).padStart(2, "0")}`,
+    created_at: `2026-07-${String(28 - index).padStart(2, "0")}T12:00:00Z`
+  }));
+  const plan = {
+    action: "query",
+    domain: "financeiro",
+    operation: "listar",
+    confidence: 0.94,
+    semantic: { intent: "listar_transacoes", scope: "financeiro", report: { type: "transacoes", detailLevel: "detalhado" } },
+    filters: [{ field: "data", op: "last_days", value: 30 }],
+    limit: 100,
+    requiresConfirmation: false
+  };
+  const result = await executeQueryActionPlan({
+    plan,
+    originalText: "mostre todas as transacoes dos ultimos 30 dias",
+    currentDate: "2026-07-29",
+    owner: ADMIN_OWNER,
+    supabase: createActionPlanSupabase({ [TABLES.transacoesFinanceiras]: transactions })
+  });
+  assert(result.ok, `lista financeira deveria executar: ${result.reason}`);
+  assert(result.response.includes("R$ 1.234,50"), `valor deveria estar em BRL: ${result.response}`);
+  assert(result.response.includes("mostrar mais"), "lista financeira deveria oferecer continuacao");
+  assert(result.parsed.dados?.action_plan_pagination?.offset === 10, "lista financeira deveria guardar pagina seguinte");
+});
+
+test("ActionPlan genealogia encontra crias e nunca exibe UUID", async () => {
+  const animals = [
+    { id: "uuid-pai-t07", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "T-07", nome: "Trovao", categoria: "touro" },
+    { id: "uuid-mae-090", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "090", nome: "Mimosa", categoria: "vaca" },
+    { id: "uuid-cria-c1", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "C-01", nome: "Aurora", categoria: "bezerra", pai_id: "uuid-pai-t07", mae_id: "uuid-mae-090" }
+  ];
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "genealogia",
+      confidence: 0.94,
+      filters: [{ field: "pai_ref", op: "eq", value: "T07" }],
+      limit: 100,
+      requiresConfirmation: false
+    },
+    originalText: "quais crias sao do pai T07",
+    owner: ADMIN_OWNER,
+    supabase: createActionPlanSupabase({ [TABLES.animais]: animals })
+  });
+  assert(result.ok, `genealogia deveria executar: ${result.reason}`);
+  assert(result.response.includes("Aurora (C-01)"), `cria deveria aparecer pelo nome e brinco: ${result.response}`);
+  assert(result.response.includes("Trovao (T-07)"), "pai deveria aparecer pelo nome e brinco");
+  assert(!result.response.includes("uuid-"), `UUID interno nao pode aparecer: ${result.response}`);
+});
+
+test("ActionPlan preserva animal especifico na consulta de producao", async () => {
+  const animals = [
+    { id: "animal-090", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "090", nome: "Mimosa", categoria: "vaca" },
+    { id: "animal-080", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "080", nome: "Lua", categoria: "vaca" }
+  ];
+  const production = [
+    { id: "milk-1", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-090", litros: 25, ordenhado_em: "2026-07-20T08:00:00Z" },
+    { id: "milk-2", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-080", litros: 70, ordenhado_em: "2026-07-20T08:00:00Z" }
+  ];
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "producao_leite",
+      confidence: 0.94,
+      filters: [{ field: "animal_ref", op: "eq", value: "vaca 090" }],
+      aggregations: [{ field: "litros", op: "sum", as: "total_litros" }],
+      limit: 100,
+      requiresConfirmation: false
+    },
+    originalText: "resumo da producao de leite da vaca 090",
+    owner: ADMIN_OWNER,
+    supabase: createActionPlanSupabase({ [TABLES.animais]: animals, [TABLES.ordenhas]: production })
+  });
+  assert(result.ok, `producao individual deveria executar: ${result.reason}`);
+  assert(result.response.includes("25 litros"), `deveria somar somente a vaca 090: ${result.response}`);
+  assert(!result.response.includes("95 litros"), "nao deveria usar o total do rebanho");
+});
+
+test("ActionPlan corrige venda de leite classificada como producao", async () => {
+  const result = await executeActionPlan({
+    plan: {
+      action: "execute",
+      capability: "registrar_producao_leite",
+      confidence: 0.94,
+      data: { litros: 30, valor: 450, data: "hoje" },
+      requiresConfirmation: true
+    },
+    text: "vendi 30 litros de leite por 450 reais",
+    owner: ADMIN_OWNER,
+    currentDate: "2026-07-29"
+  });
+  assert(result.ok, `venda de leite deveria executar: ${result.reason}`);
+  assert(result.parsed.tipo === "ESTOQUE_SAIDA", `venda de leite nao pode virar producao: ${result.parsed.tipo}`);
+  assert(result.parsed.dados?.item_nome === "leite", "venda deveria identificar leite como item");
+  assert(Number(result.parsed.dados?.quantidade) === 30, "venda deveria preservar litros");
+  assert(Number(result.parsed.dados?.valor) === 450, "venda deveria preservar receita");
+});
+
 test("Gemini live calls permanecem zeradas", () => {
   const stats = geminiRuntimeStats();
   assert(stats.liveCalls === 0, `Gemini live calls esperado 0, recebido ${stats.liveCalls}`);

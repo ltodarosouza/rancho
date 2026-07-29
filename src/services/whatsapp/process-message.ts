@@ -111,6 +111,12 @@ import { confirmationText, dryRunConfirmationText, isDestructiveBulkParsed } fro
 import { sendOutboundWhatsAppText } from "@/services/whatsapp/outbound";
 import { composeBotResponseWithAI } from "@/services/whatsapp/ai-response-composer";
 import {
+  canAccessBotFinance,
+  canAccessBotStaffData,
+  isBotManager,
+  normalizeBotRole
+} from "@/lib/whatsapp/bot-access";
+import {
   applyPendingPatchToSession,
   interpretPendingPatchWithGemini,
   shouldUsePendingPatchForText
@@ -361,7 +367,7 @@ function maskPhone(value: string) {
 }
 
 function isBotAdmin(owner: WhatsAppOwner) {
-  return owner.papel_bot === "admin";
+  return isBotManager(owner.papel_bot);
 }
 function logDestructiveBulkBlock(owner: WhatsAppOwner | null | undefined, details: AnyRecord = {}) {
   console.warn("[BOT SECURITY]", {
@@ -381,23 +387,29 @@ function isValidBotPhone(value: string | number | null | undefined) {
 }
 
 function permissionDeniedMessage(owner: WhatsAppOwner, parsed?: ParsedRanchoMessage | null) {
-  if (!parsed?.tipo || isBotAdmin(owner)) return null;
+  if (!parsed?.tipo) return null;
   if (parsed.tipo === "CRIAR_ITEM_ESTOQUE") {
+    if (isBotAdmin(owner)) return null;
     return "Você não tem permissão para criar itens de estoque. Peça para um administrador cadastrar esse item.";
   }
   if (EMPLOYEE_ADMIN_INTENTS.has(parsed.tipo)) {
+    if (canAccessBotStaffData(owner.papel_bot)) return null;
     return "Você não tem permissão para cadastrar ou alterar funcionários pelo bot. Peça para um administrador fazer esse cadastro.";
   }
   if (GENEALOGY_ADMIN_INTENTS.has(parsed.tipo)) {
+    if (isBotAdmin(owner)) return null;
     return "Você não tem permissão para alterar genealogia pelo bot. Peça para um administrador fazer essa alteração.";
   }
   if (FINANCE_ADMIN_INTENTS.has(parsed.tipo)) {
+    if (canAccessBotFinance(owner.papel_bot)) return null;
     return "Você não tem permissão para acessar o financeiro.";
   }
   if (LOT_ADMIN_INTENTS.has(parsed.tipo)) {
+    if (isBotAdmin(owner)) return null;
     return "Você não tem permissão para criar lotes pelo bot. Peça para um administrador fazer esse cadastro.";
   }
   if (ANIMAL_ADMIN_INTENTS.has(parsed.tipo)) {
+    if (isBotAdmin(owner)) return null;
     return "Você não tem permissão para cadastrar animais.";
   }
   return null;
@@ -1839,7 +1851,7 @@ async function saveFuncionariosImport(supabase: SupabaseAdmin, owner: WhatsAppOw
       usuario_id: null,
       nome_exibicao: name,
       ativo: domainStatusActive(values.status),
-      papel_bot: "funcionario"
+      papel_bot: normalizeBotRole(values.papel_bot || values.permissao_bot)
     };
     await insertRealRecord(supabase, owner, TABLES.whatsappUsuarios, whatsappPayload);
     activeEmployees.push(employee);
@@ -2743,7 +2755,7 @@ async function handleFinancePagination(supabase: SupabaseAdmin, owner: WhatsAppO
 }
 
 async function handleFinanceConsultation(supabase: SupabaseAdmin, owner: WhatsAppOwner, parsed: ParsedRanchoMessage) {
-  if (!isBotAdmin(owner)) return "Você não tem permissão para consultar financeiro pelo WhatsApp.";
+  if (!canAccessBotFinance(owner.papel_bot)) return "Você não tem permissão para consultar financeiro pelo WhatsApp.";
 
   const period = String(parsed.dados.periodo || parsed.dados.data_referencia || "mes");
   const type = parsed.dados.financeiro_tipo ?String(parsed.dados.financeiro_tipo) : undefined;
@@ -4872,7 +4884,8 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
         owner: owner!,
         supabase,
         messageType: conversationAct.messageType,
-        hasPendingAction: conversationAct.hasPendingAction
+        hasPendingAction: conversationAct.hasPendingAction,
+        session: previousSession
       });
       if (interpreted.kind === "clarify") {
         parsed = finalize("DESCONHECIDO", {
@@ -5029,7 +5042,8 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
           owner: owner!,
           supabase,
           messageType: conversationAct.messageType,
-          hasPendingAction: conversationAct.hasPendingAction
+          hasPendingAction: conversationAct.hasPendingAction,
+          session: previousSession
         });
 
         if (fallback.kind === "clarify") {

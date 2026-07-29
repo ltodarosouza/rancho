@@ -5,6 +5,7 @@ import { TABLES } from "@/lib/tables";
 import type { AnyRecord, DataContext } from "@/lib/types";
 import { isValidBrazilianPhone, normalizeBrazilianWhatsApp } from "@/lib/input-format";
 import { whatsappNumbersMatch } from "@/lib/phone";
+import { normalizeBotRole } from "@/lib/whatsapp/bot-access";
 
 const INVALID_WHATSAPP_MESSAGE = "Informe um WhatsApp válido para o funcionário.";
 const DUPLICATE_WHATSAPP_MESSAGE = "Já existe um funcionário ativo com este WhatsApp nesta fazenda.";
@@ -49,7 +50,7 @@ async function findWhatsAppUserRows(employee: AnyRecord, phone: string, context?
         fazendaId: context?.fazendaId,
         usuarioId: context?.usuarioId,
         orderBy: "created_at",
-        select: "id,funcionario_id,telefone_e164,ativo",
+        select: "id,funcionario_id,telefone_e164,ativo,papel_bot",
         filters: [{ column: "funcionario_id", value: employee.id }]
       })
       : Promise.resolve([]),
@@ -58,7 +59,7 @@ async function findWhatsAppUserRows(employee: AnyRecord, phone: string, context?
         fazendaId: context?.fazendaId,
         usuarioId: context?.usuarioId,
         orderBy: "created_at",
-        select: "id,funcionario_id,telefone_e164,ativo",
+        select: "id,funcionario_id,telefone_e164,ativo,papel_bot",
         filters: [{ column: "telefone_e164", value: phone }]
       })
       : Promise.resolve([])
@@ -80,7 +81,7 @@ export async function syncEmployeeWhatsAppUser(employee: AnyRecord, context?: Da
     usuario_id: employee.usuario_id || null,
     funcionario_id: employee.id,
     nome_exibicao: employee.nome || "Funcionário",
-    papel_bot: "funcionario",
+    papel_bot: normalizeBotRole(employee.papel_bot),
     ativo: employee.ativo !== false
   };
 

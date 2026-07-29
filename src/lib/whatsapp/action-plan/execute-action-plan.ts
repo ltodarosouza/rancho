@@ -18,6 +18,7 @@ import {
 import {
   executeQueryActionPlan,
   type ActionPlanOwnerContext,
+  type ActionPlanQueryPagination,
   type ActionPlanSupabaseLike
 } from "@/lib/whatsapp/action-plan/execute-query-action-plan";
 
@@ -27,6 +28,7 @@ export type ExecuteActionPlanInput = {
   owner: ActionPlanOwnerContext;
   supabase?: ActionPlanSupabaseLike | null;
   currentDate?: string;
+  queryPagination?: ActionPlanQueryPagination | null;
 };
 
 export type ExecuteActionPlanResult =
@@ -51,6 +53,12 @@ function blockParsed(plan: ActionPlan) {
 
 function actionPlanMetadata(plan: ActionPlan) {
   return actionPlanParsedMetadata(plan);
+}
+
+function isQueryContinuation(plan: ActionPlan) {
+  if (!("semantic" in plan)) return false;
+  const operation = normalizeRanchoText(String(plan.semantic?.operation || "").replace(/_/g, " "));
+  return ["continuar", "continuar consulta", "mostrar mais", "proxima pagina", "paginar"].includes(operation);
 }
 
 type PhysicalStockTrade = {
@@ -387,6 +395,19 @@ function capabilityMutationParsed(plan: ExecuteCapabilityActionPlan, currentDate
   const date = capabilityDate(data, currentDate);
 
   if (plan.capability === "registrar_producao_leite") {
+    const trade = actionPlanPhysicalStockTrade({ ...plan, domain: "estoque" } as ActionPlan, data, originalText);
+    if (trade?.kind === "sale") {
+      const dados = {
+        item_nome: firstValue(data, ["item", "item_ref", "item_nome", "produto", "nome"]) || trade.item || "leite",
+        quantidade: firstNumber(data, ["litros", "quantidade", "volume"]) ?? trade.quantity,
+        unidade: firstValue(data, ["unidade", "unidade_medida"]) || trade.unit || "litros",
+        valor: firstNumber(data, ["valor_total", "valor", "preco_total", "preco"]) ?? trade.value,
+        data_referencia: date,
+        venda: true,
+        ...metadata
+      };
+      return finalize("ESTOQUE_SAIDA", dados, buildMissing("ESTOQUE_SAIDA", dados), plan.confidence);
+    }
     const dados = {
       animal_codigo: capabilityAnimalRef(data),
       litros: firstNumber(data, ["litros", "quantidade", "volume"]),
@@ -673,6 +694,19 @@ function mutationParsed(plan: ActionPlan, currentDate?: string, originalText?: s
   const date = normalizeDate(data.data || data.data_evento, ranchCurrentDate) || ranchCurrentDate;
 
   if (plan.domain === "producao_leite") {
+    const trade = actionPlanPhysicalStockTrade(plan, data, originalText);
+    if (trade?.kind === "sale") {
+      const dados = {
+        item_nome: firstValue(data, ["item", "item_ref", "item_nome", "produto", "nome"]) || trade.item || "leite",
+        quantidade: parseActionPlanNumber(data.litros ?? data.quantidade ?? data.volume) ?? trade.quantity,
+        unidade: data.unidade || data.unidade_medida || trade.unit || "litros",
+        valor: parseActionPlanNumber(data.valor_total ?? data.valor ?? data.preco_total ?? data.preco) ?? trade.value,
+        data_referencia: date,
+        venda: true,
+        ...metadata
+      };
+      return finalize("ESTOQUE_SAIDA", dados, buildMissing("ESTOQUE_SAIDA", dados), plan.confidence);
+    }
     const dados = {
       animal_codigo: data.animal_ref || data.animal_id,
       litros: data.litros,
@@ -1116,12 +1150,15 @@ export async function executeActionPlan(input: ExecuteActionPlanInput): Promise<
   }
 
   if (input.plan.action === "query") {
+    const pagination = isQueryContinuation(input.plan) ? input.queryPagination || undefined : undefined;
+    const plan = pagination?.plan || input.plan;
     const result = await executeQueryActionPlan({
-      plan: input.plan,
+      plan,
       supabase: input.supabase,
       owner: input.owner,
       currentDate: input.currentDate,
-      originalText: input.text
+      originalText: pagination?.originalText || input.text,
+      pagination
     });
     if (!result.ok) {
       return {

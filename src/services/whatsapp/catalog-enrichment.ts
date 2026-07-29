@@ -17,6 +17,7 @@ import {
   stockResolutionDebug,
   withoutChildMilkStockMetadata
 } from "@/services/whatsapp/milk-stock-service";
+import { isBotManager } from "@/lib/whatsapp/bot-access";
 
 type SupabaseAdmin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -40,7 +41,7 @@ export type CatalogEnrichmentDependencies = {
 };
 
 function isBotAdmin(owner: WhatsAppOwner) {
-  return owner.papel_bot === "admin";
+  return isBotManager(owner.papel_bot);
 }
 
 function hasCatalogValue(value: unknown) {

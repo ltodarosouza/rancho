@@ -327,6 +327,7 @@ export const RANCHO_DOMAIN_MANIFEST = {
       telefone: field("string", { sourceField: "contato_whatsapp" }),
       carga_horaria_mensal: field("number"),
       valor_hora_extra: field("number"),
+      papel_bot: field("enum", { enumValues: ["funcionario", "veterinario", "contador", "gerente", "admin"] }),
       ativo: field("boolean"),
       status: field("enum", { sourceField: "ativo", enumValues: ["ativo", "inativo"] }),
       observacoes: field("string")
@@ -336,12 +337,13 @@ export const RANCHO_DOMAIN_MANIFEST = {
       update: ["funcionario_ref"],
       import_table: ["nome"]
     },
-    searchableFields: ["funcionario_ref", "nome", "funcao", "cargo", "cpf", "contato_whatsapp", "telefone", "status", "observacoes"],
+    searchableFields: ["funcionario_ref", "nome", "funcao", "cargo", "cpf", "contato_whatsapp", "telefone", "papel_bot", "status", "observacoes"],
     aggregatableFields: ["salario_base", "salario", "carga_horaria_mensal", "valor_hora_extra"],
     dateFields: ["data_admissao"],
     relationFields: ["funcionario_ref"],
     enumFields: {
-      status: ["ativo", "inativo"]
+      status: ["ativo", "inativo"],
+      papel_bot: ["funcionario", "veterinario", "contador", "gerente", "admin"]
     },
     maxLimit: 300
   },

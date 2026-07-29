@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v14";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v15";
 
 const EXAMPLES = [
   {
@@ -483,6 +483,9 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "O backend so executa capabilities e dominios permitidos, valida campos pelo manifest e exige confirmacao para mutacoes. Nunca use semantic para escapar dessas regras.",
     "Em action=execute, use capability, semantic, data, confidence e requiresConfirmation. Mutacoes exigem requiresConfirmation=true; consultas exigem false.",
     "Use action=query quando precisar de filtros/agregacoes mais ricos. Use action=import_table para tabelas.",
+    "O backend executa o ActionPlan validado sem reler a frase para inventar, remover ou trocar filtros. Portanto, coloque no proprio plano toda entidade, periodo, categoria, status, ordenacao, agrupamento e nivel de detalhe pedidos pelo usuario.",
+    "Em query, filtros explicitos pertencem a filters. O bloco semantic pode complementar campos canonicos, mas nao substitui filters quando a restricao muda o resultado. Nao use userQuestion como lugar unico para guardar uma restricao.",
+    "Nao coloque referencias coletivas como 'minhas vacas', 'todos os animais', 'estoque' ou 'funcionarios' em campos *_ref. Referencias *_ref sao somente para uma entidade especifica identificada por nome, codigo ou brinco.",
     "Use action=sequence quando o usuario pedir duas ou mais acoes/consultas independentes na mesma mensagem. steps deve manter a ordem pedida e conter apenas query, create, update, execute ou import_table.",
     "Em sequence, cada step segue as mesmas regras de confirmacao. O requiresConfirmation do plano principal deve ser true se qualquer step for mutacao; se todos forem consulta, false.",
     "Se algum passo de uma sequence estiver inseguro ou com dado obrigatorio faltando, nao coloque clarify/block dentro de steps; use clarify ou block no plano principal.",

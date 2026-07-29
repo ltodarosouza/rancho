@@ -10,7 +10,10 @@
     "action": "query",
     "domain": "reproducao",
     "confidence": 0.95,
-    "filters": [{ "field": "evento", "op": "eq", "value": "prenhez" }],
+    "filters": [
+      { "field": "status_reprodutivo", "op": "eq", "value": "prenhe" },
+      { "field": "categoria", "op": "eq", "value": "vaca" }
+    ],
     "orderBy": { "field": "data", "direction": "desc" },
     "limit": 100,
     "requiresConfirmation": false

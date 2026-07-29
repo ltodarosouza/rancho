@@ -9,7 +9,6 @@ import { botAllowsLegacyRollback, botInterpreterMode, geminiActionPlanEnabled, g
 import { GEMINI_CONSULT_INTENTS, mapGeminiIntentToRancho, normalizeGeminiIntent } from "@/lib/whatsapp/gemini/allowed-intents";
 import { interpretWithGemini } from "@/lib/whatsapp/gemini/interpreter";
 import { geminiMode } from "@/lib/whatsapp/gemini/runtime";
-import { isExplicitGeneralOperationalReportText } from "@/lib/whatsapp/gemini/action-plan-semantic";
 import type { GeminiStructuredAction, GeminiStructuredResult } from "@/lib/whatsapp/gemini/types";
 import { buildMissing, finalize } from "@/lib/whatsapp/nlp-core/result";
 import type { ParsedRanchoMessage, RanchoIntent } from "@/lib/whatsapp/nlp";
@@ -709,49 +708,6 @@ function attachPostConfirmationConsultations(pending: ParsedRanchoMessage, consu
   };
 }
 
-function reportPeriodFromText(text: string) {
-  const normalized = normalizeRanchoText(text);
-  if (/\bontem\b/.test(normalized)) return "ontem";
-  if (/\bsemana\b/.test(normalized)) return "semana";
-  if (/\bmes\b/.test(normalized)) return "mes";
-  if (/\bano\b/.test(normalized)) return "ano";
-  return "hoje";
-}
-
-function generalReportConsultationFromText(
-  text: string,
-  route: "normal_message" | "structured_input",
-  structuredDetection: ReturnType<typeof detectStructuredInput>
-) {
-  if (!isExplicitGeneralOperationalReportText(text)) return null;
-  const period = reportPeriodFromText(text);
-  return markActionPlanSequenceParsed(finalize("CONSULTA_REGISTROS_HOJE", {
-    consulta: true,
-    consulta_registros: "relatorio",
-    data_referencia: period,
-    periodo: period,
-    origem_parser: "gemini_action_plan",
-    interpreter_final_usado: "action_plan_sequence",
-    action_plan_used: true,
-    action_plan_domain: "eventos_gerais",
-    action_plan_query_normalized: true
-  }, [], 0.9), route, structuredDetection);
-}
-
-function attachExplicitReportAfterMutation(
-  parsed: ParsedRanchoMessage,
-  text: string,
-  route: "normal_message" | "structured_input",
-  structuredDetection: ReturnType<typeof detectStructuredInput>
-) {
-  if (CONSULT_RANCHO_INTENTS.has(parsed.tipo)) return parsed;
-  if (Array.isArray(parsed.dados?.gemini_consultas_apos_confirmacao) && parsed.dados.gemini_consultas_apos_confirmacao.length) {
-    return parsed;
-  }
-  const consultation = generalReportConsultationFromText(text, route, structuredDetection);
-  return consultation ? attachPostConfirmationConsultations(parsed, [consultation]) : parsed;
-}
-
 function hasUnsupportedInterleaving(parsedActions: ParsedRanchoMessage[]) {
   let sawMutation = false;
   let sawConsultAfterMutation = false;
@@ -1134,6 +1090,7 @@ function canUseStructuredLocalFallback(
   route: "normal_message" | "structured_input",
   structuredDetection: ReturnType<typeof detectStructuredInput>
 ) {
+  if (!localSemanticFallbackEnabled()) return false;
   const parsed = input.localParsed;
   if (route !== "structured_input" || !structuredDetection.isStructured) return false;
   if (input.hasPendingAction) return false;
@@ -1243,103 +1200,6 @@ function sequencePendingFromMutations(mutations: ParsedRanchoMessage[], interpre
   return mutations.length === 1 ? mutations[0] : makeBatchParsed(mutations, interpretation);
 }
 
-function flattenPrimitiveValues(value: unknown, limit = 30): string[] {
-  if (limit <= 0 || value === undefined || value === null) return [];
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    const text = String(value).trim();
-    return text ? [text] : [];
-  }
-  if (Array.isArray(value)) {
-    return value.flatMap((item) => flattenPrimitiveValues(item, limit - 1)).slice(0, limit);
-  }
-  if (!value || typeof value !== "object") return [];
-  return Object.values(value as AnyRecord).flatMap((item) => flattenPrimitiveValues(item, limit - 1)).slice(0, limit);
-}
-
-function financeQueryClauseFromText(text: string) {
-  const matches = Array.from(text.matchAll(/(?:me\s+(?:mostra|mostre|fala|diz)\s+)?(?:quanto\s+(?:eu\s+)?(?:gastei|recebi)|como\s+(?:foi|esta|est[aá]|ta|t[aá])\s+o\s+financeiro|relat[oó]rio\s+financeiro|resumo\s+financeiro|financeiro\b|gastos?\b|despesas?\b|receitas?\b|saldo\b)[^.;]*/gi));
-  const last = matches.length ? matches[matches.length - 1]?.[0]?.trim() : "";
-  return last || "";
-}
-
-function queryDomainFromStep(step: SequenceActionPlan["steps"][number]) {
-  if ("domain" in step && step.domain) return String(step.domain);
-  if (step.action === "execute" && step.capability) return String(step.capability);
-  return "";
-}
-
-function queryClauseMatchesDomain(text: string, domain: string) {
-  const normalized = normalizeRanchoText(text);
-  if (!domain) return true;
-  if (domain === "financeiro") return /\b(financeiro|receitas?|despesas?|gastos?|gastei|saldo|caixa|vendas?|recebi)\b/.test(normalized);
-  if (domain === "reproducao") return /\b(reproducao|prenhas?|prenhez|inseminad[ao]s?|protocolo|protocolos|reteste|partos?|paridas?|cios?)\b/.test(normalized);
-  if (domain === "animais") return /\b(animais?|rebanho|vacas?|touros?|bezerros?|novilhas?|brincos?|lotes?)\b/.test(normalized);
-  if (domain === "estoque") return /\b(estoque|itens?|produtos?|insumos?|racao|sal|milho|diesel|entrada|saida|movimentacoes?)\b/.test(normalized);
-  if (domain === "producao_leite") return /\b(leite|ordenha|producao|litros?)\b/.test(normalized);
-  if (domain === "funcionarios" || domain === "ponto_funcionario") return /\b(funcionarios?|colaboradores?|ponto|salarios?|folha|whatsapp)\b/.test(normalized);
-  if (domain === "lotes") return /\b(lotes?|piquetes?|lactacao|reprodutores?)\b/.test(normalized);
-  if (domain === "genealogia") return /\b(genealogia|filhos?|filhas?|crias?|pai|mae|descendentes?)\b/.test(normalized);
-  if (domain === "saude_sanitario") return /\b(saude|sanitario|vacinas?|medicamentos?|doencas?|tratamentos?)\b/.test(normalized);
-  return true;
-}
-
-function queryClauseFromText(text: string, domain: string) {
-  const pieces = String(text || "")
-    .split(/\b(?:e\s+)?depois\b|\b(?:mas\s+antes|antes\s+de|antes|em\s+seguida|entao|apos)\b|\be\s+(?=(?:me\s+(?:mostra|mostre|fala|diz|informa|conte)|quanto|quantas?|quais?|qual|lista|listar|relatorio|resumo|consulta|consultar|dados|como|quem)\b)|\be\s+(?:registra|registrar|cadastro|cadastra|cadastrar|adiciona|adicionar|lanca|lancar|inclui|incluir)\b|[;\n.]+/gi)
-    .map((piece) => piece.trim())
-    .filter(Boolean);
-  const queryCue = /\b(?:me\s+(?:mostra|mostre|fala|diz|informa|conte)|quanto|quantas?|quais?|qual|lista|listar|relatorio|resumo|consulta|consultar|dados|como|quem)\b/i;
-  const candidates = pieces.filter((piece) => queryCue.test(piece));
-  const domainCandidates = candidates.filter((piece) => queryClauseMatchesDomain(piece, domain));
-  const selected = domainCandidates.length ? domainCandidates[domainCandidates.length - 1] : candidates[candidates.length - 1];
-  return selected || "";
-}
-
-function sequenceStepExecutionText(step: SequenceActionPlan["steps"][number], fallback: string) {
-  const semantic = "semantic" in step && step.semantic ? step.semantic : null;
-  const data = "data" in step && step.data ? step.data : null;
-  const filters = "filters" in step && Array.isArray(step.filters) ? step.filters : [];
-  const domain = queryDomainFromStep(step);
-  const parts = [
-    step.action,
-    domain,
-    step.operation,
-    "userQuestion" in step ? step.userQuestion : null,
-    step.action === "execute" ? step.capability : null,
-    semantic?.intent,
-    semantic?.scope,
-    semantic?.operation,
-    semantic?.date,
-    semantic?.period,
-    semantic?.report?.type,
-    semantic?.report?.detailLevel,
-    ...(Array.isArray(semantic?.domains) ? semantic.domains : []),
-    ...flattenPrimitiveValues(semantic?.entities),
-    ...flattenPrimitiveValues(semantic?.quantity),
-    ...flattenPrimitiveValues(semantic?.money),
-    ...flattenPrimitiveValues(data),
-    ...filters.flatMap((filter) => [filter.field, filter.op, ...flattenPrimitiveValues(filter.value)])
-  ];
-  const text = parts
-    .filter((part) => part !== undefined && part !== null && String(part).trim())
-    .join(" ")
-    .trim();
-  const isQueryStep = step.action === "query" || (step.action === "execute" && step.requiresConfirmation === false);
-  if (isQueryStep && isExplicitGeneralOperationalReportText(fallback)) return fallback;
-  const queryClause = isQueryStep ? queryClauseFromText(fallback, domain) : "";
-  const isFinanceQueryStep = isQueryStep && (
-    ("domain" in step && step.domain === "financeiro")
-    || (step.action === "execute" && /financeiro/i.test(String(step.capability || "")))
-    || (Array.isArray(semantic?.domains) && semantic.domains.some((domain) => String(domain).toLowerCase() === "financeiro"))
-  );
-  if (isFinanceQueryStep && /\b(despesa|despesas|gasto|gastos|gastei|saida|saidas|paguei|pagamento|receita|receitas|entrada|entradas|faturamento|vendas?|recebi)\b/i.test(fallback)) {
-    const financeClause = financeQueryClauseFromText(fallback);
-    return [text, financeClause || queryClause].filter(Boolean).join(" ");
-  }
-  if (isQueryStep) return [text, queryClause].filter(Boolean).join(" ") || fallback;
-  return text || fallback;
-}
-
 async function convertActionPlanSequenceInterpretation(
   input: ParseWithInterpreterInput,
   interpretation: GeminiStructuredResult,
@@ -1354,7 +1214,7 @@ async function convertActionPlanSequenceInterpretation(
     const step = plan.steps[index];
     const result = await executeActionPlan({
       plan: step,
-      text: sequenceStepExecutionText(step, input.text),
+      text: input.text,
       owner: {
         fazenda_id: input.owner.fazenda_id,
         usuario_id: input.owner.usuario_id,
@@ -1669,23 +1529,18 @@ async function convertActionPlanInterpretation(
     });
   }
 
-  const parsedWithReport = attachExplicitReportAfterMutation(
-    {
-      ...result.parsed,
-      dados: {
-        ...(result.parsed.dados || {}),
-        origem_parser: "gemini_action_plan",
-        interpreter_final_usado: "action_plan",
-        action_plan_used: true,
-        ...(result.logEvent === "action_plan_used" ? { consulta_executada: "action_plan" } : {}),
-        route,
-        structuredDetection
-      }
-    },
-    input.text,
-    route,
-    structuredDetection
-  );
+  const parsedWithReport = {
+    ...result.parsed,
+    dados: {
+      ...(result.parsed.dados || {}),
+      origem_parser: "gemini_action_plan",
+      interpreter_final_usado: "action_plan",
+      action_plan_used: true,
+      ...(result.logEvent === "action_plan_used" ? { consulta_executada: "action_plan" } : {}),
+      route,
+      structuredDetection
+    }
+  };
 
   return {
     kind: "parsed",

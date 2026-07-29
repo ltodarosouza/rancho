@@ -227,6 +227,9 @@ function semanticDateFilter(semantic: SemanticActionPlanBlock | undefined): Filt
 }
 
 export function semanticReportType(plan: Pick<ActionPlan, "semantic" | "operation">) {
+  const explicitType = normalizeRanchoText(String(plan.semantic?.report?.type || ""));
+  if (/\b(?:eventos?|registros?|ocorrencias?)\b/.test(explicitType)) return "eventos";
+  if (/\b(?:relatorio|resumo|analise)\b/.test(explicitType)) return "relatorio";
   const text = semanticText(plan.semantic, plan as ActionPlan);
   if (/\b(eventos?|registros?|ocorrencias?)\b/.test(text)) return "eventos";
   if (/\b(geral|tudo|fazenda|rancho)\b/.test(text)) return "relatorio";
@@ -270,6 +273,9 @@ export function normalizeActionPlanSemantic<T extends ActionPlan>(plan: T, manif
 
   if (plan.action === "query") {
     const dateFilter = semanticDateFilter(plan.semantic);
+    const explicitFilters = Array.isArray(plan.filters) ? plan.filters : [];
+    const domain = "domain" in plan && plan.domain ? manifest[plan.domain] : null;
+    const hasDateFilter = explicitFilters.some((filter) => domain?.dateFields.includes(filter.field));
     return {
       ...plan,
       operation,
@@ -277,9 +283,9 @@ export function normalizeActionPlanSemantic<T extends ActionPlan>(plan: T, manif
         ...data,
         ...(isPlainObject((plan as unknown as AnyRecord).data) ? (plan as unknown as AnyRecord).data : {})
       },
-      filters: Array.isArray(plan.filters) && plan.filters.length
-        ? plan.filters
-        : dateFilter ? [dateFilter] : plan.filters
+      filters: dateFilter && !hasDateFilter
+        ? [...explicitFilters, dateFilter]
+        : explicitFilters
     } as T;
   }
 

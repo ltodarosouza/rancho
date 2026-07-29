@@ -667,13 +667,14 @@ test("data operacional do Rancho usa America/Sao_Paulo em vez de UTC puro", asyn
   assert(finance.parsed.dados?.data_referencia === "2026-06-24", `financeiro sem data deveria usar hoje local, recebeu ${finance.parsed.dados?.data_referencia}`);
 });
 
-test("ActionPlan compra e venda fisica geram estoque com reflexo financeiro", async () => {
+test("ActionPlan canonico de compra e venda fisica gera estoque com reflexo financeiro", async () => {
   const sale = await executeActionPlan({
     plan: {
       action: "create",
-      domain: "financeiro",
+      domain: "estoque",
+      operation: "venda_estoque",
       confidence: 0.9,
-      data: { tipo: "receita", categoria: "milho", descricao: "venda de milho", valor: 320 },
+      data: { tipo_movimento: "saida", item_ref: "milho", quantidade: 4, unidade: "sacos", valor_total: 320 },
       requiresConfirmation: true
     },
     text: "vendi 4 sacos de milho por 320 reais",
@@ -692,6 +693,7 @@ test("ActionPlan compra e venda fisica geram estoque com reflexo financeiro", as
     plan: {
       action: "create",
       domain: "estoque",
+      operation: "compra_estoque",
       confidence: 0.9,
       data: { tipo_movimento: "entrada", item_ref: "racao", quantidade: 12, unidade: "sacos", valor_total: 960 },
       requiresConfirmation: true
@@ -730,6 +732,7 @@ test("ActionPlan cadastro de item de estoque nao vira movimento sem quantidade",
     plan: {
       action: "create",
       domain: "estoque",
+      operation: "cadastrar_item",
       confidence: 0.94,
       data: { item: "ração", categoria: "insumo", unidade: "kg" },
       requiresConfirmation: true
@@ -916,7 +919,7 @@ test("ActionPlan execute cobre capacidades genericas principais", async () => {
       action: "execute",
       capability: "cadastrar_animal",
       confidence: 0.92,
-      data: { brinco: "felipe", codigo: "felipe", categoria: "vaca", nome: "felipe" },
+      data: { categoria: "vaca", nome: "felipe" },
       requiresConfirmation: true
     },
     text: "cria uma vaca felipe",
@@ -1151,7 +1154,7 @@ test("ActionPlan execute consultar_eventos usa rota geral quando texto e amplo",
   assert(!result.parsed.dados?.action_plan_response, "execute consultar_eventos generico nao deve trazer resposta fechada de um dominio especifico");
 });
 
-test("ActionPlan relatorio operacional explicito nao vira lista de eventos mesmo em mensagem composta", async () => {
+test("ActionPlan semantico de relatorio operacional nao vira lista de eventos", async () => {
   const result = await executeQueryActionPlan({
     plan: {
       action: "query",
@@ -1162,7 +1165,7 @@ test("ActionPlan relatorio operacional explicito nao vira lista de eventos mesmo
         intent: "consultar_eventos",
         scope: "eventos",
         date: "hoje",
-        report: { type: "eventos", detailLevel: "resumo" }
+        report: { type: "relatorio", detailLevel: "resumo" }
       },
       filters: [{ field: "data", op: "last_days", value: 1 }],
       limit: 100,
@@ -1729,7 +1732,7 @@ test("executor query gasto com racao 90 dias nao vira mes atual", async () => {
   assertCleanVisibleText(result.response, "resposta query racao");
 });
 
-test("executor query financeiro mes atual repara filtro invalido do ActionPlan", async () => {
+test("executor query rejeita filtro invalido sem reinterpretar o texto", async () => {
   const result = await executeQueryActionPlan({
     plan: {
       action: "query",
@@ -1742,19 +1745,10 @@ test("executor query financeiro mes atual repara filtro invalido do ActionPlan",
     owner: ADMIN_OWNER,
     currentDate: "2026-06-18",
     originalText: "como foi o financeiro desse mes?",
-    supabase: createActionPlanSupabase({
-      [TABLES.transacoesFinanceiras]: [
-        { id: "entrada-junho", fazenda_id: ADMIN_OWNER.fazenda_id, tipo: "entrada", valor: 1000, descricao: "venda leite", categoria: "leite", data_transacao: "2026-06-02" },
-        { id: "saida-junho", fazenda_id: ADMIN_OWNER.fazenda_id, tipo: "saida", valor: 300, descricao: "racao", categoria: "racao", data_transacao: "2026-06-10" },
-        { id: "saida-maio", fazenda_id: ADMIN_OWNER.fazenda_id, tipo: "saida", valor: 200, descricao: "sal", categoria: "insumo", data_transacao: "2026-05-30" }
-      ]
-    })
+    supabase: createActionPlanSupabase({ [TABLES.transacoesFinanceiras]: [] })
   });
-  assert(result.ok, `consulta financeira deveria ser reparada: ${result.reason}`);
-  assert(result.rows.length === 2, `esperado somente registros do mes atual, recebido ${result.rows.length}`);
-  assert(result.parsed.tipo === "CONSULTA_FINANCEIRO", `consulta reparada deveria manter financeiro, recebeu ${result.parsed.tipo}`);
-  assert(result.parsed.dados?.resultado?.filters?.some((filter) => filter.field === "data" && filter.op === "current_month"), "filtro current_month reparado ausente");
-  assertCleanVisibleText(result.response, "resposta query financeiro reparada");
+  assert(!result.ok, "filtro fora do contrato nao deve ser reparado pelo texto bruto");
+  assert(result.reason.includes("periodo"), `motivo deveria apontar o campo invalido: ${result.reason}`);
 });
 
 test("executor query financeiro quanto gastei em mes nomeado filtra saidas do mes", async () => {
@@ -1763,7 +1757,10 @@ test("executor query financeiro quanto gastei em mes nomeado filtra saidas do me
       action: "query",
       domain: "financeiro",
       confidence: 0.9,
-      filters: [],
+      filters: [
+        { field: "tipo", op: "eq", value: "saida" },
+        { field: "data", op: "between", value: { month: "junho" } }
+      ],
       aggregations: [{ field: "valor", op: "sum", as: "total" }],
       requiresConfirmation: false,
       limit: 100,
@@ -1821,8 +1818,8 @@ test("executor query producao hoje soma registros mesmo com data principal ausen
       action: "query",
       domain: "producao_leite",
       confidence: 0.94,
-      filters: [],
-      aggregations: [],
+      filters: [{ field: "data", op: "last_days", value: 1 }],
+      aggregations: [{ field: "litros", op: "sum", as: "total_litros" }],
       requiresConfirmation: false,
       limit: 100,
       userQuestion: "quanto produzi de leite hoje?"
@@ -1901,7 +1898,7 @@ test("executor query producao ranqueia categoria somente no mes anterior", async
       },
       filters: [
         { field: "data", op: "last_months", value: 1 },
-        { field: "animal_ref", op: "eq", value: "vaca" }
+        { field: "animal_categoria", op: "eq", value: "vaca" }
       ],
       aggregations: [{ field: "litros", op: "sum", as: "total_litros" }],
       groupBy: ["animal_ref"],
@@ -1937,13 +1934,13 @@ test("executor query producao ranqueia categoria somente no mes anterior", async
   assert(!result.response.includes("Estrela"), "novilha nao deveria entrar no ranking de vacas");
 });
 
-test("executor query animais trata dados das vagas como resumo coletivo de vacas", async () => {
+test("executor query usa categoria coletiva fornecida pelo ActionPlan", async () => {
   const result = await executeQueryActionPlan({
     plan: {
       action: "query",
       domain: "animais",
       confidence: 0.9,
-      filters: [{ field: "animal_ref", op: "eq", value: "vagas" }],
+      filters: [{ field: "categoria", op: "eq", value: "vaca" }],
       requiresConfirmation: false,
       limit: 20,
       userQuestion: "dados das vagas"
@@ -1968,13 +1965,13 @@ test("executor query animais trata dados das vagas como resumo coletivo de vacas
   assertCleanVisibleText(result.response, "resposta query animais coletiva");
 });
 
-test("executor query animais repara consulta especifica quando IA esquece animal_ref", async () => {
+test("executor query respeita animal especifico fornecido pela IA", async () => {
   const result = await executeQueryActionPlan({
     plan: {
       action: "query",
       domain: "animais",
       confidence: 0.9,
-      filters: [{ field: "categoria", op: "eq", value: "vaca" }],
+      filters: [{ field: "animal_ref", op: "eq", value: "B-001" }],
       requiresConfirmation: false,
       limit: 100,
       userQuestion: "dados da vaca B-001"
@@ -1996,13 +1993,17 @@ test("executor query animais repara consulta especifica quando IA esquece animal
   assert(!result.response.includes("Dados das vacas"), "consulta especifica nao deveria virar resumo coletivo");
 });
 
-test("executor query financeiro preserva termo de gasto mesmo se IA omite filtro", async () => {
+test("executor query financeiro aplica filtros fornecidos pela IA", async () => {
   const result = await executeQueryActionPlan({
     plan: {
       action: "query",
       domain: "financeiro",
       confidence: 0.9,
-      filters: [{ field: "data", op: "current_month" }],
+      filters: [
+        { field: "data", op: "current_month" },
+        { field: "tipo", op: "eq", value: "saida" },
+        { field: "categoria", op: "contains", value: "racao" }
+      ],
       aggregations: [{ field: "valor", op: "sum", as: "total" }],
       requiresConfirmation: false,
       limit: 100,
@@ -2032,7 +2033,10 @@ test("executor query financeiro quanto gastei hoje filtra somente despesas do di
       action: "query",
       domain: "financeiro",
       confidence: 0.9,
-      filters: [],
+      filters: [
+        { field: "tipo", op: "eq", value: "saida" },
+        { field: "data", op: "last_days", value: 1 }
+      ],
       aggregations: [{ field: "valor", op: "sum", as: "total" }],
       requiresConfirmation: false,
       limit: 100,
@@ -2063,7 +2067,10 @@ test("executor query financeiro em frase composta nao herda animal da acao anter
       action: "query",
       domain: "financeiro",
       confidence: 0.94,
-      filters: [],
+      filters: [
+        { field: "tipo", op: "eq", value: "saida" },
+        { field: "data", op: "last_days", value: 1 }
+      ],
       aggregations: [{ field: "valor", op: "sum", as: "total" }],
       requiresConfirmation: false,
       limit: 100,
@@ -4245,7 +4252,7 @@ test("Gemini-first consulta animal especifico com linguagem natural via ActionPl
   });
 });
 
-test("ActionPlan query animais repara touros coletivos e retorna categoria touro", async () => {
+test("ActionPlan query animais usa categoria coletiva fornecida pela IA", async () => {
   const supabase = createActionPlanSupabase({
     [TABLES.animais]: [
       { id: "touro-50", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "T-50", nome: "Touro 50", categoria: "touro", sexo: "macho", status: "ativo" },
@@ -4258,7 +4265,7 @@ test("ActionPlan query animais repara touros coletivos e retorna categoria touro
       action: "query",
       domain: "animais",
       confidence: 0.94,
-      filters: [{ field: "animal_ref", op: "eq", value: "touros cadastrados" }],
+      filters: [{ field: "categoria", op: "eq", value: "touro" }],
       requiresConfirmation: false
     },
     originalText: "quais touros cadastrados?",
@@ -4270,13 +4277,13 @@ test("ActionPlan query animais repara touros coletivos e retorna categoria touro
   assert(result.response.includes("Touro 50") && result.response.includes("Touro 51"), "resposta deveria listar os touros");
 });
 
-test("ActionPlan query coletiva ignora referencia generica e lista o rebanho", async () => {
+test("ActionPlan query coletiva lista o rebanho sem referencia inventada", async () => {
   const result = await executeQueryActionPlan({
     plan: {
       action: "query",
       domain: "animais",
       confidence: 0.94,
-      filters: [{ field: "animal_ref", op: "eq", value: "eu" }],
+      filters: [],
       requiresConfirmation: false
     },
     originalText: "quais animais eu tenho?",
@@ -4294,13 +4301,35 @@ test("ActionPlan query coletiva ignora referencia generica e lista o rebanho", a
   assert(!result.parsed.dados?.resultado?.filters?.some((filter) => filter.field === "animal_ref"), "referencia generica nao deveria chegar ao banco");
 });
 
-test("ActionPlan query coletiva descarta referencia generica em outras areas", async () => {
+test("executor query nao troca o plano validado ao reler o texto original", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "animais",
+      confidence: 0.94,
+      filters: [{ field: "categoria", op: "eq", value: "vaca" }],
+      requiresConfirmation: false
+    },
+    originalText: "quais touros cadastrados?",
+    owner: ADMIN_OWNER,
+    supabase: createActionPlanSupabase({
+      [TABLES.animais]: [
+        { id: "animal-vaca", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "090", nome: "Mimosa", categoria: "vaca", status: "ativo" },
+        { id: "animal-touro", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "T-50", nome: "Touro 50", categoria: "touro", status: "ativo" }
+      ]
+    })
+  });
+  assert(result.ok, `plano validado deveria executar: ${result.reason}`);
+  assert(result.rows.length === 1 && result.rows[0].id === "animal-vaca", "texto original nao pode substituir o filtro definido pela IA");
+});
+
+test("ActionPlan query coletiva lista funcionarios sem referencia inventada", async () => {
   const result = await executeQueryActionPlan({
     plan: {
       action: "query",
       domain: "funcionarios",
       confidence: 0.94,
-      filters: [{ field: "funcionario_ref", op: "eq", value: "eu" }],
+      filters: [],
       requiresConfirmation: false
     },
     originalText: "quais funcionarios eu tenho?",
@@ -4456,7 +4485,10 @@ test("Gemini-first ActionPlan sequence preserva consulta reprodutiva especifica 
         action: "query",
         domain: "reproducao",
         confidence: 0.94,
-        filters: [],
+        filters: [
+          { field: "status_reprodutivo", op: "eq", value: "em_protocolo" },
+          { field: "categoria", op: "eq", value: "vaca" }
+        ],
         aggregations: [],
         requiresConfirmation: false,
         limit: 50,
@@ -4527,7 +4559,10 @@ test("Gemini-first ActionPlan sequence aceita lista reprodutiva compacta com mul
         action: "query",
         domain: "reproducao",
         confidence: 0.94,
-        filters: [{ field: "status_reprodutivo", op: "eq", value: "vacas que ficaram em protocolo" }],
+        filters: [
+          { field: "status_reprodutivo", op: "eq", value: "em_protocolo" },
+          { field: "categoria", op: "eq", value: "vaca" }
+        ],
         aggregations: [],
         requiresConfirmation: false,
         limit: 50,
@@ -5002,7 +5037,7 @@ test("ActionPlan update de animais vira ATUALIZACAO_ANIMAL", async () => {
       data: {
         animal_ref: "B-002",
         brinco: "B-002",
-        fase: "lactacao"
+        lote_ref: "Lactação"
       }
     },
     text: "troca o lote da B-002 para Lactação",
@@ -5014,7 +5049,7 @@ test("ActionPlan update de animais vira ATUALIZACAO_ANIMAL", async () => {
   assert(result.parsed.tipo === "ATUALIZACAO_ANIMAL", `esperado ATUALIZACAO_ANIMAL, recebido ${result.parsed.tipo}`);
   assert(result.parsed.dados.animal_codigo === "B-002", "animal B-002 ausente");
   assert(result.parsed.dados.campo_alterado === "lote_id", "texto com lote deveria atualizar lote_id");
-  assert(result.parsed.dados.novo_valor === "lactacao", "valor lactacao ausente");
+  assert(result.parsed.dados.novo_valor === "Lactação", "valor Lactação ausente");
 });
 
 test("ActionPlan update aceita alvo em filtro e confidence ausente", async () => {
@@ -5443,14 +5478,30 @@ test("validador normaliza frases de status reprodutivo em consultas", () => {
   assert(filter.value === "em_protocolo", `status esperado em_protocolo, recebido ${filter.value}`);
 });
 
-test("mutacao com pedido explicito de relatorio agenda consulta para apos confirmacao", async () => {
+test("sequencia explicita agenda consulta para apos confirmacao", async () => {
   await withGeminiMock(() => ({
-    action: "execute",
-    capability: "registrar_movimento_estoque",
-    operation: "entrada_estoque",
+    action: "sequence",
     confidence: 0.92,
-    data: { item: "racao", quantidade: 30, unidade: "kg", tipo_movimento: "entrada", data: "hoje" },
-    requiresConfirmation: true
+    requiresConfirmation: true,
+    steps: [
+      {
+        action: "execute",
+        capability: "registrar_movimento_estoque",
+        operation: "entrada_estoque",
+        confidence: 0.92,
+        data: { item: "racao", quantidade: 30, unidade: "kg", tipo_movimento: "entrada", data: "hoje" },
+        requiresConfirmation: true
+      },
+      {
+        action: "query",
+        domain: "observacoes",
+        operation: "eventos_gerais",
+        confidence: 0.92,
+        semantic: { intent: "relatorio_geral", scope: "rancho", period: "hoje", report: { type: "relatorio", detailLevel: "resumo" } },
+        filters: [{ field: "data", op: "last_days", value: 1 }],
+        requiresConfirmation: false
+      }
+    ]
   }), async () => {
     const text = "me da o relatorio de hoje, mas antes registra 30kg de racao no estoque";
     const result = await parseWithConfiguredInterpreter({
@@ -5503,7 +5554,7 @@ test("ActionPlan pagina consulta coletiva sem perder filtros", async () => {
       domain: "animais",
       confidence: 0.94,
       semantic: { intent: "continuar_lista", scope: "animais", operation: "continuar_consulta" },
-      filters: [],
+      filters: [{ field: "data", op: "last_days", value: 1 }],
       limit: 100,
       requiresConfirmation: false
     },
@@ -5629,13 +5680,14 @@ test("ActionPlan preserva animal especifico na consulta de producao", async () =
   assert(!result.response.includes("95 litros"), "nao deveria usar o total do rebanho");
 });
 
-test("ActionPlan corrige venda de leite classificada como producao", async () => {
+test("ActionPlan canonico registra venda de leite como movimento de estoque", async () => {
   const result = await executeActionPlan({
     plan: {
       action: "execute",
-      capability: "registrar_producao_leite",
+      capability: "registrar_movimento_estoque",
+      operation: "venda_estoque",
       confidence: 0.94,
-      data: { litros: 30, valor: 450, data: "hoje" },
+      data: { item: "leite", quantidade: 30, unidade: "litros", valor_total: 450, tipo_movimento: "saida", data: "hoje" },
       requiresConfirmation: true
     },
     text: "vendi 30 litros de leite por 450 reais",

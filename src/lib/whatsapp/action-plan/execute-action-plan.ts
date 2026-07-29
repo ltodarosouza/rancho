@@ -98,39 +98,7 @@ function actionPlanDeathCue(...values: unknown[]) {
   return /\b(?:morte|morreu|morto|morta|obito|faleceu|falecida|falecido|falecimento|registro_morte)\b/.test(text);
 }
 
-function extractPhysicalStockTrade(text: string): PhysicalStockTrade | null {
-  const raw = compactTradeText(text);
-  if (!raw) return null;
-  const normalized = normalizeRanchoText(raw);
-  const isSale = /\b(vendi|vendemos|vendeu|venderam|venda|vender)\b/.test(normalized);
-  const isPurchase = /\b(comprei|compramos|comprou|compraram|compra|comprar|adquiri|adquirimos)\b/.test(normalized);
-  const kind = isSale ? "sale" : isPurchase ? "purchase" : null;
-  if (!kind) return null;
-
-  const verbs = kind === "sale"
-    ? "vendi|vendemos|vendeu|venderam|venda|vender"
-    : "comprei|compramos|comprou|compraram|compra|comprar|adquiri|adquirimos";
-  const unit = "sacos?|sacas?|kg|kgs|quilos?|litros?|lts?|l|unidades?|un|doses?|toneladas?|tons?|pacotes?|caixas?|fardos?";
-  const amount = "([0-9]+(?:[.,][0-9]+)*)";
-  const money = "(?:r\\$\\s*)?([0-9]+(?:[.,][0-9]+)*)(?:\\s*reais?)?";
-  const pattern = new RegExp(
-    `\\b(?:${verbs})\\b\\s+${amount}\\s+(${unit})\\s+(?:de\\s+|do\\s+|da\\s+|dos\\s+|das\\s+)?(.+?)\\s+(?:por|a|ao valor de|no valor de|custou|total(?: de)?)\\s+${money}\\b`,
-    "i"
-  );
-  const match = raw.match(pattern);
-  if (!match) return { kind };
-
-  return {
-    kind,
-    quantity: parseActionPlanNumber(match[1]),
-    unit: compactTradeText(match[2]),
-    item: compactTradeText(match[3]),
-    value: parseActionPlanNumber(match[4])
-  };
-}
-
-function actionPlanPhysicalStockTrade(plan: ActionPlan, data: Record<string, unknown>, text?: string): PhysicalStockTrade | null {
-  const fromText = extractPhysicalStockTrade(text || "");
+function actionPlanPhysicalStockTrade(plan: ActionPlan, data: Record<string, unknown>): PhysicalStockTrade | null {
   const movementText = normalizeRanchoText([
     plan.operation,
     data.tipo_movimento,
@@ -139,21 +107,20 @@ function actionPlanPhysicalStockTrade(plan: ActionPlan, data: Record<string, unk
     data.descricao,
     data.categoria
   ].filter(Boolean).join(" "));
-  const kind = fromText?.kind
-    || (/\b(venda|vender|vendido)\b/.test(movementText)
+  const kind = /\b(venda|vender|vendido)\b/.test(movementText)
       ? "sale"
       : /\b(compra|comprar|comprado)\b/.test(movementText)
         ? "purchase"
-        : null);
-  if (!kind && !fromText) return null;
+        : null;
+  if (!kind) return null;
 
-  const item = compactTradeText(data.item || data.item_ref || data.nome || data.produto || fromText?.item);
-  const unit = compactTradeText(data.unidade || data.unidade_medida || fromText?.unit);
-  const quantity = parseActionPlanNumber(data.quantidade) ?? fromText?.quantity;
-  const value = parseActionPlanNumber(data.valor_total ?? data.valor) ?? fromText?.value;
+  const item = compactTradeText(data.item || data.item_ref || data.nome || data.produto);
+  const unit = compactTradeText(data.unidade || data.unidade_medida);
+  const quantity = parseActionPlanNumber(data.quantidade);
+  const value = parseActionPlanNumber(data.valor_total ?? data.valor);
 
   return {
-    kind: kind || fromText?.kind || "purchase",
+    kind,
     item: item || undefined,
     unit: unit || undefined,
     quantity,
@@ -204,50 +171,15 @@ function actionPlanText(value: unknown) {
   return text || undefined;
 }
 
-function isCodeLikeAnimalRegistration(value: unknown) {
-  const text = actionPlanText(value);
-  return Boolean(text && /\d|-/.test(text));
-}
-
-function hasExplicitAnimalRegistrationCodeCue(text?: string, candidate?: unknown) {
-  const normalizedText = normalizeRanchoText(text || "");
-  if (!normalizedText) return false;
-  const normalizedCandidate = normalizeRanchoText(String(candidate ?? ""));
-  if (!normalizedCandidate) return /\b(?:brinco|codigo|cod|numero|n)\b/.test(normalizedText);
-  const escaped = normalizedCandidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`\\b(?:brinco|codigo|cod|numero|n)\\s+(?:e|eh|foi|era|para|pra)?\\s*${escaped}\\b`).test(normalizedText);
-}
-
-function normalizeAnimalRegistrationForActionPlan(data: Record<string, unknown>, originalText?: string) {
+function normalizeAnimalRegistrationForActionPlan(data: Record<string, unknown>) {
   const rawCode = firstValue(data, ["brinco", "animal_ref", "animal_codigo", "codigo"]);
-  let animal_codigo = actionPlanText(rawCode);
-  let nome = actionPlanText(data.nome);
-  const sameNameAndCode = Boolean(
-    animal_codigo
-    && nome
-    && normalizeRanchoText(animal_codigo) === normalizeRanchoText(nome)
-  );
-  const ambiguousCode = Boolean(
-    animal_codigo
-    && !isCodeLikeAnimalRegistration(animal_codigo)
-    && !hasExplicitAnimalRegistrationCodeCue(originalText, animal_codigo)
-  );
-
-  if (ambiguousCode && (sameNameAndCode || !nome)) {
-    nome = nome || animal_codigo;
-    animal_codigo = undefined;
-  }
-
-  return { animal_codigo, nome };
+  return {
+    animal_codigo: actionPlanText(rawCode),
+    nome: actionPlanText(data.nome)
+  };
 }
 
-function animalUpdateChangeForActionPlan(data: Record<string, unknown>, originalText?: string) {
-  const normalizedText = normalizeRanchoText(originalText || "");
-  if (/\b(?:lote|piquete|pasto)\b/.test(normalizedText)) {
-    const value = firstValue(data, ["lote_ref", "lote_id", "lote_nome", "fase"]);
-    if (value !== undefined) return { field: "lote_id", value };
-  }
-
+function animalUpdateChangeForActionPlan(data: Record<string, unknown>) {
   const candidates = [
     ["lote_id", firstValue(data, ["lote_ref", "lote_id", "lote_nome"])],
     ["fase", data.fase],
@@ -369,6 +301,10 @@ function capabilityQueryPlan(plan: ExecuteCapabilityActionPlan): QueryActionPlan
   const data = plan.data || {};
   const domain = capabilityQueryDomain(plan, data);
   if (!domain) return null;
+  const select = Array.isArray(data.select) ? data.select as string[] : undefined;
+  const aggregations = Array.isArray(data.aggregations)
+    ? data.aggregations as QueryActionPlan["aggregations"]
+    : undefined;
   const groupBy = Array.isArray(data.groupBy)
     ? data.groupBy as string[]
     : Array.isArray(data.group_by) ? data.group_by as string[] : undefined;
@@ -380,22 +316,26 @@ function capabilityQueryPlan(plan: ExecuteCapabilityActionPlan): QueryActionPlan
     domain,
     confidence: plan.confidence,
     filters: capabilityFilters(plan, data),
-    aggregations: Array.isArray(data.aggregations) ? data.aggregations as QueryActionPlan["aggregations"] : undefined,
+    select,
+    aggregations,
     groupBy,
     orderBy,
     limit: parseActionPlanNumber(data.limit) || 100,
     requiresConfirmation: false,
-    operation: plan.operation
+    operation: plan.operation,
+    semantic: plan.semantic,
+    userQuestion: plan.userQuestion,
+    safety: plan.safety
   };
 }
 
-function capabilityMutationParsed(plan: ExecuteCapabilityActionPlan, currentDate?: string, originalText?: string): ParsedRanchoMessage | null {
+function capabilityMutationParsed(plan: ExecuteCapabilityActionPlan, currentDate?: string): ParsedRanchoMessage | null {
   const data = plan.data || {};
   const metadata = actionPlanMetadata(plan);
   const date = capabilityDate(data, currentDate);
 
   if (plan.capability === "registrar_producao_leite") {
-    const trade = actionPlanPhysicalStockTrade({ ...plan, domain: "estoque" } as ActionPlan, data, originalText);
+    const trade = actionPlanPhysicalStockTrade({ ...plan, domain: "estoque" } as ActionPlan, data);
     if (trade?.kind === "sale") {
       const dados = {
         item_nome: firstValue(data, ["item", "item_ref", "item_nome", "produto", "nome"]) || trade.item || "leite",
@@ -422,7 +362,7 @@ function capabilityMutationParsed(plan: ExecuteCapabilityActionPlan, currentDate
   }
 
   if (plan.capability === "registrar_financeiro") {
-    const text = normalizeRanchoText([plan.operation, data.tipo, data.categoria, data.descricao, originalText].filter(Boolean).join(" "));
+    const text = normalizeRanchoText([plan.operation, data.tipo, data.categoria, data.descricao].filter(Boolean).join(" "));
     const tipo = /\b(receita|entrada|recebi|ganhei|venda|credito)\b/.test(text) ? "RECEITA_VENDA" : "DESPESA";
     const dados = {
       valor: firstNumber(data, ["valor", "valor_total", "preco", "preco_total"]),
@@ -436,8 +376,8 @@ function capabilityMutationParsed(plan: ExecuteCapabilityActionPlan, currentDate
   }
 
   if (plan.capability === "registrar_movimento_estoque") {
-    const trade = actionPlanPhysicalStockTrade({ ...plan, domain: "estoque" } as ActionPlan, data, originalText);
-    const movement = normalizeRanchoText([plan.operation, data.tipo_movimento, data.tipo, data.movimento, originalText].filter(Boolean).join(" "));
+    const trade = actionPlanPhysicalStockTrade({ ...plan, domain: "estoque" } as ActionPlan, data);
+    const movement = normalizeRanchoText([plan.operation, data.tipo_movimento, data.tipo, data.movimento].filter(Boolean).join(" "));
     const isOut = trade?.kind === "sale" || /\b(saida|baixa|uso|consumo|venda|vendi|vender)\b/.test(movement);
     const tipo = isOut ? "ESTOQUE_SAIDA" : "ESTOQUE_ENTRADA";
     const value = firstNumber(data, ["valor_total", "valor", "preco_total", "preco"]) ?? trade?.value;
@@ -470,7 +410,7 @@ function capabilityMutationParsed(plan: ExecuteCapabilityActionPlan, currentDate
   }
 
   if (plan.capability === "cadastrar_animal") {
-    const animalRegistration = normalizeAnimalRegistrationForActionPlan(data, originalText);
+    const animalRegistration = normalizeAnimalRegistrationForActionPlan(data);
     const dados = {
       animal_codigo: animalRegistration.animal_codigo,
       nome: animalRegistration.nome,
@@ -686,7 +626,7 @@ function capabilityMutationParsed(plan: ExecuteCapabilityActionPlan, currentDate
   return null;
 }
 
-function mutationParsed(plan: ActionPlan, currentDate?: string, originalText?: string): ParsedRanchoMessage | null {
+function mutationParsed(plan: ActionPlan, currentDate?: string): ParsedRanchoMessage | null {
   if (plan.action !== "create" && plan.action !== "update") return null;
   const data = plan.data || {};
   const metadata = actionPlanMetadata(plan);
@@ -694,7 +634,7 @@ function mutationParsed(plan: ActionPlan, currentDate?: string, originalText?: s
   const date = normalizeDate(data.data || data.data_evento, ranchCurrentDate) || ranchCurrentDate;
 
   if (plan.domain === "producao_leite") {
-    const trade = actionPlanPhysicalStockTrade(plan, data, originalText);
+    const trade = actionPlanPhysicalStockTrade(plan, data);
     if (trade?.kind === "sale") {
       const dados = {
         item_nome: firstValue(data, ["item", "item_ref", "item_nome", "produto", "nome"]) || trade.item || "leite",
@@ -721,16 +661,15 @@ function mutationParsed(plan: ActionPlan, currentDate?: string, originalText?: s
   }
 
   if (plan.domain === "estoque") {
-    const trade = actionPlanPhysicalStockTrade(plan, data, originalText);
+    const trade = actionPlanPhysicalStockTrade(plan, data);
     const operationText = normalizeRanchoText([
       plan.operation,
       data.operacao,
       data.acao,
       data.tipo_movimento,
       data.tipo,
-      data.movimento,
-      originalText
-    ].filter(Boolean).join(" "));
+      data.movimento
+    ].filter(Boolean).join(" ")).replace(/_/g, " ");
     const movement = normalizeRanchoText(String(data.tipo_movimento || data.tipo || plan.operation || ""));
     const hasMovementCue = Boolean(trade)
       || /\b(?:entrada|saida|baixa|uso|consumo|venda|vendi|vender|compra|comprei|comprar|reposicao|retirada)\b/.test(operationText);
@@ -773,7 +712,7 @@ function mutationParsed(plan: ActionPlan, currentDate?: string, originalText?: s
   }
 
   if (plan.domain === "financeiro") {
-    const trade = actionPlanPhysicalStockTrade(plan, data, originalText);
+    const trade = actionPlanPhysicalStockTrade(plan, data);
     if (trade?.item && trade.quantity !== undefined && trade.unit && trade.value !== undefined) {
       const tipo = trade.kind === "sale" ? "ESTOQUE_SAIDA" : "ESTOQUE_ENTRADA";
       const dados = {
@@ -814,7 +753,7 @@ function mutationParsed(plan: ActionPlan, currentDate?: string, originalText?: s
     }
 
     if (plan.action === "update") {
-      const change = animalUpdateChangeForActionPlan(data, originalText);
+      const change = animalUpdateChangeForActionPlan(data);
       const dados = {
         animal_codigo: firstValueFromDataOrFilters(plan, data, ["animal_ref", "brinco", "animal_id", "codigo"]),
         campo_alterado: change.field,
@@ -827,7 +766,7 @@ function mutationParsed(plan: ActionPlan, currentDate?: string, originalText?: s
       return finalize("ATUALIZACAO_ANIMAL", dados, buildMissing("ATUALIZACAO_ANIMAL", dados), plan.confidence);
     }
 
-    const animalRegistration = normalizeAnimalRegistrationForActionPlan(data, originalText);
+    const animalRegistration = normalizeAnimalRegistrationForActionPlan(data);
     const dados = {
       animal_codigo: animalRegistration.animal_codigo,
       nome: animalRegistration.nome,
@@ -1080,8 +1019,7 @@ export async function executeActionPlan(input: ExecuteActionPlanInput): Promise<
         plan: queryPlan,
         supabase: input.supabase,
         owner: input.owner,
-        currentDate: input.currentDate,
-        originalText: input.text
+        currentDate: input.currentDate
       });
       if (!result.ok) {
         return {
@@ -1107,7 +1045,7 @@ export async function executeActionPlan(input: ExecuteActionPlanInput): Promise<
       };
     }
 
-    const parsed = capabilityMutationParsed(capabilityPlan, input.currentDate, input.text);
+    const parsed = capabilityMutationParsed(capabilityPlan, input.currentDate);
     if (parsed) {
       return {
         ok: true,
@@ -1157,7 +1095,6 @@ export async function executeActionPlan(input: ExecuteActionPlanInput): Promise<
       supabase: input.supabase,
       owner: input.owner,
       currentDate: input.currentDate,
-      originalText: pagination?.originalText || input.text,
       pagination
     });
     if (!result.ok) {
@@ -1212,7 +1149,7 @@ export async function executeActionPlan(input: ExecuteActionPlanInput): Promise<
         logEvent: validation.status === "blocked" ? "action_plan_blocked" : "action_plan_invalid"
       };
     }
-    const parsed = mutationParsed(validation.value, input.currentDate, input.text);
+    const parsed = mutationParsed(validation.value, input.currentDate);
     if (parsed) {
       return {
         ok: true,

@@ -959,8 +959,10 @@ export function interpretPendingActionMessage(pending: ParsedRanchoMessage, text
 export async function interpretPendingActionMessageSmart(pending: ParsedRanchoMessage, text: string): Promise<PendingActionInterpretation | null> {
   const command = normalizeRanchoText(text);
   if (shouldSkipPendingActionSemantic(command)) return null;
-  const local = interpretPendingActionMessage(pending, text);
-  if (local && local.operation !== "clarify") return local;
   const semantic = await interpretPendingActionWithSemanticAI(pending, text);
-  return semantic || local;
+  if (semantic) return semantic;
+
+  const interpreter = String(process.env.BOT_INTERPRETER || "gemini").trim().toLowerCase();
+  if (interpreter === "gemini") return null;
+  return interpretPendingActionMessage(pending, text);
 }

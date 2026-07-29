@@ -6,11 +6,9 @@ import { validateActionPlan } from "@/lib/whatsapp/gemini/action-plan-validator"
 import { getDomainManifest, type DomainFieldDefinition, type DomainManifestEntry } from "@/lib/whatsapp/gemini/domain-manifest";
 import type { ParsedRanchoMessage, RanchoIntent } from "@/lib/whatsapp/nlp";
 import { normalizeRanchoText } from "@/lib/whatsapp/nlp-text";
-import { extractAnimalCode } from "@/lib/whatsapp/nlp-core/extractors";
 import { detectReproductiveEventKind, reproductiveEventLabel } from "@/lib/whatsapp/nlp-core/reproductive-events";
 import { finalizeActionPlanParsed } from "@/lib/whatsapp/action-plan/action-plan-to-parsed";
 import {
-  isExplicitGeneralOperationalReportText,
   semanticPeriod,
   semanticReportType
 } from "@/lib/whatsapp/gemini/action-plan-semantic";
@@ -32,7 +30,6 @@ export type ActionPlanQueryPagination = {
   tipo: "action_plan_query";
   domain: string;
   plan: QueryActionPlan;
-  originalText?: string;
   currentDate?: string;
   offset: number;
   pageSize: number;
@@ -44,7 +41,6 @@ export type ExecuteQueryActionPlanInput = {
   supabase?: ActionPlanSupabaseLike | null;
   owner: ActionPlanOwnerContext;
   currentDate?: string;
-  originalText?: string;
   pagination?: { offset: number; pageSize?: number };
 };
 
@@ -167,65 +163,16 @@ function normalizedText(value: unknown) {
   return normalizeRanchoText(String(value ?? ""));
 }
 
-function isFinanceQueryText(text: unknown) {
-  const normalized = normalizedText(text);
-  if (!normalized) return false;
-  const hasFinanceTopic = /\b(financeiro|financas|financeira|receita|receitas|despesa|despesas|gasto|gastos|gastei|saldo|caixa|resultado|faturamento|vendas?)\b/.test(normalized);
-  const hasQueryShape = /\b(como|quanto|qual|quais|relatorio|resumo|consulta|consultar|mostrar|mostra|ver|foi|ficou|mes|semana|ano|hoje|ontem|ultimos?)\b/.test(normalized);
-  return hasFinanceTopic && hasQueryShape;
-}
-
-function hasSpecificConsultationTopic(text: unknown) {
-  const normalized = normalizedText(text);
-  if (!normalized) return false;
-  return /\b(?:vacinas?|vacinacao|tratamentos?|medicamentos?|vermifugos?|antibioticos?|doencas?|sanitario|saude|partos?|pariu|pariram|prenhas?|prenhez|inseminacoes?|inseminadas?|protocolos?|retestes?|cios?|financeiro|receitas?|despesas?|estoque|leite|ordenhas?|ponto|funcionarios?|lotes?|genealogia|touros?|vacas?|bezerros?|novilhas?)\b/.test(normalized);
-}
-
-function planSpecificConsultationText(plan: QueryActionPlan, originalText?: string) {
-  const semantic = plan.semantic || {};
-  return [
-    originalText || "",
-    plan.userQuestion || "",
-    plan.operation || "",
-    semantic.intent || "",
-    semantic.scope || "",
-    semantic.operation || "",
-    semantic.period || "",
-    semantic.report?.type || "",
-    semantic.report?.detailLevel || "",
-    ...(Array.isArray(semantic.domains) ? semantic.domains : []),
-    ...plan.filters.flatMap((filter) => [filter.field, filter.op, Array.isArray(filter.value) ? filter.value.join(" ") : filter.value])
-  ].filter((part) => part !== undefined && part !== null).join(" ");
-}
-
-function genericEventReportText(text: unknown) {
-  const normalized = normalizedText(text);
-  if (!normalized) return false;
-  if (isExplicitGeneralOperationalReportText(normalized)) return true;
-  const hasGenericEventTopic = /\b(?:eventos?|registros?|ocorrencias?|ocorridos?|aconteceu|aconteceram|movimentacoes?|atividades?|fechamento|resumo|relatorio|tudo)\b/.test(normalized);
-  const hasQueryShape = /\b(?:quais?|qual|como|me fala|mostra|mostrar|ver|teve|houve|lista|listar|resumo|relatorio|fechamento|hoje|ontem|semana|mes|ano|ultimos?)\b/.test(normalized);
-  const hasSpecificTopic = hasSpecificConsultationTopic(normalized);
-  return hasGenericEventTopic && hasQueryShape && !hasSpecificTopic;
-}
-
-function eventReportPeriod(input: { text?: string; plan: QueryActionPlan }) {
-  const semanticNormalized = normalizedText(semanticPeriod(input.plan));
-  const normalized = normalizedText(input.text);
-  const dateFilter = input.plan.filters.find((filter) => ["data", "data_evento", "created_at", "registrado_em"].includes(filter.field));
+function eventReportPeriod(plan: QueryActionPlan) {
+  const semanticNormalized = normalizedText(semanticPeriod(plan));
+  const dateFilter = plan.filters.find((filter) => ["data", "data_evento", "created_at", "registrado_em"].includes(filter.field));
   if (/\bhoje\b/.test(semanticNormalized)) return { period: "hoje" };
   if (/\bontem\b/.test(semanticNormalized)) return { period: "ontem" };
   if (/\bsemana\b/.test(semanticNormalized)) return { period: "semana" };
   if (/\b(?:mes passado|mes anterior|ultimo mes)\b/.test(semanticNormalized.replace(/_/g, " "))) return { period: "mes_passado" };
   if (/\bmes\b/.test(semanticNormalized)) return { period: "mes" };
   if (/\bano\b/.test(semanticNormalized)) return { period: "ano" };
-  if (/\bhoje\b/.test(normalized)) return { period: "hoje" };
-  if (/\bontem\b/.test(normalized)) return { period: "ontem" };
-  if (/\bsemana passada\b/.test(normalized)) return { period: "semana_passada" };
-  if (/\bmes passado\b/.test(normalized)) return { period: "mes_passado" };
-  if (/\bsemana\b/.test(normalized)) return { period: "semana" };
-  if (/\bmes\b/.test(normalized)) return { period: "mes" };
-  if (/\bano\b/.test(normalized)) return { period: "ano" };
-  const daysMatch = normalized.match(/\bultim[oa]s?\s+(\d+)\s+dias?\b/);
+  const daysMatch = semanticNormalized.match(/\bultim[oa]s?\s+(\d+)\s+dias?\b/);
   if (daysMatch) return { period: `ultimos_${daysMatch[1]}`, days: Number(daysMatch[1]) };
   if (dateFilter?.op === "current_month") return { period: "mes" };
   if (dateFilter?.op === "previous_month") return { period: "mes_passado" };
@@ -236,33 +183,43 @@ function eventReportPeriod(input: { text?: string; plan: QueryActionPlan }) {
   return { period: "hoje" };
 }
 
-function genericEventReportMode(text: unknown) {
-  const normalized = normalizedText(text);
+function genericEventReportMode(plan: QueryActionPlan) {
+  const normalized = normalizedText(plan.semantic?.report?.detailLevel);
   if (/\b(?:tudo|detalhado|movimentacoes?|atividades?)\b/.test(normalized)) return "detalhado";
   if (/\b(?:resumo rapido|rapido)\b/.test(normalized)) return "rapido";
   if (/\b(?:foi bem|indo bem|analise|analisar)\b/.test(normalized)) return "analise";
   return undefined;
 }
 
-function shouldUseGeneralEventReport(plan: QueryActionPlan, originalText?: string) {
+function shouldUseGeneralEventReport(plan: QueryActionPlan) {
   if (!["saude_sanitario", "reproducao", "observacoes", "agenda_tarefas"].includes(plan.domain)) return false;
-  if (!genericEventReportText(originalText)) return false;
-  if (!isExplicitGeneralOperationalReportText(originalText) && hasSpecificConsultationTopic(planSpecificConsultationText(plan, originalText))) return false;
-  return !plan.filters.some((filter) => ["animal_ref", "lote_ref", "funcionario_ref", "item_ref"].includes(filter.field));
+  if (plan.filters.some((filter) => ["animal_ref", "lote_ref", "funcionario_ref", "item_ref", "evento", "tipo", "status_reprodutivo"].includes(filter.field))) return false;
+  const semantic = plan.semantic;
+  const reportType = semanticReportType(plan);
+  const descriptor = normalizedText([
+    semantic?.intent,
+    semantic?.scope,
+    semantic?.operation,
+    semantic?.report?.type,
+    plan.operation,
+    ...(Array.isArray(semantic?.domains) ? semantic.domains : [])
+  ].filter(Boolean).join(" "));
+  return reportType === "eventos"
+    || reportType === "relatorio"
+    || /\b(?:eventos gerais|registros gerais|ocorrencias gerais)\b/.test(descriptor.replace(/_/g, " "))
+    || /\b(?:geral|eventos|registros|ocorrencias|fazenda|rancho|tudo)\b/.test(descriptor)
+    || (Array.isArray(semantic?.domains) && semantic.domains.length > 1);
 }
 
 function executeGeneralEventReportQuery(input: ExecuteQueryActionPlanInput, plan: QueryActionPlan): ExecuteQueryActionPlanResult {
-  const { period, days } = eventReportPeriod({ text: input.originalText, plan });
-  const mode = genericEventReportMode(input.originalText);
+  const { period, days } = eventReportPeriod(plan);
+  const mode = genericEventReportMode(plan);
   const reportType = semanticReportType(plan);
-  const explicitGeneralReport = isExplicitGeneralOperationalReportText(input.originalText);
-  const consultaRegistros = explicitGeneralReport
-    ? "relatorio"
-    : reportType === "eventos"
+  const consultaRegistros = reportType === "eventos"
     ? "eventos"
     : reportType === "relatorio"
       ? "relatorio"
-      : /\b(?:relatorio|resumo|fechamento|como foi|aconteceu|tudo)\b/.test(normalizedText(input.originalText)) ? "relatorio" : "eventos";
+      : "eventos";
   const parsed = finalizeActionPlanParsed("CONSULTA_REGISTROS_HOJE", {
     consulta: true,
     consulta_registros: consultaRegistros,
@@ -283,54 +240,6 @@ function executeGeneralEventReportQuery(input: ExecuteQueryActionPlanInput, plan
     parsed,
     response: "Consulta geral de eventos preparada.",
     rows: []
-  };
-}
-
-function financeQueryDateFilter(text: unknown): FilterPlan {
-  const normalized = normalizedText(text);
-  const lastDays = normalized.match(/\bultimos?\s+(\d+)\s+dias?\b/);
-  if (lastDays) return { field: "data", op: "last_days", value: Number(lastDays[1]) };
-  const lastMonths = normalized.match(/\bultimos?\s+(\d+)\s+mes(?:es)?\b/);
-  if (lastMonths) return { field: "data", op: "last_months", value: Number(lastMonths[1]) };
-  const namedMonth = monthIndex(normalized);
-  if (namedMonth >= 0 && !isOpenEndedSinceText(normalized)) return { field: "data", op: "between", value: { month: normalized } };
-  if (namedMonth >= 0) return { field: "data", op: "since", value: normalized };
-  if (/\b(hoje|dia atual)\b/.test(normalized)) return { field: "data", op: "last_days", value: 1 };
-  if (/\b(ano|anual)\b/.test(normalized)) return { field: "data", op: "current_year" };
-  return { field: "data", op: "current_month" };
-}
-
-function financeQueryTypeFilter(text: unknown): FilterPlan | null {
-  const normalized = normalizedText(text);
-  if (/\b(despesa|despesas|gasto|gastos|gastei|saida|saidas|paguei|pagamento)\b/.test(normalized)) {
-    return { field: "tipo", op: "eq", value: "despesa" };
-  }
-  if (/\b(receita|receitas|entrada|entradas|faturamento|vendas?|recebi)\b/.test(normalized)) {
-    return { field: "tipo", op: "eq", value: "receita" };
-  }
-  return null;
-}
-
-function repairedFinanceQueryPlan(originalPlan: QueryActionPlan, originalText?: string): QueryActionPlan | null {
-  if (originalPlan.action !== "query" || originalPlan.domain !== "financeiro") return null;
-  if (!isFinanceQueryText(originalText || originalPlan.userQuestion || "")) return null;
-
-  const typeFilter = financeQueryTypeFilter(originalText || originalPlan.userQuestion || "");
-  return {
-    action: "query",
-    domain: "financeiro",
-    confidence: Math.max(originalPlan.confidence || 0, 0.85),
-    filters: [
-      ...(typeFilter ? [typeFilter] : []),
-      financeQueryDateFilter(originalText || originalPlan.userQuestion || "")
-    ],
-    aggregations: [{ field: "valor", op: "sum", as: "total" }],
-    groupBy: ["tipo"],
-    limit: 100,
-    requiresConfirmation: false,
-    operation: originalPlan.operation,
-    userQuestion: originalPlan.userQuestion || originalText || null,
-    safety: originalPlan.safety
   };
 }
 
@@ -741,176 +650,8 @@ function isCollectiveAnimalRef(value: unknown) {
   return hasCollectiveCategory && hasQueryQualifier;
 }
 
-function isCollectiveQueryRequest(value: unknown) {
-  const text = normalizedText(value);
-  if (!text) return false;
-
-  const collectiveNoun = /\b(?:rebanho|gado|animais?|vacas?|vagas?|bois?|touros?|bezerros?|bezerras?|novilhas?|itens?|produtos?|insumos?|funcionarios?|equipe|lotes?|piquetes?|pastos?)\b/.test(text);
-  const listIntent = /\b(?:quais?|quantos?|lista|listar|dados|relatorio|resumo|meus|minhas|todos?|todas?|tenho|tem|existem|cadastrados?|cadastradas?)\b/.test(text);
-  return collectiveNoun && listIntent;
-}
-
-function isGenericReferenceValue(value: unknown) {
-  const text = normalizedText(value);
-  if (!text) return true;
-  if (isCollectiveAnimalRef(text)) return true;
-  return /^(?:eu|me|meu|minha|meus|minhas|tenho|tem|todos?|todas?|qual|quais|lista|listar|dados|relatorio|resumo|cadastrados?|cadastradas?|item|itens|produto|produtos|animal|animais|funcionario|funcionarios|equipe|lote|lotes|estoque|rebanho|gado)$/.test(text);
-}
-
-function referenceAppearsInQuestion(value: unknown, question: string) {
-  const reference = normalizedText(value);
-  return Boolean(reference && question.includes(reference) && !isGenericReferenceValue(reference));
-}
-
-function normalizeCollectiveReferenceFilters(plan: QueryActionPlan, originalText?: string): QueryActionPlan {
-  const question = normalizedText(originalText || plan.userQuestion || "");
-  if (!isCollectiveQueryRequest(question)) return plan;
-
-  const referenceFields = new Set(["animal_ref", "item_ref", "funcionario_ref", "lote_ref"]);
-  const filters = plan.filters.filter((filter) => {
-    if (!referenceFields.has(filter.field)) return true;
-    return referenceAppearsInQuestion(filter.value, question);
-  });
-
-  return { ...plan, filters, userQuestion: plan.userQuestion || originalText || null };
-}
-
-function isCollectiveAnimalQueryText(value: unknown) {
-  const text = normalizedText(value);
-  if (!text) return false;
-
-  const collectiveNoun = /\b(?:rebanho|gado|animais|vacas|vagas|bois|touros|bezerros|bezerras|novilhas)\b/.test(text);
-  const listIntent = /\b(?:quais?|quantos?|lista|listar|dados|relatorio|resumo|meus|minhas|todos?|todas?|tenho|tem|existem|cadastrados?|cadastradas?)\b/.test(text);
-  return collectiveNoun && listIntent;
-}
-
 function hasSpecificAnimalRefFilter(plan: QueryActionPlan) {
   return plan.filters.some((filter) => filter.field === "animal_ref" && !isCollectiveAnimalRef(filter.value));
-}
-
-function specificAnimalRefFromQueryText(text?: string | null) {
-  const normalized = normalizedText(text);
-  if (!normalized) return null;
-  const code = extractAnimalCode(normalized, "CONSULTA_ANIMAL");
-  const codeText = normalizedText(code);
-  if (code && !isCollectiveAnimalRef(code) && !/^(?:dados|lista|listar|relatorio|resumo|consulta|quais|qual|meus|minhas|todos|todas|cadastrado|cadastrados|cadastrada|cadastradas|vaca|vacas|vaga|vagas|animal|animais|rebanho|gado|boi|bois|touro|touros|bezerro|bezerros|bezerra|bezerras|novilha|novilhas)$/.test(codeText)) return code;
-  return null;
-}
-
-function normalizeAnimalQueryPlan(plan: QueryActionPlan, originalText?: string): QueryActionPlan {
-  if (plan.domain !== "animais") return plan;
-
-  const text = normalizedText(originalText || plan.userQuestion || "");
-  const collectiveText = isCollectiveAnimalQueryText(text);
-  const collectiveFilterText = plan.filters.some((filter) => filter.field === "animal_ref" && isCollectiveAnimalRef(filter.value));
-  const requestedCategory = animalCategoryFromQueryText(text);
-  const cleanedFilters = plan.filters.filter((filter) => {
-    if (filter.field === "animal_ref") return !collectiveText && !isCollectiveAnimalRef(filter.value);
-    if (filter.field === "categoria" && collectiveText && !requestedCategory) return false;
-    return true;
-  });
-  const explicitAnimalRef = !collectiveText && !cleanedFilters.some((filter) => filter.field === "animal_ref")
-    ? specificAnimalRefFromQueryText(text)
-    : null;
-  if (explicitAnimalRef) cleanedFilters.push({ field: "animal_ref", op: "eq", value: explicitAnimalRef });
-  const existingCategory = cleanedFilters.find((filter) => filter.field === "categoria")?.value;
-  const category = existingCategory || requestedCategory;
-
-  if (!explicitAnimalRef && (collectiveText || collectiveFilterText) && category && !cleanedFilters.some((filter) => filter.field === "categoria")) {
-    cleanedFilters.push({ field: "categoria", op: "eq", value: category });
-  }
-
-  return {
-    ...plan,
-    filters: cleanedFilters,
-    limit: Math.max(plan.limit || 0, collectiveText ? 100 : plan.limit || 20),
-    userQuestion: plan.userQuestion || originalText || null
-  };
-}
-
-function financeSearchTermFromText(text?: string | null) {
-  const normalized = normalizedText(text);
-  if (!normalized) return null;
-  const match = normalized.match(/\b(?:gastei|gasto|gastos|despesa|despesas|paguei|pagamento|receita|receitas|vendi|venda|vendas|faturamento)\s+(?:com|de|do|da|sobre)\s+([a-z0-9][a-z0-9\s-]{1,50}?)(?:\s+(?:esse|este|essa|esta|nesse|neste|nessa|nesta|hoje|ontem|mes|semana|ano|ultimos?|ultimas?|dias?|meses?|reais?|real|r\$)|[?.!,]|$)/);
-  const raw = match?.[1]?.trim();
-  if (!raw) return null;
-  const cleaned = raw.replace(/\b(?:esse|este|essa|esta|mes|semana|ano|hoje|ontem)\b.*$/g, "").trim();
-  if (!cleaned || /^(?:financeiro|mes|semana|ano|hoje|ontem|periodo|relatorio|resumo)$/.test(cleaned)) return null;
-  if (/^(?:a|o|da|do|de)?\s*(?:vaca|animal|boi|touro)?\s*[a-z]?-?\d+[a-z0-9-]*$/.test(cleaned)) return null;
-  return cleaned;
-}
-
-function normalizeFinanceQueryPlan(plan: QueryActionPlan, originalText?: string): QueryActionPlan {
-  if (plan.domain !== "financeiro") return plan;
-  const text = originalText || plan.userQuestion || "";
-  if (!isFinanceQueryText(text)) return plan;
-
-  const filters = plan.filters.map((filter) => {
-    if (domainDateFilterField(filter) && filter.op === "since" && monthIndex(filter.value) >= 0 && !isOpenEndedSinceText([text, filter.value].join(" "))) {
-      return { ...filter, op: "between" as const, value: { month: filter.value } };
-    }
-    return filter;
-  });
-  const typeFilter = financeQueryTypeFilter(text);
-  if (typeFilter && !filters.some((filter) => filter.field === "tipo")) filters.unshift(typeFilter);
-  if (!filters.some((filter) => domainDateFilterField(filter))) filters.push(financeQueryDateFilter(text));
-
-  const searchTerm = financeSearchTermFromText(text);
-  const hasSearch = filters.some((filter) => ["descricao", "categoria"].includes(filter.field) && String(filter.value || "").trim());
-  if (searchTerm && !hasSearch) filters.push({ field: "descricao", op: "contains", value: searchTerm });
-
-  const defaultAggregations: AggregationPlan[] = [{ field: "valor", op: "sum", as: "total" }];
-  const aggregations = plan.aggregations?.length ? plan.aggregations : defaultAggregations;
-  const groupBy = plan.groupBy?.length ? plan.groupBy : filters.some((filter) => filter.field === "tipo") ? undefined : ["tipo"];
-  return {
-    ...plan,
-    filters,
-    aggregations,
-    groupBy,
-    limit: Math.max(plan.limit || 0, 100),
-    userQuestion: plan.userQuestion || originalText || null
-  };
-}
-
-function isProductionQueryText(text: unknown) {
-  const normalized = normalizedText(text);
-  return /\b(?:producao|produção|produzi|produziu|leite|ordenha|ordenhado|litros?)\b/.test(normalized)
-    && /\b(?:quanto|quantos|qual|como|relatorio|resumo|consulta|mostrar|mostra|ver|hoje|ontem|semana|mes|ano|ultimos?)\b/.test(normalized);
-}
-
-function isNoisyProductionAnimalRef(value: unknown) {
-  const text = normalizedText(value);
-  if (!text) return false;
-  if (/^(?:leite|producao|produção|ordenha|ordenhas|litros?|hoje|ontem|mes|semana|ano|rebanho|gado|vacas?|animais|todas?|todos?)$/.test(text)) return true;
-  return isCollectiveAnimalRef(text);
-}
-
-function normalizeProductionQueryPlan(plan: QueryActionPlan, originalText?: string): QueryActionPlan {
-  if (plan.domain !== "producao_leite") return plan;
-  const text = [originalText, plan.userQuestion].filter(Boolean).join(" ");
-  if (!isProductionQueryText(text)) return plan;
-
-  const filters = plan.filters.flatMap((filter) => {
-    if (filter.field !== "animal_ref" || !isNoisyProductionAnimalRef(filter.value)) return [filter];
-    const category = animalCategoryFromQueryText(filter.value) || animalCategoryFromQueryText(text);
-    return category ? [{ field: "animal_categoria", op: "eq", value: category } as FilterPlan] : [];
-  });
-  if (!filters.some((filter) => domainDateFilterField(filter)) && /\b(?:hoje|dia atual)\b/.test(normalizedText(text))) {
-    filters.push({ field: "data", op: "last_days", value: 1 });
-  }
-
-  const aggregations = plan.aggregations?.length
-    ? plan.aggregations
-    : [{ field: "litros", op: "sum", as: "total_litros" } as AggregationPlan];
-  const groupedQuery = Boolean(plan.groupBy?.length);
-
-  return {
-    ...plan,
-    filters,
-    aggregations,
-    limit: groupedQuery ? Math.max(1, plan.limit || 10) : Math.max(plan.limit || 0, 100),
-    userQuestion: plan.userQuestion || originalText || null
-  };
 }
 
 function domainDateFilterField(filter: FilterPlan) {
@@ -930,7 +671,7 @@ function countByText(rows: AnyRecord[], selector: (row: AnyRecord) => unknown) {
 }
 
 function buildAnimalCollectiveResponse(rows: AnyRecord[], plan: QueryActionPlan, offset = 0, pageSize = 10) {
-  const category = plan.filters.find((filter) => filter.field === "categoria")?.value || animalCategoryFromQueryText(plan.userQuestion);
+  const category = plan.filters.find((filter) => filter.field === "categoria")?.value;
   const label = animalCategoryPlural(category);
   if (!rows.length) return `Não encontrei ${label} cadastrados no rebanho.`;
 
@@ -1012,11 +753,12 @@ function activeReproductionEventForKind(events: AnyRecord[], kind?: string) {
   return latestEventOfKind(events, kind);
 }
 
-function targetReproductionKind(plan: QueryActionPlan, originalText?: string) {
+function targetReproductionKind(plan: QueryActionPlan) {
   const raw = [
     ...plan.filters.map((filter) => String(filter.value || "")),
-    originalText || "",
-    plan.userQuestion || ""
+    plan.operation || "",
+    plan.semantic?.intent || "",
+    plan.semantic?.operation || ""
   ].join(" ");
   const text = normalizedText(raw);
   if (/\b(?:prenhas?|prenhes|prenhe|prenhez|gestantes?|gestacao)\b/.test(text)) return "prenhez";
@@ -1039,25 +781,26 @@ function addReproductionKindsFromText(target: Set<string>, value: unknown) {
   if (detected) target.add(detected);
 }
 
-function targetReproductionKinds(plan: QueryActionPlan, originalText?: string) {
+function targetReproductionKinds(plan: QueryActionPlan) {
   const kinds = new Set<string>();
   for (const filter of plan.filters) {
     const values = Array.isArray(filter.value) ? filter.value : [filter.value];
     values.forEach((value) => addReproductionKindsFromText(kinds, value));
   }
-  addReproductionKindsFromText(kinds, originalText || "");
-  addReproductionKindsFromText(kinds, plan.userQuestion || "");
+  addReproductionKindsFromText(kinds, plan.operation || "");
+  addReproductionKindsFromText(kinds, plan.semantic?.intent || "");
+  addReproductionKindsFromText(kinds, plan.semantic?.operation || "");
   if (!kinds.size) {
-    const kind = targetReproductionKind(plan, originalText);
+    const kind = targetReproductionKind(plan);
     if (kind) kinds.add(kind);
   }
   const order = ["prenhez", "inseminacao", "parto", "protocolo", "reteste", "pre_parto", "cio", "aborto"];
   return order.filter((kind) => kinds.has(kind));
 }
 
-function reproductionSubject(plan: QueryActionPlan, originalText?: string) {
+function reproductionSubject(plan: QueryActionPlan) {
   const category = plan.filters.find((filter) => filter.field === "categoria")?.value;
-  return animalCategoryFromQueryText([category, originalText, plan.userQuestion].filter(Boolean).join(" ")) === "vaca" ? "Vacas" : "Animais";
+  return animalCategoryFromQueryText(category) === "vaca" ? "Vacas" : "Animais";
 }
 
 function reproductionTitle(kind?: string, subject = "Animais") {
@@ -1140,7 +883,7 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
   const baseDate = currentDate(input.currentDate);
   const dateFilter = plan.filters.find((filter) => domain.dateFields.includes(filter.field));
   const range = dateFilter ? dateRangeFor(dateFilter, baseDate) : null;
-  const kinds = targetReproductionKinds(plan, input.originalText);
+  const kinds = targetReproductionKinds(plan);
   const kind = kinds.length === 1 ? kinds[0] : undefined;
   const limit = Math.min(plan.limit || domain.maxLimit, domain.maxLimit);
 
@@ -1208,7 +951,7 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
       return true;
     })
     .slice(0, limit);
-  const subject = reproductionSubject(plan, input.originalText);
+  const subject = reproductionSubject(plan);
   const title = reproductionTitleForKinds(kinds, subject);
   const singleAnimal = specificAnimalFilter && matchingAnimals.length === 1 ? matchingAnimals[0] : undefined;
   const response = singleAnimal && rows.length === 1
@@ -1783,11 +1526,7 @@ function queryPaginationPageSize(domain: DomainManifestEntry, plan: QueryActionP
 }
 
 export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput): Promise<ExecuteQueryActionPlanResult> {
-  let validation = validateActionPlan(input.plan);
-  if (!validation.ok) {
-    const repairedPlan = repairedFinanceQueryPlan(input.plan, input.originalText);
-    if (repairedPlan) validation = validateActionPlan(repairedPlan);
-  }
+  const validation = validateActionPlan(input.plan);
 
   if (!validation.ok) {
     return {
@@ -1800,7 +1539,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
     };
   }
 
-  let plan = validation.value as QueryActionPlan;
+  const plan = validation.value as QueryActionPlan;
   if (!canQueryBotDomain(input.owner.papel_bot, plan.domain)) {
     return {
       ok: false,
@@ -1809,17 +1548,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
       message: botQueryDeniedMessage(plan.domain)
     };
   }
-  plan = normalizeCollectiveReferenceFilters(plan, input.originalText);
-  if (plan.domain === "animais") {
-    plan = normalizeAnimalQueryPlan(plan, input.originalText);
-  }
-  if (plan.domain === "financeiro") {
-    plan = normalizeFinanceQueryPlan(plan, input.originalText);
-  }
-  if (plan.domain === "producao_leite") {
-    plan = normalizeProductionQueryPlan(plan, input.originalText);
-  }
-  if (shouldUseGeneralEventReport(plan, input.originalText)) {
+  if (shouldUseGeneralEventReport(plan)) {
     return executeGeneralEventReportQuery(input, plan);
   }
   const domain = getDomainManifest(plan.domain);
@@ -1904,7 +1633,6 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
         tipo: "action_plan_query",
         domain: domain.domain,
         plan,
-        originalText: input.originalText,
         currentDate: input.currentDate,
         offset: nextOffset,
         pageSize,

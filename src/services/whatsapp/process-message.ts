@@ -61,7 +61,7 @@ import {
 import { calfCategoryForSex, hasBirthChildData, normalizeCalfSex } from "@/lib/whatsapp/nlp-core/birth-child";
 import { finalize } from "@/lib/whatsapp/nlp-core/result";
 import { domainFromUserChoice, manualDomainChoiceOptionsText, tabularDomainLabel } from "@/lib/whatsapp/nlp-core/tabular-domain-router";
-import { detectStructuredInput, looksLikeCollapsedStructuredInput, parseRanchoMessage, parseTabularAnimalEventsMessageAs } from "@/services/whatsapp/local-parser-gate";
+import { detectStructuredInput, parseRanchoMessage, parseTabularAnimalEventsMessageAs } from "@/services/whatsapp/local-parser-gate";
 import { polishBotResponse, userFacingCodeLabel } from "@/lib/whatsapp/user-facing-text";
 import { dateFromReference, dateOnlyFromReference, isoFromReference } from "@/services/whatsapp/date-utils";
 import { formatMoney, formatNumber } from "@/services/whatsapp/message-format";
@@ -4073,6 +4073,16 @@ async function handleConversationActMessage(
   const pending = pendingFromSession(session);
   const command = act.normalizedText;
 
+  if (pending && isGeminiPrimaryMode() && shouldUsePendingPatchForText(text)) {
+    const semanticPatch = await handleSemanticPendingPatch(supabase, owner, session, text);
+    if (semanticPatch?.handled) return semanticPatch;
+    return {
+      handled: true,
+      parsed: pending,
+      response: "Entendi que você está falando do registro em aberto, mas não consegui aplicar a mudança com segurança. Explique o que deseja alterar ou envie cancelar para descartar."
+    };
+  }
+
   if (pending && session.etapa === "aguardando_dado" && isFinishOptionalFieldsCommand(command)) {
     const finished = finishMissingFieldsForConfirmation(pending);
     if (finished) {
@@ -4091,11 +4101,6 @@ async function handleConversationActMessage(
         response: composeMissingDataText(pending)
       };
     }
-  }
-
-  if (pending && session.etapa === "aguardando_confirmacao" && (act.messageType === "new_action" || act.messageType === "clarification")) {
-    const semanticPatch = await handleSemanticPendingPatch(supabase, owner, session, text);
-    if (semanticPatch?.handled) return semanticPatch;
   }
 
   if (act.messageType === "new_action" || act.messageType === "clarification") {
@@ -4179,9 +4184,6 @@ async function handleConversationActMessage(
     };
   }
 
-  const semanticPatch = await handleSemanticPendingPatch(supabase, owner, session, text);
-  if (semanticPatch?.handled) return semanticPatch;
-
   if (act.messageType === "negation" && /^(?:nao|n|nao e isso|errado|incorreto|negativo)$/.test(command)) {
     await saveSession(supabase, owner, { etapa: "livre", dados: {} });
     return {
@@ -4193,6 +4195,13 @@ async function handleConversationActMessage(
   }
 
   if (act.messageType === "correction" || act.messageType === "negation") {
+    if (isGeminiPrimaryMode()) {
+      return {
+        handled: true,
+        parsed: pending,
+        response: "Entendi que você quer ajustar o registro em aberto, mas não consegui identificar a mudança com segurança. Diga o que deve sair e qual é o valor correto."
+      };
+    }
     const corrected = buildCorrectedPending(pending, text, act);
     const result = await saveCorrectedPending(supabase, owner, corrected.parsed, corrected.prefix);
     return { handled: true, parsed: result.parsed, response: result.response };
@@ -4312,6 +4321,14 @@ async function handleMissingData(
 
   const semanticPatch = await handleSemanticPendingPatch(supabase, owner, session, text);
   if (semanticPatch?.handled) return semanticPatch.response || "";
+
+  if (isGeminiPrimaryMode()) {
+    botLog("pending_patch_clarification_required", owner, {
+      targetIntent: pending.tipo,
+      status: "aguardando_dado"
+    });
+    return composeMissingDataText(pending);
+  }
 
   const next = await enrichWithCatalog(catalogEnrichmentDependencies(), supabase, owner, mergeRanchoMessageData(pending, text));
   botLog("contextual_reply", owner, {
@@ -4816,8 +4833,7 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       ? structuredMessage
       : originalMessage.includes(";") && /[\r\n]/.test(originalMessage) ?originalMessage : message;
     const legacyParserCanDecide = !isGeminiPrimaryMode();
-    const localStructuredFallbackCanRead = structuredDetection.isStructured || looksLikeCollapsedStructuredInput(structuredMessage);
-    const localParsedPreview = legacyParserCanDecide || localStructuredFallbackCanRead
+    const localParsedPreview = legacyParserCanDecide
       ? parseRanchoMessage(parserMessage)
       : finalize("DESCONHECIDO", {
         origem_parser: "gemini_primary_no_local_parser_preview",
@@ -4841,7 +4857,7 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       });
     }
     const activePendingContext = Boolean(pendingFromSession(previousSession)?.tipo && previousSession.etapa && previousSession.etapa !== "livre");
-    const conversationAct: ConversationAct = !activePendingContext && (tableParsedPreview || structuredDetection.isStructured) ?{
+    const conversationAct: ConversationAct = !activePendingContext ?{
       messageType: "new_action",
       intent: tableParsedPreview?.tipo || null,
       confidence: tableParsedPreview?.confianca || 0.9,
@@ -4850,7 +4866,9 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       correction: null,
       flags: [],
       decision: "new_action",
-      reason: "Mensagem tabular tratada como nova importacao controlada.",
+      reason: structuredDetection.isStructured
+        ? "Mensagem estruturada enviada ao ActionPlan."
+        : "Mensagem livre enviada ao ActionPlan.",
       normalizedText: command,
       hasPendingAction: Boolean(pendingFromSession(previousSession))
     } : detectConversationAct({
@@ -4860,7 +4878,7 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       pending: pendingFromSession(previousSession)
     });
     logConversationAct(message, conversationAct);
-    const generalConversationText = !activePendingContext && !structuredDetection.isStructured && !tableParsedPreview
+    const generalConversationText = !isGeminiPrimaryMode() && !activePendingContext && !structuredDetection.isStructured && !tableParsedPreview
       ? composeGeneralConversationText(command, previousSession)
       : null;
     const pendingActionInterpretation = previousSession.etapa === "aguardando_confirmacao"
@@ -4912,23 +4930,23 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
     } else if (!activePendingContext && tableParsedPreview) {
       parsed = await enrichWithCatalog(catalogEnrichmentDependencies(), supabase, owner, tableParsedPreview);
       response = await handleFreeText(supabase, owner, parserMessage, parsed);
-    } else if (isMenuCommand(command)) {
+    } else if (!isGeminiPrimaryMode() && isMenuCommand(command)) {
       await saveSession(supabase, owner, { etapa: "livre", dados: {} });
       response = helpText();
-    } else if (conversationAct.messageType === "cancellation") {
+    } else if (activePendingContext && conversationAct.messageType === "cancellation") {
       const handled = await handleConversationActMessage(supabase, owner, previousSession, message, conversationAct);
       parsed = handled.parsed;
       suppressPreviousPending = Boolean(handled.suppressPreviousPending);
       response = handled.response || "Cancelado. Nada foi salvo. Envie um novo registro quando quiser.";
-    } else if (isHerdPaginationCommand(command) && previousSession.dados?.rebanho_paginacao) {
+    } else if (!isGeminiPrimaryMode() && isHerdPaginationCommand(command) && previousSession.dados?.rebanho_paginacao) {
       const handled = await handleHerdPagination(supabase, owner, previousSession, command);
       parsed = handled.parsed;
       response = handled.response;
-    } else if (isStockPaginationCommand(command) && previousSession.dados?.eventos_paginacao) {
+    } else if (!isGeminiPrimaryMode() && isStockPaginationCommand(command) && previousSession.dados?.eventos_paginacao) {
       response = await handleEventsPagination(supabase, owner, previousSession);
-    } else if (isStockPaginationCommand(command) && previousSession.dados?.estoque_paginacao) {
+    } else if (!isGeminiPrimaryMode() && isStockPaginationCommand(command) && previousSession.dados?.estoque_paginacao) {
       response = await handleStockPagination(supabase, owner, previousSession);
-    } else if (isStockPaginationCommand(command) && previousSession.dados?.financeiro_paginacao) {
+    } else if (!isGeminiPrimaryMode() && isStockPaginationCommand(command) && previousSession.dados?.financeiro_paginacao) {
       response = await handleFinancePagination(supabase, owner, previousSession);
     } else if (isRepeatCommand(command)) {
       parsed = pendingFromSession(previousSession);
@@ -5029,7 +5047,9 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
         response = await handleMissingData(supabase, owner, previousSession, message);
       }
     } else {
-      const handled = await handleConversationActMessage(supabase, owner, previousSession, message, conversationAct);
+      const handled = isGeminiPrimaryMode()
+        ? { handled: false }
+        : await handleConversationActMessage(supabase, owner, previousSession, message, conversationAct);
       if (handled.handled) {
         parsed = handled.parsed;
         suppressPreviousPending = Boolean(handled.suppressPreviousPending);

@@ -676,11 +676,11 @@ const cases = [
       session: { etapa: "aguardando_dado", dados: { pending: parseRanchoMessage("atualizar observacao da vaca 032") } },
       pending: parseRanchoMessage("atualizar observacao da vaca 032")
     });
-    assert(act.messageType === "new_action", `tabela com pendencia deveria ser nova acao, recebido ${act.messageType}`);
-    assert(act.decision === "new_action", `tabela com pendencia deveria ignorar merge contextual, recebido ${act.decision}`);
-    results.push({ ok: true, name: "Tabela estruturada substitui resposta de pendencia" });
+    assert(act.messageType === "clarification", `tabela durante pendencia deve preservar o contexto, recebido ${act.messageType}`);
+    assert(act.decision !== "new_action" && act.hasPendingAction, `tabela durante pendencia nao deve substituir a acao sem cancelar, recebido ${act.decision}`);
+    results.push({ ok: true, name: "Tabela durante pendencia preserva o contexto" });
   } catch (error) {
-    results.push({ ok: false, name: "Tabela estruturada substitui resposta de pendencia", error: error instanceof Error ? error.message : String(error) });
+    results.push({ ok: false, name: "Tabela durante pendencia preserva o contexto", error: error instanceof Error ? error.message : String(error) });
   }
 
   try {

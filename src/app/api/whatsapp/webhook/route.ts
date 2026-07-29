@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       }
 
       const result = await handleMetaRanchoMessage({ ...incoming, phone, text });
-      results.push({ id: incoming.id, sent: Boolean(result.respostaTexto) });
+      results.push({ id: incoming.id, sent: result.outboundSent });
     }
 
     return NextResponse.json({ ok: true, processed: results.length, results });

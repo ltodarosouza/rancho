@@ -20,6 +20,32 @@ export type MetaIncomingMessage = {
 
 const apiBase = "https://graph.facebook.com/v20.0";
 
+type MetaApiErrorPayload = {
+  message?: string;
+  type?: string;
+  code?: number;
+  error_subcode?: number;
+  fbtrace_id?: string;
+};
+
+export class MetaWhatsAppApiError extends Error {
+  status: number;
+  code: number | null;
+  subcode: number | null;
+  metaType: string | null;
+  traceId: string | null;
+
+  constructor(status: number, payload?: MetaApiErrorPayload) {
+    super(payload?.message || "Erro ao enviar mensagem pela WhatsApp Cloud API");
+    this.name = "MetaWhatsAppApiError";
+    this.status = status;
+    this.code = Number.isFinite(payload?.code) ? Number(payload?.code) : null;
+    this.subcode = Number.isFinite(payload?.error_subcode) ? Number(payload?.error_subcode) : null;
+    this.metaType = payload?.type || null;
+    this.traceId = payload?.fbtrace_id || null;
+  }
+}
+
 export function isMetaConfigured() {
   return isMetaEnvConfigured();
 }
@@ -59,7 +85,7 @@ async function sendPayload(payload: any) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data?.error?.message || "Erro ao enviar mensagem WhatsApp");
+    throw new MetaWhatsAppApiError(response.status, data?.error);
   }
   return data;
 }

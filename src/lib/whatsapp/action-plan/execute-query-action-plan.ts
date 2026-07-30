@@ -601,7 +601,9 @@ function numberText(value: number) {
 
 function shortDate(value: unknown) {
   const parsed = parseDate(value);
-  return parsed ? dateOnly(parsed) : "sem data";
+  if (!parsed) return "sem data";
+  const [year, month, day] = dateOnly(parsed).split("-");
+  return `${day}/${month}/${year}`;
 }
 
 function daysSince(value: unknown, baseDate: Date) {

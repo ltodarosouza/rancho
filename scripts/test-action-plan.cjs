@@ -5643,6 +5643,8 @@ test("ActionPlan lista transacoes com BRL periodo e paginacao", async () => {
   });
   assert(result.ok, `lista financeira deveria executar: ${result.reason}`);
   assert(result.response.includes("R$ 1.234,50"), `valor deveria estar em BRL: ${result.response}`);
+  assert(result.response.includes("28/07/2026"), `data deveria usar o padrao brasileiro: ${result.response}`);
+  assert(!result.response.includes("07/28/2026") && !result.response.includes("2026-07-28"), `data tecnica ou americana nao deveria aparecer: ${result.response}`);
   assert(result.response.includes("mostrar mais"), "lista financeira deveria oferecer continuacao");
   assert(result.parsed.dados?.action_plan_pagination?.offset === 10, "lista financeira deveria guardar pagina seguinte");
 });

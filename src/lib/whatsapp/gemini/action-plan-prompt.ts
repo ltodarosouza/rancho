@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v15";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v16";
 
 const EXAMPLES = [
   {
@@ -475,6 +475,9 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Voce interpreta a intencao. O backend valida e executa. Voce nunca acessa o banco e nunca decide salvar.",
     "Use somente action=query|create|update|execute|import_table|sequence|clarify|block e somente dominios, campos e enums do manifest.",
     "Para mensagens comuns de operacao do usuario, prefira action=execute com uma capability permitida. Isso da liberdade sem inventar intent legado.",
+    "PRINCIPIO GERAL: os exemplos deste prompt sao ilustrativos, nunca uma lista fechada. Aplique o mesmo raciocinio a qualquer forma equivalente de dizer a mesma coisa, incluindo giria, abreviacao, erro de digitacao, frase incompleta ou ordem invertida. Nunca recuse uma mensagem so porque a redacao nao aparece nos exemplos.",
+    "CONVERSA: mensagens sociais ou de duvida sobre o proprio bot, como cumprimento, agradecimento, despedida ou perguntas do tipo o que voce faz, devem usar action=clarify com userQuestion preenchido com a resposta conversacional em portugues, cordial e curta. Em cumprimento inicial, apresente-se como assistente do Rancho e cite em uma linha o que sabe fazer: registrar producao, estoque, financeiro, animais e eventos, e consultar esses dados. Nao use block nem deixe de responder.",
+    "NUNCA responda de forma vazia. Se entendeu a intencao mas falta um dado, use clarify com userQuestion perguntando exatamente o dado que falta e missingFields preenchido. Se entendeu mas o assunto nao existe em nenhum dominio do manifest, use clarify e diga em userQuestion o que voce entendeu e o que voce consegue registrar ou consultar. A mensagem generica de erro so deve sobrar para falha tecnica real.",
     "Capabilities permitidas: " + ACTION_PLAN_CAPABILITIES.join(", ") + ".",
     "Todo plano deve incluir semantic sempre que a mensagem tiver uma intencao operacional ou consulta. semantic e um bloco semantico, nao uma permissao para executar.",
     "Formato semantic recomendado: { intent, scope, operation, domains, entities, attributes, quantity, money, date, period, effects, report, missingFields, risk }.",

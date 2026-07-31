@@ -43,10 +43,53 @@ function entityText(value: unknown) {
   return hasValue(resolved) ? String(resolved).trim() : undefined;
 }
 
-function put(data: AnyRecord, key: string, value: unknown, allowedFields?: Set<string>) {
-  if (allowedFields && !allowedFields.has(key)) return;
-  if (!hasValue(value) || hasValue(data[key])) return;
-  data[key] = value;
+/**
+ * Portao de campos para create/update. Antes, qualquer chave fora do manifest
+ * sumia sem deixar rastro e o plano era reprovado depois por "campo obrigatorio
+ * ausente" que o modelo na verdade tinha enviado. Agora tentamos casar a chave
+ * pelo nome canonico e so descartamos o que realmente nao existe, registrando.
+ */
+type FieldGate = {
+  allowed: Set<string>;
+  canonical: Map<string, string>;
+  dropped: Set<string>;
+};
+
+function normalizeFieldKey(value: unknown) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function buildFieldGate(fieldNames: string[]): FieldGate {
+  const canonical = new Map<string, string>();
+  for (const name of fieldNames) {
+    const key = normalizeFieldKey(name);
+    if (!canonical.has(key)) canonical.set(key, name);
+  }
+  return { allowed: new Set(fieldNames), canonical, dropped: new Set() };
+}
+
+function resolveGateKey(gate: FieldGate, key: string) {
+  if (gate.allowed.has(key)) return key;
+  return gate.canonical.get(normalizeFieldKey(key)) || null;
+}
+
+function put(data: AnyRecord, key: string, value: unknown, gate?: FieldGate) {
+  let targetKey = key;
+  if (gate) {
+    const resolved = resolveGateKey(gate, key);
+    if (!resolved) {
+      if (hasValue(value)) gate.dropped.add(key);
+      return;
+    }
+    targetKey = resolved;
+  }
+  if (!hasValue(value) || hasValue(data[targetKey])) return;
+  data[targetKey] = value;
 }
 
 function effectText(effect: unknown) {
@@ -83,7 +126,7 @@ function moneyParts(money: SemanticActionPlanBlock["money"]) {
   return { value: money };
 }
 
-function addEntityData(data: AnyRecord, semantic: SemanticActionPlanBlock, allowedFields?: Set<string>) {
+function addEntityData(data: AnyRecord, semantic: SemanticActionPlanBlock, allowedFields?: FieldGate) {
   const entities = isPlainObject(semantic.entities) ? semantic.entities : {};
   const animal = firstValue(entities.animal, entities.vaca, entities.boi, entities.touro, entities.animal_ref);
   const mother = firstValue(entities.mae, entities.matriz, entities.mae_ref);
@@ -120,7 +163,7 @@ function addEntityData(data: AnyRecord, semantic: SemanticActionPlanBlock, allow
   }
 }
 
-function addQuantityData(data: AnyRecord, semantic: SemanticActionPlanBlock, plan: ActionPlan, allowedFields?: Set<string>) {
+function addQuantityData(data: AnyRecord, semantic: SemanticActionPlanBlock, plan: ActionPlan, allowedFields?: FieldGate) {
   const quantity = quantityParts(semantic.quantity);
   put(data, "quantidade", quantity.value, allowedFields);
   put(data, "unidade", quantity.unit, allowedFields);
@@ -131,7 +174,7 @@ function addQuantityData(data: AnyRecord, semantic: SemanticActionPlanBlock, pla
   }
 }
 
-function addMoneyData(data: AnyRecord, semantic: SemanticActionPlanBlock, allowedFields?: Set<string>) {
+function addMoneyData(data: AnyRecord, semantic: SemanticActionPlanBlock, allowedFields?: FieldGate) {
   const money = moneyParts(semantic.money);
   put(data, "valor", money.value, allowedFields);
   put(data, "valor_total", money.value, allowedFields);
@@ -141,7 +184,7 @@ function addMoneyData(data: AnyRecord, semantic: SemanticActionPlanBlock, allowe
   put(data, "metodo_pagamento", money.method, allowedFields);
 }
 
-function addEffectData(data: AnyRecord, semantic: SemanticActionPlanBlock, allowedFields?: Set<string>) {
+function addEffectData(data: AnyRecord, semantic: SemanticActionPlanBlock, allowedFields?: FieldGate) {
   for (const effect of Array.isArray(semantic.effects) ? semantic.effects : []) {
     if (!isPlainObject(effect)) continue;
     const text = effectText(effect);
@@ -174,12 +217,12 @@ function addReportData(data: AnyRecord, semantic: SemanticActionPlanBlock) {
   put(data, "exclude_domains", semantic.report.excludeDomains);
 }
 
-function semanticData(plan: ActionPlan, manifest: DomainManifest) {
+function semanticData(plan: ActionPlan, manifest: DomainManifest, droppedOut?: Set<string>) {
   const semantic = plan.semantic;
   if (!semantic || !isPlainObject(semantic)) return {};
   const domain = "domain" in plan && plan.domain ? manifest[plan.domain] : null;
   const allowedFields = domain && (plan.action === "create" || plan.action === "update")
-    ? new Set(Object.keys(domain.fields))
+    ? buildFieldGate(Object.keys(domain.fields))
     : undefined;
   const data: AnyRecord = {};
 
@@ -207,6 +250,10 @@ function semanticData(plan: ActionPlan, manifest: DomainManifest) {
   }
   if (/\b(vacina|vacinacao)\b/.test(text)) put(data, "evento", "vacina", allowedFields);
   if (/\b(tratamento|medicamento|vermifugo|antibiotico)\b/.test(text)) put(data, "evento", "tratamento", allowedFields);
+
+  if (droppedOut && allowedFields) {
+    allowedFields.dropped.forEach((field) => droppedOut.add(field));
+  }
 
   return data;
 }
@@ -244,9 +291,17 @@ export function semanticPeriod(plan: Pick<ActionPlan, "semantic">) {
   return hasValue(period) ? String(period) : undefined;
 }
 
-export function normalizeActionPlanSemantic<T extends ActionPlan>(plan: T, manifest: DomainManifest = RANCHO_DOMAIN_MANIFEST): T {
+export function normalizeActionPlanSemantic<T extends ActionPlan>(
+  plan: T,
+  manifest: DomainManifest = RANCHO_DOMAIN_MANIFEST,
+  warnings?: string[]
+): T {
   if (!isPlainObject(plan.semantic)) return plan;
-  const data = semanticData(plan, manifest);
+  const dropped = new Set<string>();
+  const data = semanticData(plan, manifest, dropped);
+  if (warnings && dropped.size) {
+    warnings.push(`campos sem equivalente no dominio ignorados: ${Array.from(dropped).join(", ")}`);
+  }
   const operation = plan.operation || plan.semantic.operation || plan.semantic.intent || undefined;
 
   if (plan.action === "execute") {

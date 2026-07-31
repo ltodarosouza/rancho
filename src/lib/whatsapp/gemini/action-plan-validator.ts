@@ -978,6 +978,17 @@ function validateFieldExists(domain: DomainManifestEntry, fieldName: unknown, er
   return definition;
 }
 
+/**
+ * Resolve um nome de campo vindo do modelo para o nome canonico do manifest,
+ * aceitando apelidos. Retorna null quando nao ha equivalente.
+ */
+function resolveFieldName(domain: DomainManifestEntry, fieldName: unknown): string | null {
+  const field = String(fieldName || "").trim();
+  if (!field) return null;
+  if (fieldDefinition(domain, field)) return field;
+  return fieldNameForDomain(domain.domain, domain, field);
+}
+
 function validateEnumValue(
   domain: DomainManifestEntry,
   fieldName: string,
@@ -1068,7 +1079,13 @@ function validateFilterOperator(
   }
 }
 
-function validateFilters(domain: DomainManifestEntry, filters: unknown, errors: string[], path: string) {
+/**
+ * Filtros definem QUAIS linhas voltam, entao nunca sao descartados: um filtro
+ * perdido transformaria "historico da Mimosa" em "todo o rebanho". Quando
+ * warnings e informado, apelidos de campo sao remapeados para o nome canonico;
+ * o que nao tiver equivalente continua sendo erro.
+ */
+function validateFilters(domain: DomainManifestEntry, filters: unknown, errors: string[], path: string, warnings?: string[]) {
   if (!Array.isArray(filters)) {
     errors.push(`${path} deve ser array`);
     return;
@@ -1078,6 +1095,14 @@ function validateFilters(domain: DomainManifestEntry, filters: unknown, errors: 
     if (!isPlainObject(filter)) {
       errors.push(`${filterPath} deve ser objeto`);
       return;
+    }
+    if (warnings) {
+      const original = String(filter.field || "").trim();
+      const resolved = resolveFieldName(domain, original);
+      if (resolved && resolved !== original) {
+        warnings.push(`${filterPath}.field "${original}" interpretado como ${resolved}`);
+        filter.field = resolved;
+      }
     }
     const definition = validateFieldExists(domain, filter.field, errors, `${filterPath}.field`);
     if (definition) validateFilterOperator(domain, filter as FilterPlan, definition, errors, filterPath);
@@ -1102,20 +1127,40 @@ function validateAggregation(domain: DomainManifestEntry, aggregation: Aggregati
   }
 }
 
-function validateSelect(domain: DomainManifestEntry, select: unknown, errors: string[], path: string) {
-  if (select === undefined) return;
+/**
+ * select e orderBy so afetam quais colunas aparecem e em que ordem, nunca a
+ * pergunta respondida. Com warnings informado, campo sem equivalente e
+ * descartado com aviso em vez de derrubar o plano inteiro. groupBy e
+ * aggregations ficam de fora dessa tolerancia porque mudam a resposta.
+ * Retorna a lista saneada, ou undefined quando nao ha nada a substituir.
+ */
+function validateSelect(domain: DomainManifestEntry, select: unknown, errors: string[], path: string, warnings?: string[]) {
+  if (select === undefined) return undefined;
   if (!Array.isArray(select)) {
     errors.push(`${path} deve ser array`);
-    return;
+    return undefined;
   }
-  select.forEach((fieldName, index) => validateFieldExists(domain, fieldName, errors, `${path}[${index}]`));
+  if (!warnings) {
+    select.forEach((fieldName, index) => validateFieldExists(domain, fieldName, errors, `${path}[${index}]`));
+    return undefined;
+  }
+  const kept: string[] = [];
+  select.forEach((fieldName) => {
+    const resolved = resolveFieldName(domain, fieldName);
+    if (resolved) {
+      if (!kept.includes(resolved)) kept.push(resolved);
+      return;
+    }
+    warnings.push(`${path}: campo "${String(fieldName)}" ignorado por nao existir em ${domain.domain}`);
+  });
+  return kept;
 }
 
-function validateGroupBy(domain: DomainManifestEntry, groupBy: unknown, errors: string[], path: string) {
-  if (groupBy === undefined) return;
+function validateGroupBy(domain: DomainManifestEntry, groupBy: unknown, errors: string[], path: string, warnings?: string[]) {
+  if (groupBy === undefined) return undefined;
   if (!Array.isArray(groupBy)) {
     errors.push(`${path} deve ser array`);
-    return;
+    return undefined;
   }
   groupBy.forEach((value, index) => {
     const fieldName = String(value || "").trim();
@@ -1123,20 +1168,45 @@ function validateGroupBy(domain: DomainManifestEntry, groupBy: unknown, errors: 
       if (!domain.dateFields.length) errors.push(`${path}[${index}] grupo temporal exige campo de data no dominio`);
       return;
     }
+    if (warnings) {
+      const resolved = resolveFieldName(domain, fieldName);
+      if (resolved && resolved !== fieldName) {
+        warnings.push(`${path}[${index}] "${fieldName}" interpretado como ${resolved}`);
+        groupBy[index] = resolved;
+        return;
+      }
+    }
     validateFieldExists(domain, fieldName, errors, `${path}[${index}]`);
   });
+  return undefined;
 }
 
-function validateOrderBy(domain: DomainManifestEntry, orderBy: unknown, errors: string[]) {
-  if (orderBy === undefined) return;
+/** Retorna false quando o orderBy deve ser descartado pelo chamador. */
+function validateOrderBy(domain: DomainManifestEntry, orderBy: unknown, errors: string[], warnings?: string[]) {
+  if (orderBy === undefined) return true;
   if (!isPlainObject(orderBy)) {
+    if (warnings) {
+      warnings.push("orderBy ignorado por nao ser objeto");
+      return false;
+    }
     errors.push("orderBy deve ser objeto");
-    return;
+    return true;
+  }
+  if (warnings) {
+    const resolved = resolveFieldName(domain, orderBy.field);
+    if (!resolved) {
+      warnings.push(`orderBy ignorado: campo "${String(orderBy.field)}" nao existe em ${domain.domain}`);
+      return false;
+    }
+    orderBy.field = resolved;
+    if (orderBy.direction !== "asc" && orderBy.direction !== "desc") orderBy.direction = "desc";
+    return true;
   }
   validateFieldExists(domain, orderBy.field, errors, "orderBy.field");
   if (orderBy.direction !== "asc" && orderBy.direction !== "desc") {
     errors.push("orderBy.direction deve ser asc ou desc");
   }
+  return true;
 }
 
 function validateRequiredFields(
@@ -1224,14 +1294,36 @@ function validateConfirmation(action: string, requiresConfirmation: unknown, err
 
 function validateQueryPlan(plan: QueryActionPlan, domain: DomainManifestEntry, errors: string[], warnings: string[]) {
   validateConfirmation("query", plan.requiresConfirmation, errors);
-  validateFilters(domain, plan.filters, errors, "filters");
-  validateSelect(domain, plan.select, errors, "select");
+  validateFilters(domain, plan.filters, errors, "filters", warnings);
+
+  const select = validateSelect(domain, plan.select, errors, "select", warnings);
+  if (select) plan.select = select.length ? select : undefined;
+
+  // Agregacao e agrupamento SAO a resposta: "media de producao" sem o avg vira
+  // uma lista, ou seja, outra pergunta. Aqui so remapeamos o nome do campo; o
+  // que continuar invalido segue sendo erro, como nos filtros.
   if (plan.aggregations !== undefined) {
     if (!Array.isArray(plan.aggregations)) errors.push("aggregations deve ser array");
-    else plan.aggregations.forEach((aggregation, index) => validateAggregation(domain, aggregation, errors, `aggregations[${index}]`));
+    else {
+      plan.aggregations.forEach((aggregation, index) => {
+        if (!isPlainObject(aggregation)) {
+          errors.push(`aggregations[${index}] deve ser objeto`);
+          return;
+        }
+        const original = String(aggregation.field || "").trim();
+        const resolved = resolveFieldName(domain, original);
+        if (resolved && resolved !== original) {
+          warnings.push(`aggregations[${index}].field "${original}" interpretado como ${resolved}`);
+          aggregation.field = resolved;
+        }
+        validateAggregation(domain, aggregation, errors, `aggregations[${index}]`);
+      });
+    }
   }
-  validateGroupBy(domain, plan.groupBy, errors, "groupBy");
-  validateOrderBy(domain, plan.orderBy, errors);
+
+  validateGroupBy(domain, plan.groupBy, errors, "groupBy", warnings);
+
+  if (!validateOrderBy(domain, plan.orderBy, errors, warnings)) plan.orderBy = undefined;
   if (plan.limit !== undefined) {
     if (typeof plan.limit !== "number" || !Number.isInteger(plan.limit) || plan.limit <= 0) {
       errors.push("limit deve ser inteiro positivo");
@@ -1264,10 +1356,10 @@ function fieldsFromEqFilters(plan: UpdateActionPlan, domain: DomainManifestEntry
   return fields;
 }
 
-function validateUpdatePlan(plan: UpdateActionPlan, domain: DomainManifestEntry, errors: string[]) {
+function validateUpdatePlan(plan: UpdateActionPlan, domain: DomainManifestEntry, errors: string[], warnings: string[]) {
   validateConfirmation("update", plan.requiresConfirmation, errors);
   const fields = validateDataObject(domain, plan.data, "update", errors);
-  if (plan.filters !== undefined) validateFilters(domain, plan.filters, errors, "filters");
+  if (plan.filters !== undefined) validateFilters(domain, plan.filters, errors, "filters", warnings);
   if (!updateHasTarget(plan, domain)) errors.push("update precisa de filtro ou identificador para evitar update em massa");
   if (fields.size) {
     const targetFields = fieldsFromEqFilters(plan, domain);
@@ -1597,7 +1689,7 @@ export function validateActionPlan(plan: unknown, context: ActionPlanValidationC
   validateSemanticBlock(plan.semantic, manifest, errors);
   if (errors.length) return invalid(errors.join("; "), warnings, true);
 
-  const normalizedInput = normalizeActionPlanSemantic(plan as ActionPlan, manifest) as AnyRecord;
+  const normalizedInput = normalizeActionPlanSemantic(plan as ActionPlan, manifest, warnings) as AnyRecord;
   const action = String(normalizedInput.action || "").trim();
   if (action === "delete") return invalid("delete nao e suportado em ActionPlan", warnings, true);
   if (!ACTION_PLAN_ACTIONS.includes(action as never)) return invalid("action inexistente ou nao permitida", warnings);
@@ -1622,7 +1714,7 @@ export function validateActionPlan(plan: unknown, context: ActionPlanValidationC
   const normalizedPlan = normalizePlanForDomain({ ...normalizedInput } as ActionPlan, domainName);
   if (action === "query") validateQueryPlan(normalizedPlan as QueryActionPlan, domain, errors, warnings);
   if (action === "create") validateCreatePlan(normalizedPlan as CreateActionPlan, domain, errors);
-  if (action === "update") validateUpdatePlan(normalizedPlan as UpdateActionPlan, domain, errors);
+  if (action === "update") validateUpdatePlan(normalizedPlan as UpdateActionPlan, domain, errors, warnings);
   if (action === "import_table") {
     validateImportTableCore(normalizedPlan as ImportTableActionPlan, domain, context.parsedTable, errors);
   }

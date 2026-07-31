@@ -7,6 +7,7 @@ import type { ActionPlan, ImportTableActionPlan, SequenceActionPlan } from "@/li
 import type { ActionPlanSupabaseLike } from "@/lib/whatsapp/action-plan/execute-query-action-plan";
 import { botAllowsLegacyRollback, botInterpreterMode, geminiActionPlanEnabled, geminiTableActionPlanEnabled, GEMINI_SAFE_FAILURE_MESSAGE } from "@/lib/whatsapp/gemini/config";
 import { GEMINI_CONSULT_INTENTS, mapGeminiIntentToRancho, normalizeGeminiIntent } from "@/lib/whatsapp/gemini/allowed-intents";
+import { RANCHO_DOMAIN_MANIFEST, type DomainManifest } from "@/lib/whatsapp/gemini/domain-manifest";
 import { interpretWithGemini } from "@/lib/whatsapp/gemini/interpreter";
 import { geminiMode } from "@/lib/whatsapp/gemini/runtime";
 import type { GeminiStructuredAction, GeminiStructuredResult } from "@/lib/whatsapp/gemini/types";
@@ -1136,9 +1137,44 @@ function actionPlanDebug(plan: ActionPlan | null | undefined, structuredDetectio
   };
 }
 
-function actionPlanClarifyMessage(plan: ActionPlan | null | undefined, status: "invalid" | "blocked" | "clarify") {
+/** Nome do campo em linguagem de usuario, tirado do proprio manifest. */
+function humanFieldName(domainName: unknown, field: string) {
+  const domain = (RANCHO_DOMAIN_MANIFEST as DomainManifest)[String(domainName || "")];
+  return domain?.fields?.[field]?.label || field.replace(/_/g, " ");
+}
+
+/**
+ * O modelo quase sempre sabe dizer o que faltou. Antes de cair na mensagem
+ * generica, aproveitamos, nesta ordem: a pergunta que ele escreveu, a dica de
+ * resposta e os campos que ele marcou como ausentes.
+ */
+function actionPlanClarifyMessage(
+  plan: ActionPlan | null | undefined,
+  status: "invalid" | "blocked" | "clarify",
+  interpretation?: GeminiStructuredResult | null
+) {
   if (status === "blocked") return "Nao posso executar esse pedido com seguranca.";
   if (plan?.action === "import_table") return BOT_IMPORT_TABLE_VALIDATION_MESSAGE;
+
+  const modelQuestion = cleanText(
+    (plan && "userQuestion" in plan ? plan.userQuestion : null)
+    || (plan && "question" in plan ? plan.question : null)
+    || interpretation?.response_hint
+  );
+  if (modelQuestion) return modelQuestion;
+
+  const missingFields = plan && "missingFields" in plan && Array.isArray(plan.missingFields)
+    ? plan.missingFields
+    : [];
+  const missing = missingFields
+    .map((field) => humanFieldName(plan && "domain" in plan ? plan.domain : null, String(field || "")))
+    .filter(Boolean);
+  if (missing.length) {
+    return missing.length === 1
+      ? `Entendi seu pedido, mas faltou informar ${missing[0]}. Pode me dizer?`
+      : `Entendi seu pedido, mas faltou informar: ${missing.join(", ")}. Pode me dizer?`;
+  }
+
   return BOT_CONTRACT_INTERPRETER_MESSAGE;
 }
 
@@ -1428,7 +1464,7 @@ async function convertActionPlanInterpretation(
       kind: "clarify",
       threshold: 0.7,
       reason: error.reason,
-      message: actionPlanClarifyMessage(plan, error.status),
+      message: actionPlanClarifyMessage(plan, error.status, interpretation),
       debug: {
         ...actionPlanDebug(plan, structuredDetection, error.reason),
         error_classification: error.status === "blocked" ? "safety" : plan?.action === "import_table" ? "import_table" : "validation",

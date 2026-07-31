@@ -171,7 +171,7 @@ function compactDataForPrompt(parsed?: ParsedRanchoMessage | null, options: { ev
   if (result && typeof result === "object" && !Array.isArray(result)) {
     const safeResult = { ...(result as AnyRecord) };
     // The sample always starts at the first row and can corrupt later pages.
-    // The validated response already contains the exact rows the user may see.
+    // linhas_pagina carries the exact rows of the answered page instead.
     delete safeResult.amostra;
     if (Object.keys(safeResult).length) compact.resultado = safeResult;
   }
@@ -191,15 +191,28 @@ function compactDataForPrompt(parsed?: ParsedRanchoMessage | null, options: { ev
   return Object.keys(compact).length ? compact : null;
 }
 
+/**
+ * Consulta sem resultado. Nesses casos a frase do backend e generica
+ * ("nao ha mais X para mostrar") e nao diz o que foi procurado. O compositor
+ * tem os filtros e consegue explicar, entao vale compor mesmo em texto curto.
+ */
+function isEmptyQueryResult(input: ComposeBotResponseInput) {
+  const resultado = input.parsed?.dados?.resultado as AnyRecord | undefined;
+  if (!resultado || typeof resultado !== "object") return false;
+  if (!input.parsed?.dados?.consulta) return false;
+  return Number(resultado.registros || 0) === 0;
+}
+
 function shouldTryAIComposition(input: ComposeBotResponseInput) {
   const response = String(input.response || "").trim();
   if (!response) return false;
   if (!responseComposerEnabled()) return false;
   if (automatedTestBlocksComposer()) return false;
   if (!providerApiKeyConfigured()) return false;
-  if (response.length < MIN_RESPONSE_TO_COMPOSE) return false;
   if (response.length > MAX_RESPONSE_TO_COMPOSE) return false;
   if (/erro interno|instabilidade para interpretar/i.test(response)) return false;
+  if (isEmptyQueryResult(input)) return true;
+  if (response.length < MIN_RESPONSE_TO_COMPOSE) return false;
   return Boolean(input.parsed?.tipo || mandatoryLines(response).length || response.length >= 120);
 }
 
@@ -229,7 +242,10 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     "",
     "Regras rigidas:",
     "- Use somente os fatos presentes em originalResponse e extractedData.",
-    "- Em consultas, originalResponse e a fonte de verdade sobre quais registros pertencem a esta resposta e a esta pagina. Nao troque, repita nem acrescente registros usando outros dados do contexto.",
+    "- Em consultas, originalResponse e extractedData.resultado.linhas_pagina sao a fonte de verdade sobre quais registros pertencem a esta resposta e a esta pagina. Nao troque, repita nem acrescente registros usando outros dados do contexto, e nunca use resultado.amostra.",
+    "- Numeros, totais, somas, saldos e contagens ja vem calculados pelo backend. Copie-os como estao; nunca recalcule, estime ou some por conta propria.",
+    "- Consulta sem resultado (resultado.registros = 0): nao responda apenas que nao ha nada. Diga em linguagem natural o que foi procurado, com base em resultado.filters e no periodo consultado, e ofereca o proximo passo util. Nunca use a palavra 'mais' sugerindo que existiam registros anteriores quando registros = 0.",
+    "- Responda a pergunta que o usuario realmente fez em userMessage. Se o backend trouxe os dados em um recorte diferente do pedido, por exemplo outro periodo, diga qual recorte foi consultado em vez de silenciar a diferenca.",
     "- Resumo e lista detalhada sao modos diferentes. Se originalResponse for um resumo, nao acrescente exemplos, amostras ou transacoes que nao estejam escritos nela.",
     "- Nao invente dados, valores, codigos, animais, datas, permissoes ou salvamentos.",
     "- Nao altere a acao definida pelo backend.",

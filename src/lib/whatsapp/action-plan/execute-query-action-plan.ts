@@ -1676,7 +1676,11 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
       registros: rows.length,
       metrics,
       filters: plan.filters,
-      amostra: querySample(domain, rows, relationContext)
+      amostra: querySample(domain, rows, relationContext),
+      // Linhas exatamente da pagina respondida. Diferente de amostra, que
+      // sempre parte da primeira linha e corrompe paginas seguintes.
+      linhas_pagina: querySample(domain, rows.slice(offset, offset + pageSize), relationContext),
+      pagina: { offset, pageSize, total: rows.length }
     }
   }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
 

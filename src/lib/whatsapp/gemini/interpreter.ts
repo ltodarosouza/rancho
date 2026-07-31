@@ -25,6 +25,29 @@ function geminiInterpreterLog(event: string, details: Record<string, unknown>) {
   });
 }
 
+/**
+ * Resumo do plano para o log. Sem os filtros e impossivel dizer, diante de uma
+ * consulta vazia, se a busca errou ou se a interpretacao errou. Nao registra
+ * valores livres digitados pelo usuario alem da referencia consultada.
+ */
+function actionPlanShapeForLog(plan: Record<string, unknown>) {
+  const shape: Record<string, unknown> = {};
+  if (Array.isArray(plan.filters)) {
+    shape.filters = plan.filters.map((filter) => {
+      const item = (filter || {}) as Record<string, unknown>;
+      return { field: item.field, op: item.op, value: item.value };
+    });
+  }
+  if (Array.isArray(plan.select)) shape.select = plan.select;
+  if (Array.isArray(plan.groupBy)) shape.groupBy = plan.groupBy;
+  if (Array.isArray(plan.aggregations)) shape.aggregations = plan.aggregations;
+  if (plan.orderBy) shape.orderBy = plan.orderBy;
+  if (plan.capability) shape.capability = plan.capability;
+  if (plan.operation) shape.operation = plan.operation;
+  if (Array.isArray(plan.steps)) shape.steps = plan.steps.length;
+  return shape;
+}
+
 function isRepairableActionPlanContractError(reason: unknown) {
   const text = String(reason || "");
   if (!text) return false;
@@ -303,7 +326,10 @@ export async function callGeminiInterpreter(input: GeminiInterpreterInput): Prom
         model,
         action: plan.action,
         domain: "domain" in plan ? plan.domain : null,
-        confidence: validation.value.confidence
+        confidence: validation.value.confidence,
+        // Sem os filtros no log e impossivel distinguir erro de busca de erro
+        // de interpretacao quando uma consulta volta vazia.
+        ...actionPlanShapeForLog(plan)
       });
     } else if (geminiActionPlanEnabled() && validation.value.legacy_intent_returned) {
       geminiInterpreterLog("legacy_intent_returned_while_action_plan_enabled", {

@@ -1611,7 +1611,16 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   }
 
   const limit = Math.min(plan.limit || domain.maxLimit, domain.maxLimit);
-  const sourceLimit = plan.groupBy?.length || plan.aggregations?.length ? domain.maxLimit : limit;
+  // Somente filtros de data viram condicao SQL; o resto e avaliado em memoria
+  // depois da consulta. Se o banco ja vier cortado no limite do usuario, uma
+  // entidade fora dessa janela desaparece antes de ser comparada e o bot
+  // responde "nao encontrei" sobre um registro que existe.
+  const filtersEvaluatedInMemory = plan.filters.some((filter) => !domain.dateFields.includes(filter.field));
+  const needsFullScan = Boolean(plan.groupBy?.length || plan.aggregations?.length || filtersEvaluatedInMemory);
+  const sourceLimit = needsFullScan ? domain.maxLimit : limit;
+  // Agregacao e agrupamento resumem tudo que passou no filtro; consulta comum
+  // devolve no maximo o que o usuario pediu.
+  const resultLimit = plan.groupBy?.length || plan.aggregations?.length ? domain.maxLimit : limit;
   const fieldDefinitions = Object.values(domain.fields) as DomainFieldDefinition[];
   const selectFields = SAFE_SELECT_FIELDS[domain.domain] || [
     "id",
@@ -1640,7 +1649,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   const baseDate = currentDate(input.currentDate);
   const rows = ((data || []) as AnyRecord[])
     .filter((row) => plan.filters.every((filter) => filterMatches(row, domain, filter, relationContext, baseDate)))
-    .slice(0, sourceLimit);
+    .slice(0, resultLimit);
   const metrics = buildAggregations(rows, plan, domain, relationContext);
   const pageSize = Math.max(1, input.pagination?.pageSize || queryPaginationPageSize(domain, plan) || 10);
   const offset = Math.max(0, input.pagination?.offset || 0);

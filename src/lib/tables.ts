@@ -24,6 +24,46 @@ export const TABLES = {
 } as const;
 
 /**
+ * Categorias aceitas pelo enum animal_categoria do banco. "bezerra" NAO existe
+ * la: o Postgres recusa com 'invalid input value for enum animal_categoria'.
+ * O codigo tinha varias listas divergentes, umas com bezerra e outras sem, e a
+ * lista usada no salvamento deixava o valor invalido chegar ao banco.
+ *
+ * O sexo do animal ja carrega a informacao de femea, entao bezerra entra como
+ * bezerro sem perder nada.
+ */
+export const ANIMAL_CATEGORIES = ["vaca", "boi", "bezerro", "novilha", "touro", "outro"] as const;
+
+export type AnimalCategory = typeof ANIMAL_CATEGORIES[number];
+
+const ANIMAL_CATEGORY_ALIASES: Record<string, AnimalCategory> = {
+  bezerra: "bezerro",
+  terneiro: "bezerro",
+  terneira: "bezerro",
+  novilho: "novilha",
+  matriz: "vaca",
+  matrizes: "vaca",
+  reprodutor: "touro",
+  garrote: "boi",
+  bovino: "outro",
+  gado: "outro",
+  animal: "outro",
+  cria: "bezerro"
+};
+
+/** Converte qualquer variacao para um valor que o banco aceita. */
+export function normalizeAnimalCategoryValue(value: unknown, fallback: AnimalCategory = "outro"): AnimalCategory {
+  const normalized = String(value ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+  if (!normalized) return fallback;
+  if ((ANIMAL_CATEGORIES as readonly string[]).includes(normalized)) return normalized as AnimalCategory;
+  return ANIMAL_CATEGORY_ALIASES[normalized] || fallback;
+}
+
+/**
  * whatsapp_mensagens.direcao tem check constraint que aceita somente
  * 'inbound' e 'outbound'. O restante do bot fala entrada/saida, entao a
  * conversao acontece aqui, na fronteira com o banco, e nunca em cada query.
@@ -70,15 +110,13 @@ export const CREATED_BY_FIELDS: Record<string, string> = {
   [TABLES.eventosAnimal]: "responsavel_usuario_id"
 };
 
-const animalCategories = [
-  { label: "Vaca", value: "vaca" },
-  { label: "Boi", value: "boi" },
-  { label: "Bezerro", value: "bezerro" },
-  { label: "Bezerra", value: "bezerra" },
-  { label: "Novilha", value: "novilha" },
-  { label: "Touro", value: "touro" },
-  { label: "Outro", value: "outro" }
-];
+// "Bezerra" saiu daqui porque o enum animal_categoria do banco nao tem esse
+// valor: escolher a opcao no site gerava erro na gravacao. O sexo do animal
+// registra que e femea, entao nada se perde ao usar Bezerro.
+const animalCategories = ANIMAL_CATEGORIES.map((value) => ({
+  label: value.charAt(0).toUpperCase() + value.slice(1),
+  value
+}));
 
 const animalPhases = [
   { label: "Lactação", value: "lactacao" },

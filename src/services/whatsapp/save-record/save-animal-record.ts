@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { TABLES } from "@/lib/tables";
+import { normalizeAnimalCategoryValue, TABLES } from "@/lib/tables";
 import type { AnyRecord } from "@/lib/types";
 import { normalizeCatalogText } from "@/lib/whatsapp/catalog";
 import { calfCategoryForSex, normalizeCalfSex } from "@/lib/whatsapp/nlp-core/birth-child";
@@ -307,7 +307,7 @@ export async function saveAnimalRecord(ctx: SaveRecordHandlerContext): Promise<S
       fazenda_id: owner.fazenda_id,
       brinco: dados.animal_codigo,
       nome: dados.nome || null,
-      categoria: dados.categoria || "outro",
+      categoria: normalizeAnimalCategoryValue(dados.categoria),
       sexo: dados.sexo || "nao_informado",
       fase: dados.fase || "nao_aplicavel",
       raca: dados.raca || null,

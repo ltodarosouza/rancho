@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { TABLES } from "@/lib/tables";
+import { normalizeAnimalCategoryValue, TABLES } from "@/lib/tables";
 import type { AnyRecord } from "@/lib/types";
 import { normalizeCatalogText } from "@/lib/whatsapp/catalog";
 import { calfCategoryForSex, normalizeCalfSex } from "@/lib/whatsapp/nlp-core/birth-child";
@@ -343,7 +343,7 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
         nome: row.nome || null,
         mae_id: maeId,
         pai_id: paiId,
-        categoria: normalizeEnumValue(row.categoria, ["vaca", "boi", "bezerro", "bezerra", "novilha", "touro", "outro"], "outro"),
+        categoria: normalizeAnimalCategoryValue(row.categoria || row.categoria_original),
         sexo: normalizeEnumValue(row.sexo, ["femea", "macho", "nao_informado"], "nao_informado"),
         fase: normalizeEnumValue(row.fase, ["lactacao", "seca", "gestante", "vazia", "crescimento", "engorda", "nao_aplicavel"], "nao_aplicavel"),
         raca: row.raca || null,

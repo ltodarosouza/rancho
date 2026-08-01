@@ -1440,8 +1440,45 @@ function fieldsFromEqFilters(plan: UpdateActionPlan, domain: DomainManifestEntry
   return fields;
 }
 
+/**
+ * Em update, o mesmo valor pode aparecer como identificacao e como dado a
+ * gravar: animal_ref="Mimosa" junto de data.brinco="Mimosa" trocaria o brinco
+ * real do animal, 090, pelo nome dela. Repetir a referencia e identificacao,
+ * nao alteracao, entao sai. Valor diferente e alteracao de verdade e fica:
+ * animal_ref="Mimosa" com brinco="091" continua sendo troca de brinco.
+ */
+function dropIdentityEchoFromUpdateData(plan: UpdateActionPlan, warnings: string[]) {
+  if (!isPlainObject(plan.data) || !Array.isArray(plan.filters)) return;
+  const references = new Map<string, Set<string>>();
+  const collect = (field: unknown, value: unknown) => {
+    const covered = REFERENCE_SUBSUMES[String(field || "")];
+    if (!covered || !hasValue(value)) return;
+    const normalized = normalizeLooseText(value);
+    if (!normalized) return;
+    for (const name of covered) {
+      const current = references.get(name) || new Set<string>();
+      current.add(normalized);
+      references.set(name, current);
+    }
+  };
+  for (const filter of plan.filters) {
+    if (isPlainObject(filter)) collect(filter.field, filter.value);
+  }
+  for (const [field, value] of Object.entries(plan.data)) collect(field, value);
+  if (!references.size) return;
+
+  for (const [field, value] of Object.entries(plan.data)) {
+    const values = references.get(field);
+    if (!values || !hasValue(value)) continue;
+    if (!values.has(normalizeLooseText(value))) continue;
+    delete (plan.data as AnyRecord)[field];
+    warnings.push(`update.data.${field} removido por repetir a referencia usada para identificar o registro`);
+  }
+}
+
 function validateUpdatePlan(plan: UpdateActionPlan, domain: DomainManifestEntry, errors: string[], warnings: string[]) {
   validateConfirmation("update", plan.requiresConfirmation, errors);
+  dropIdentityEchoFromUpdateData(plan, warnings);
   const fields = validateDataObject(domain, plan.data, "update", errors);
   if (plan.filters !== undefined) validateFilters(domain, plan.filters, errors, "filters", warnings);
   if (!updateHasTarget(plan, domain)) errors.push("update precisa de filtro ou identificador para evitar update em massa");

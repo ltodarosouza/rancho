@@ -1,8 +1,12 @@
 module.exports = function loadBotTestSection(context) {
   with (context) {
+    // A resposta precisa dizer o estado real do animal, nao um rotulo generico:
+    // o usuario decide o que fazer sabendo se ela foi vendida ou morreu.
     const animalStatusTests = [
-      { name: "bloqueia producao para animal morto", animal: { id: "animal-morto", brinco: "M-001", status: "morto" }, intent: "PRODUCAO_LEITE", responseIncludes: "morto/inativo" },
+      { name: "bloqueia producao para animal morto", animal: { id: "animal-morto", brinco: "M-001", status: "morto" }, intent: "PRODUCAO_LEITE", responseIncludes: "morta" },
       { name: "bloqueia vacina para animal inativo", animal: { id: "animal-inativo", brinco: "I-001", status: "inativo" }, intent: "VACINA_MEDICAMENTO", responseIncludes: "vacina ou medicamento" },
+      { name: "bloqueia producao para animal vendido", animal: { id: "animal-vendido", brinco: "V-001", status: "vendido" }, intent: "PRODUCAO_LEITE", responseIncludes: "vendida" },
+      { name: "bloqueia producao para animal com status no feminino", animal: { id: "animal-morta", brinco: "F-001", status: "morta" }, intent: "PRODUCAO_LEITE", responseIncludes: "morta" },
       { name: "permite registro para animal ativo", animal: { id: "animal-ativo", brinco: "A-001", status: "ativo" }, intent: "PRODUCAO_LEITE", allowed: true }
     ];
 

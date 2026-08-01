@@ -255,6 +255,7 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
     );
     const createdLots = new Map<string, string>();
     const savedTables = new Set<string>();
+    const unresolvedParents = new Set<string>();
     let saved = 0;
     let skippedDuplicates = 0;
     let createdLotCount = 0;
@@ -320,10 +321,28 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
         throw new Error(`Nao foi possivel criar ou vincular o lote "${lotName || "informado"}". Nenhum animal desta linha foi salvo.`);
       }
 
+      // A tabela pode trazer mae e pai por brinco. Resolver aqui evita cadastrar
+      // a cria solta e ter que refazer a genealogia depois. Referencia que nao
+      // resolve nao impede o cadastro: o animal entra e a pendencia e relatada.
+      const parentIdFor = (reference: unknown) => {
+        const key = exactAnimalImportCodeKey(reference);
+        if (!key) return null;
+        const parent = animals.find((item) => exactAnimalImportCodeKey(item.brinco) === key);
+        if (!parent?.id) {
+          unresolvedParents.add(String(reference));
+          return null;
+        }
+        return String(parent.id);
+      };
+      const maeId = parentIdFor(row.mae_ref);
+      const paiId = parentIdFor(row.pai_ref);
+
       await insertRealRecord(supabase, owner, TABLES.animais, {
         fazenda_id: owner.fazenda_id,
         brinco: code,
         nome: row.nome || null,
+        mae_id: maeId,
+        pai_id: paiId,
         categoria: normalizeEnumValue(row.categoria, ["vaca", "boi", "bezerro", "bezerra", "novilha", "touro", "outro"], "outro"),
         sexo: normalizeEnumValue(row.sexo, ["femea", "macho", "nao_informado"], "nao_informado"),
         fase: normalizeEnumValue(row.fase, ["lactacao", "seca", "gestante", "vazia", "crescimento", "engorda", "nao_aplicavel"], "nao_aplicavel"),
@@ -346,7 +365,10 @@ export async function saveTableImportRecord(ctx: SaveRecordHandlerContext): Prom
 
     const duplicateText = skippedDuplicates ?`\nDuplicados ignorados no salvamento: ${skippedDuplicates}.` : "";
     const lotText = createdLotCount ?`\nLotes criados: ${createdLotCount}.` : "";
-    const baseResponse = `Pronto, ${saved} animal(is) cadastrados com sucesso.${lotText}${duplicateText}`;
+    const parentText = unresolvedParents.size
+      ? `\nNão encontrei no rebanho: ${Array.from(unresolvedParents).join(", ")}. Os animais foram cadastrados sem esse vínculo de mãe ou pai.`
+      : "";
+    const baseResponse = `Pronto, ${saved} animal(is) cadastrados com sucesso.${lotText}${duplicateText}${parentText}`;
     const sourceEvents = dados.eventos_apos_cadastro as ParsedRanchoMessage | undefined;
     if (sourceEvents?.tipo === "IMPORTACAO_EVENTOS_TABELA") {
       const nextEvents = await enrichTabularAnimalEventImport(supabase, owner, sourceEvents);

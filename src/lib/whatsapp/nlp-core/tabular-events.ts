@@ -47,6 +47,8 @@ export type ParsedTabularAnimalImportRow = {
   status: "ativo" | "inativo" | "morto" | "vendido" | null;
   peso: number | null;
   data_nascimento: string | null;
+  mae_ref: string | null;
+  pai_ref: string | null;
   observacoes: string;
   problemas: string[];
 };
@@ -186,8 +188,29 @@ function normalizeAnimalTableCode(value: string) {
     .toUpperCase();
 }
 
+/**
+ * Palavras de ligacao que o produtor escreve no cabecalho e que nao mudam o
+ * significado da coluna: "brinco da mae" e "brinco mae", "peso ao nascer" e
+ * "peso nascer". Sem remover isso, cada variacao precisaria virar um padrao
+ * novo na lista, que e exatamente a esteira que queremos evitar. Foi assim que
+ * "brinco da mae" e "peso ao nascer" eram descartados em silencio.
+ */
+const HEADER_CONNECTORS = new Set([
+  "de", "do", "da", "dos", "das", "ao", "aos",
+  "em", "no", "na", "nos", "nas", "por", "para", "pra", "com"
+]);
+// Artigos e conjuncoes ficam de fora de proposito. Com "e" na lista, a linha de
+// dados "090;Touro E;touro" virava "touro", batia na lista de palavras de
+// cabecalho e a linha era descartada como se fosse cabecalho.
+
 function compactHeader(value: string) {
-  return normalizeRanchoText(value).replace(/[^a-z0-9]+/g, " ").trim();
+  const base = normalizeRanchoText(value).replace(/[^a-z0-9]+/g, " ").trim();
+  if (!base) return base;
+  const tokens = base.split(" ").filter(Boolean);
+  // Uma coluna chamada so "de" ou "a" nao existe; se sobrar nada, mantem o
+  // texto original para nao transformar cabecalho valido em vazio.
+  const kept = tokens.filter((token) => !HEADER_CONNECTORS.has(token));
+  return kept.length ? kept.join(" ") : base;
 }
 
 function splitDelimitedLine(line: string, separator: ";" | "|" | "\t" | ",") {
@@ -435,7 +458,9 @@ function buildHeaderMap(headerLine: string): HeaderMap {
     breed: headerIndex(cells, [/^raca$/]),
     lot: headerIndex(cells, [/^(?:lote|piquete|pasto|grupo)$/]),
     status: headerIndex(cells, [/^(?:status|situacao)$/]),
-    weight: headerIndex(cells, [/^(?:peso|kg)$/]),
+    // "peso ao nascer", "peso atual", "peso vivo": o qualificador nao muda a
+    // coluna. Sem isso cada variacao viraria um padrao novo.
+    weight: headerIndex(cells, [/^(?:peso|kg)(?:\s+\S.*)?$/]),
     birthDate: headerIndex(cells, [/^(?:nascimento|data\s+nascimento|data\s+de\s+nascimento|nasc)$/]),
     item: headerIndex(cells, [/^(?:item|produto|insumo|material|nome)$/]),
     quantity: headerIndex(cells, [/^(?:quantidade|qtd|qtde)$/]) ?? stockMovement.index,
@@ -882,6 +907,11 @@ function parseAnimalImportLine(line: string, lineNumber: number, header: HeaderM
     status,
     peso: weight,
     data_nascimento: birthDate,
+    // Cadastro de cria costuma trazer a mae na tabela. Antes esses campos so
+    // existiam no parser de parto, entao a coluna era lida e jogada fora, e o
+    // animal entrava no rebanho sem vinculo nenhum com a mae.
+    mae_ref: normalizeAnimalTableCode(cellAt(cells, header.mother)) || null,
+    pai_ref: normalizeAnimalTableCode(cellAt(cells, header.father)) || null,
     observacoes: cellAt(cells, header.notes),
     problemas
   };

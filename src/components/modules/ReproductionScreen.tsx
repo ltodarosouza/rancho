@@ -495,7 +495,7 @@ export function animalReproductionStatus(animal: AnyRecord, events: AnyRecord[])
 
 function AnimalSkeleton() {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+    <article className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
       <div className="flex items-start gap-3">
         <Skeleton className="h-11 w-11 rounded-lg" />
         <div className="min-w-0 flex-1">
@@ -520,14 +520,14 @@ function SummaryTile({
   loading: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{label}</span>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
+        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]">{label}</span>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--bg)] text-[var(--text-2)]">
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <div className="mt-4 text-2xl font-black text-slate-950 dark:text-slate-50">
+      <div className="mt-4 text-xl font-semibold">
         {loading ? <Skeleton className="h-8 w-20" /> : value}
       </div>
     </div>
@@ -562,7 +562,7 @@ function ReproductionAnimalCard({
   return (
     <article
       className={cn(
-        "relative overflow-hidden rounded-lg border p-4 pl-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-soft",
+        "relative overflow-hidden rounded-lg border p-4 pl-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:border-[var(--text-3)]",
         sex.accentClassName,
         selected && "ring-2 ring-emerald-400/80 dark:ring-emerald-500/70"
       )}
@@ -573,43 +573,43 @@ function ReproductionAnimalCard({
           <HeartPulse className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-lg font-black text-slate-950 dark:text-slate-50">{animalLabel(animal)}</h2>
-          <p className="mt-1 truncate text-sm font-bold text-slate-500 dark:text-slate-400">
+          <h2 className="truncate text-[15px] font-semibold text-[var(--text)]">{animalLabel(animal)}</h2>
+          <p className="mt-1 truncate text-sm font-medium text-[var(--text-2)]">
             {categoryLabel(animal.categoria)} - {lotName}
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <Badge tone={status.tone}>{status.label}</Badge>
-          <span className={cn("rounded-full border px-2.5 py-1 text-xs font-black", sex.className)}>
+          <span className={cn("rounded-full border px-2.5 py-1 text-xs font-semibold", sex.className)}>
             {sex.label}
           </span>
         </div>
       </div>
 
       <div className="mt-4 grid gap-2 text-sm">
-        <div className="flex justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
-          <span className="text-slate-500 dark:text-slate-400">Último registro</span>
-          <strong className="truncate text-right text-slate-900 dark:text-slate-100">
+        <div className="flex justify-between gap-3 rounded-lg bg-[var(--bg)] px-3 py-2">
+          <span className="text-[var(--text-2)]">Último registro</span>
+          <strong className="truncate text-right text-[var(--text)]">
             {lastEvent ? formatDate(lastEvent.data_evento) : "-"}
           </strong>
         </div>
-        <div className="flex justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
-          <span className="text-slate-500 dark:text-slate-400">Eventos</span>
-          <strong className="text-slate-900 dark:text-slate-100">{events.length}</strong>
+        <div className="flex justify-between gap-3 rounded-lg bg-[var(--bg)] px-3 py-2">
+          <span className="text-[var(--text-2)]">Eventos</span>
+          <strong className="text-[var(--text)]">{events.length}</strong>
         </div>
         {lastParto ? (
-          <div className="flex justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
-            <span className="text-slate-500 dark:text-slate-400">Último parto</span>
-            <strong className="truncate text-right text-slate-900 dark:text-slate-100">{formatDate(lastParto.data_evento || lastParto.created_at)}</strong>
+          <div className="flex justify-between gap-3 rounded-lg bg-[var(--bg)] px-3 py-2">
+            <span className="text-[var(--text-2)]">Último parto</span>
+            <strong className="truncate text-right text-[var(--text)]">{formatDate(lastParto.data_evento || lastParto.created_at)}</strong>
           </div>
         ) : null}
         {lastParto ? (
-          <div className="flex justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
-            <span className="text-slate-500 dark:text-slate-400">Cria vinculada</span>
-            <strong className="truncate text-right text-slate-900 dark:text-slate-100">{latestChild ? animalLabel(latestChild) : "-"}</strong>
+          <div className="flex justify-between gap-3 rounded-lg bg-[var(--bg)] px-3 py-2">
+            <span className="text-[var(--text-2)]">Cria vinculada</span>
+            <strong className="truncate text-right text-[var(--text)]">{latestChild ? animalLabel(latestChild) : "-"}</strong>
           </div>
         ) : null}
-        <div className="min-h-10 rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500 dark:bg-slate-900 dark:text-slate-300">
+        <div className="min-h-10 rounded-lg bg-[var(--bg)] px-3 py-2 text-xs font-medium text-[var(--text-2)]">
           {lastParto?.descricao ? lastParto.descricao : status.detail}
         </div>
       </div>
@@ -636,15 +636,15 @@ function EventTimelineItem({
   const cost = costNumber(event.custo);
 
   return (
-    <li className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+    <li className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={kindBadgeTone(kind)}>{kindLabels[kind]}</Badge>
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{formatDateTime(event.data_evento)}</span>
-            {cost > 0 ? <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{formatCurrency(cost)}</span> : null}
+            <span className="text-xs font-bold text-[var(--text-2)]">{formatDateTime(event.data_evento)}</span>
+            {cost > 0 ? <span className="text-xs font-bold text-[var(--text-2)]">{formatCurrency(cost)}</span> : null}
           </div>
-          <p className="mt-2 break-words text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <p className="mt-2 break-words text-sm font-semibold text-[var(--text)]">
             {event.descricao || "Sem descrição"}
           </p>
         </div>
@@ -706,16 +706,13 @@ function ReproductionDetailDrawer({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-0 backdrop-blur-sm sm:p-4">
-      <section className="flex h-full w-full max-w-6xl flex-col overflow-hidden bg-slate-50 shadow-2xl dark:bg-slate-950 sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-lg sm:border sm:border-slate-200 sm:dark:border-slate-800">
-        <header className="border-b border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-0 sm:p-4">
+      <section className="flex h-full w-full max-w-6xl flex-col overflow-hidden bg-[var(--bg)] shadow-2xl sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-lg sm:border sm:border-[var(--border)]">
+        <header className="border-b border-[var(--border)] bg-[var(--surface)] p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-                <HeartPulse className="h-4 w-4" /> Ficha reprodutiva
-              </div>
-              <h2 className="truncate text-2xl font-black text-slate-950 dark:text-slate-50">{animalLabel(animal)}</h2>
-              <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">
+              <h2 className="truncate text-xl font-semibold">{animalLabel(animal)}</h2>
+              <p className="mt-1 text-sm font-semibold text-[var(--text-2)]">
                 {categoryLabel(animal.categoria)} - {animalStatusLabel(animal.status)} - {lotName}
               </p>
             </div>
@@ -728,36 +725,36 @@ function ReproductionDetailDrawer({
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
             <section className="space-y-4">
-              <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={status.tone}>{status.label}</Badge>
-                  <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{status.detail}</span>
+                  <span className="text-sm font-bold text-[var(--text-2)]">{status.detail}</span>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Fase</p>
-                    <p className="mt-2 font-black text-slate-950 dark:text-slate-50">{String(animal.fase || "Não informado")}</p>
+                  <div className="rounded-lg bg-[var(--bg)] p-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]">Fase</p>
+                    <p className="mt-2 font-semibold text-[var(--text)]">{String(animal.fase || "Não informado")}</p>
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Próximo parto</p>
-                    <p className="mt-2 font-black text-slate-950 dark:text-slate-50">{nextBirth ? formatDate(nextBirth.toISOString()) : "-"}</p>
+                  <div className="rounded-lg bg-[var(--bg)] p-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]">Próximo parto</p>
+                    <p className="mt-2 font-semibold text-[var(--text)]">{nextBirth ? formatDate(nextBirth.toISOString()) : "-"}</p>
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Eventos</p>
-                    <p className="mt-2 font-black text-slate-950 dark:text-slate-50">{sortedEvents.length}</p>
+                  <div className="rounded-lg bg-[var(--bg)] p-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]">Eventos</p>
+                    <p className="mt-2 font-semibold text-[var(--text)]">{sortedEvents.length}</p>
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Última atualização</p>
-                    <p className="mt-2 font-black text-slate-950 dark:text-slate-50">{sortedEvents[0] ? formatDate(sortedEvents[0].data_evento) : "-"}</p>
+                  <div className="rounded-lg bg-[var(--bg)] p-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]">Última atualização</p>
+                    <p className="mt-2 font-semibold text-[var(--text)]">{sortedEvents[0] ? formatDate(sortedEvents[0].data_evento) : "-"}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+                <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">Novo registro</p>
-                    <h3 className="mt-1 text-lg font-black">{editingEvent ? "Editando evento" : "Lançamento reprodutivo"}</h3>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]">Novo registro</p>
+                    <h3 className="mt-1 text-[15px] font-semibold">{editingEvent ? "Editando evento" : "Lançamento reprodutivo"}</h3>
                   </div>
                   {editingEvent ? (
                     <button className="btn btn-secondary h-9 min-h-9 px-3 py-2 text-xs" type="button" onClick={onCancelEdit}>
@@ -773,23 +770,23 @@ function ReproductionDetailDrawer({
                         <button
                           key={option.value}
                           className={cn(
-                            "rounded-lg border p-3 text-left transition",
+                            "rounded-md border p-3 text-left transition",
                             draft.type === option.value
                               ? "border-emerald-400 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-100"
-                              : "border-slate-200 bg-white hover:border-emerald-300 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-emerald-800"
+                              : "border-[var(--border)] bg-[var(--surface)] hover:border-emerald-300 dark:hover:border-emerald-800"
                           )}
                           type="button"
                           onClick={() => onDraftChange({ ...draft, type: option.value })}
                         >
-                          <span className="block text-sm font-black">{option.label}</span>
-                          <span className="mt-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">{option.helper}</span>
+                          <span className="block text-sm font-semibold">{option.label}</span>
+                          <span className="mt-1 block text-xs font-semibold text-[var(--text-2)]">{option.helper}</span>
                         </button>
                       ))}
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <label className="space-y-2">
-                        <span className="text-sm font-bold">Data e hora</span>
+                        <span className="text-sm font-medium">Data e hora</span>
                         <input
                           className="input"
                           type="datetime-local"
@@ -798,7 +795,7 @@ function ReproductionDetailDrawer({
                         />
                       </label>
                       <label className="space-y-2">
-                        <span className="text-sm font-bold">Custo</span>
+                        <span className="text-sm font-medium">Custo</span>
                         <input
                           className="input"
                           inputMode="decimal"
@@ -810,7 +807,7 @@ function ReproductionDetailDrawer({
                     </div>
 
                     <label className="block space-y-2">
-                      <span className="text-sm font-bold">Origem / touro / sêmen / protocolo</span>
+                      <span className="text-sm font-medium">Origem / touro / sêmen / protocolo</span>
                       <input
                         className="input"
                         placeholder="Ex: Touro T-003, sêmen Angus, protocolo IATF..."
@@ -820,7 +817,7 @@ function ReproductionDetailDrawer({
                     </label>
 
                     <label className="block space-y-2">
-                      <span className="text-sm font-bold">Observações</span>
+                      <span className="text-sm font-medium">Observações</span>
                       <textarea
                         className="input min-h-28 resize-y"
                         placeholder="Registre sinais, resultado, responsável ou cuidado necessário."
@@ -841,11 +838,11 @@ function ReproductionDetailDrawer({
               </div>
             </section>
 
-            <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
-              <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+            <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+              <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Histórico</p>
-                  <h3 className="mt-1 text-lg font-black">Linha do tempo</h3>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]">Histórico</p>
+                  <h3 className="mt-1 text-[15px] font-semibold">Linha do tempo</h3>
                 </div>
                 <Badge tone="default">{sortedEvents.length} eventos</Badge>
               </div>
@@ -1132,11 +1129,8 @@ export function ReproductionScreen() {
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-            <HeartPulse className="h-4 w-4" /> Reprodução Animal
-          </div>
-          <h1 className="text-3xl font-black tracking-tight md:text-4xl">Reprodução Animal</h1>
-          <p className="mt-3 max-w-2xl text-slate-500 dark:text-slate-400">
+          <h1 className="text-xl font-semibold tracking-tight">Reprodução Animal</h1>
+          <p className="mt-3 max-w-2xl text-[var(--text-2)]">
             Acompanhe inseminações, prenhez, pre-parto, partos e observações reprodutivas usando o histórico real dos animais.
           </p>
         </div>
@@ -1167,10 +1161,10 @@ export function ReproductionScreen() {
       </section>
 
       <section className="space-y-4">
-        <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <label className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-3)]" />
               <input
                 className="input input-with-icon"
                 placeholder="Buscar por nome, brinco, categoria, fase ou lote..."
@@ -1200,10 +1194,10 @@ export function ReproductionScreen() {
               <button
                 key={option.value}
                 className={cn(
-                  "shrink-0 rounded-lg border px-3 py-2 text-sm font-black transition",
+                  "shrink-0 rounded-md border px-3 py-2 text-sm font-semibold transition",
                   reproductionFilter === option.value
                     ? "border-emerald-400 bg-emerald-100 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-100"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300"
+                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] hover:border-emerald-300 hover:text-emerald-800"
                 )}
                 type="button"
                 onClick={() => {
@@ -1229,8 +1223,8 @@ export function ReproductionScreen() {
         ) : null}
 
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl font-black">Animais</h2>
-          <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          <h2 className="text-[15px] font-semibold">Animais</h2>
+          <div className="flex items-center gap-2 rounded-lg bg-[var(--bg)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-2)]">
             <Plus className="h-4 w-4" /> {showSkeletons ? <Skeleton className="h-4 w-20" /> : `${filteredAnimals.length} exibidos`}
           </div>
         </div>

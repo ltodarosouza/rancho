@@ -102,14 +102,14 @@ export function NotificationsMenu() {
   return (
     <div className="relative">
       <button
-        className="relative rounded-lg border border-slate-200 bg-white/70 p-2 transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/70 dark:hover:bg-slate-800"
+        className="relative rounded-md border border-[var(--border)] bg-[var(--surface)] p-2 transition hover:bg-[var(--bg)]"
         type="button"
         onClick={() => setOpen((value) => !value)}
         title="Notificações"
       >
-        <Bell className="h-5 w-5" />
+        <Bell className="h-5 w-5 text-[var(--text-2)]" />
         {unreadCount ? (
-          <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-emerald-600 px-1.5 py-0.5 text-center text-[0.65rem] font-black text-white">
+          <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-emerald-600 px-1.5 py-0.5 text-center text-[0.65rem] font-semibold text-white">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         ) : null}
@@ -118,11 +118,11 @@ export function NotificationsMenu() {
       {open ? (
         <>
         <button className="fixed inset-0 z-40 cursor-default bg-transparent md:hidden" type="button" aria-label="Fechar notificações" onClick={() => setOpen(false)} />
-        <div className="fixed left-4 right-4 top-20 z-50 max-h-[calc(100vh-6rem)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900 md:absolute md:left-auto md:right-0 md:top-12 md:w-96">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+        <div className="fixed left-4 right-4 top-20 z-50 max-h-[calc(100vh-6rem)] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-lg md:absolute md:left-auto md:right-0 md:top-12 md:w-96">
+          <div className="flex items-center justify-between border-b border-[var(--border-light)] px-4 py-3">
             <div className="min-w-0">
-              <p className="text-sm font-black">Notificações</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Registros feitos pelo WhatsApp e avisos internos.</p>
+              <p className="text-sm font-semibold">Notificações</p>
+              <p className="text-xs text-[var(--text-3)]">Registros feitos pelo WhatsApp e avisos internos.</p>
             </div>
             {unreadCount ? <span className="shrink-0"><Badge tone="success">{unreadCount} nova(s)</Badge></span> : null}
           </div>
@@ -141,15 +141,15 @@ export function NotificationsMenu() {
                 className={cn(
                   "rounded-lg border p-3 transition",
                   notification.lida_em
-                    ? "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60"
+                    ? "border-[var(--border)] bg-[var(--surface)]"
                     : "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/25"
                 )}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="break-words text-sm font-black">{notification.titulo}</h3>
-                    <p className="mt-1 break-words text-sm text-slate-600 dark:text-slate-300">{notification.mensagem}</p>
-                    <p className="mt-2 text-xs text-slate-400">{formatDate(notification.created_at)}</p>
+                    <h3 className="break-words text-sm font-semibold">{notification.titulo}</h3>
+                    <p className="mt-1 break-words text-sm text-[var(--text-2)]">{notification.mensagem}</p>
+                    <p className="mt-2 text-xs text-[var(--text-3)]">{formatDate(notification.created_at)}</p>
                   </div>
                   {!notification.lida_em ? <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-600" /> : null}
                 </div>
@@ -166,7 +166,7 @@ export function NotificationsMenu() {
                 </div>
               </article>
             )) : (
-              <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
+              <div className="rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--text-3)]">
                 Nenhuma notificação por enquanto.
               </div>
             )}

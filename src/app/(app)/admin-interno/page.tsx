@@ -235,7 +235,7 @@ export default function AdminInternoPage() {
       <div className="mx-auto max-w-2xl animate-fade-in rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-900 shadow-sm dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
         <div className="flex items-center gap-3">
           <ShieldCheck className="h-6 w-6" />
-          <h1 className="text-xl font-black">Admin Interno</h1>
+          <h1 className="text-[15px] font-semibold">Admin Interno</h1>
         </div>
         <p className="mt-3 text-sm font-bold">{PLATFORM_ADMIN_FORBIDDEN_MESSAGE}</p>
         <a className="btn btn-secondary mt-5" href="/dashboard">Voltar ao dashboard</a>
@@ -245,11 +245,11 @@ export default function AdminInternoPage() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <section className="rounded-lg bg-slate-950 p-6 text-white shadow-soft md:p-8">
+      <section className="rounded-lg bg-slate-950 p-6 text-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-8">
         <Badge tone="success">Área interna</Badge>
         <div className="mt-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-4xl font-black tracking-tight md:text-5xl">Admin Interno</h1>
+            <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Admin Interno</h1>
             <p className="mt-3 max-w-2xl text-slate-300">Crie ranchos, acompanhe clientes e gere convites para donos criarem a própria senha.</p>
           </div>
           <button className="btn bg-white text-slate-950" type="button" onClick={() => void load()} disabled={loading || busy}>
@@ -259,54 +259,54 @@ export default function AdminInternoPage() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr]">
-        <form onSubmit={submitForm} className="glass rounded-lg p-5 shadow-soft md:p-6">
+        <form onSubmit={submitForm} className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
           <div className="mb-5 flex items-center gap-3">
             {editing ? <Building2 className="h-6 w-6 text-emerald-600" /> : <Plus className="h-6 w-6 text-emerald-600" />}
             <div>
-              <h2 className="text-xl font-black">{editing ? "Editar rancho" : "Novo rancho"}</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{editing ? "Atualize informações básicas do cliente." : "O dono receberá apenas um link para criar a própria senha."}</p>
+              <h2 className="text-[15px] font-semibold">{editing ? "Editar rancho" : "Novo rancho"}</h2>
+              <p className="text-sm text-[var(--text-2)]">{editing ? "Atualize informações básicas do cliente." : "O dono receberá apenas um link para criar a própria senha."}</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <label className="block space-y-2">
-              <span className="text-sm font-bold">Nome do rancho</span>
+              <span className="text-sm font-medium">Nome do rancho</span>
               <input className="input" value={draft.nome} onChange={(event) => updateDraft("nome", event.target.value)} required />
             </label>
 
             <label className="block space-y-2">
-              <span className="text-sm font-bold">Nome do dono</span>
+              <span className="text-sm font-medium">Nome do dono</span>
               <input className="input" value={draft.donoNome} onChange={(event) => updateDraft("donoNome", event.target.value)} required />
             </label>
             <label className="block space-y-2">
-              <span className="text-sm font-bold">E-mail do dono</span>
+              <span className="text-sm font-medium">E-mail do dono</span>
               <input className="input" type="email" value={draft.donoEmail} onChange={(event) => updateDraft("donoEmail", event.target.value)} required />
             </label>
             {!editing ? (
               <label className="block space-y-2">
-                <span className="text-sm font-bold">WhatsApp do dono</span>
+                <span className="text-sm font-medium">WhatsApp do dono</span>
                 <input className="input" value={draft.donoTelefone} onChange={(event) => updateDraft("donoTelefone", event.target.value)} placeholder="Opcional" />
               </label>
             ) : null}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-2">
-                <span className="text-sm font-bold">Cidade</span>
+                <span className="text-sm font-medium">Cidade</span>
                 <input className="input" value={draft.cidade} onChange={(event) => updateDraft("cidade", event.target.value)} />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-bold">Estado</span>
+                <span className="text-sm font-medium">Estado</span>
                 <input className="input" value={draft.estado} onChange={(event) => updateDraft("estado", event.target.value.toUpperCase().slice(0, 2))} placeholder="UF" />
               </label>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-2">
-                <span className="text-sm font-bold">Plano</span>
+                <span className="text-sm font-medium">Plano</span>
                 <input className="input" value={draft.plano} onChange={(event) => updateDraft("plano", event.target.value)} />
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-bold">Status</span>
+                <span className="text-sm font-medium">Status</span>
                 <select className="input" value={draft.status} onChange={(event) => updateDraft("status", event.target.value)}>
                   <option value="pendente">Pendente</option>
                   <option value="ativo">Ativo</option>
@@ -327,9 +327,9 @@ export default function AdminInternoPage() {
           {error ? <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</p> : null}
           {success ? <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{success}</p> : null}
           {inviteLink ? (
-            <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-sm dark:border-slate-800 dark:bg-slate-900/55">
+            <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">
               <p className="font-bold">Link de convite do dono</p>
-              <p className="mt-2 break-all rounded-md bg-slate-100 p-3 font-mono text-xs dark:bg-slate-950">{inviteLink}</p>
+              <p className="mt-2 break-all rounded-md bg-[var(--bg)] p-3 font-mono text-xs">{inviteLink}</p>
               <button className="btn btn-secondary mt-3" type="button" onClick={copyInvite}>
                 <Copy className="h-4 w-4" /> Copiar link
               </button>
@@ -337,31 +337,31 @@ export default function AdminInternoPage() {
           ) : null}
         </form>
 
-        <div className="glass rounded-lg p-5 shadow-soft md:p-6">
+        <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-black">Ranchos cadastrados</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Clientes, donos e convites ativos.</p>
+              <h2 className="text-[15px] font-semibold">Ranchos cadastrados</h2>
+              <p className="text-sm text-[var(--text-2)]">Clientes, donos e convites ativos.</p>
             </div>
             <Badge tone="default">{rows.length} cliente(s)</Badge>
           </div>
 
           <div className="space-y-3">
             {loading ? Array.from({ length: 4 }).map((_, index) => (
-              <div key={`rancho-skeleton-${index}`} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+              <div key={`rancho-skeleton-${index}`} className="rounded-lg border border-[var(--border)] p-4">
                 <Skeleton className="h-5 w-48" />
                 <Skeleton className="mt-3 h-4 w-72 max-w-full" />
                 <Skeleton className="mt-4 h-9 w-full" />
               </div>
             )) : rows.length ? rows.map((row) => (
-              <article key={row.id} className="rounded-lg border border-slate-200 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-900/55">
+              <article key={row.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="truncate text-lg font-black">{row.nome}</h3>
+                      <h3 className="truncate text-lg font-semibold">{row.nome}</h3>
                       <Badge tone={statusTone(row.status)}>{statusLabels[row.status] || row.status}</Badge>
                     </div>
-                    <div className="mt-2 grid gap-1 text-sm text-slate-600 dark:text-slate-300">
+                    <div className="mt-2 grid gap-1 text-sm text-[var(--text-2)]">
                       <span>Dono: <strong>{row.owner?.nome || row.owner_invite?.nome || "pendente"}</strong></span>
                       <span>E-mail: <strong>{row.owner?.email || row.owner_invite?.email || "não informado"}</strong></span>
                       <span>Plano: <strong>{row.plano || "mvp"}</strong> · Usuários: <strong>{row.users_count}</strong> · Criado em {formatDate(row.created_at)}</span>
@@ -385,7 +385,7 @@ export default function AdminInternoPage() {
                 </div>
               </article>
             )) : (
-              <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+              <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center text-sm text-[var(--text-2)]">
                 Nenhum rancho cadastrado ainda.
               </div>
             )}
@@ -394,7 +394,7 @@ export default function AdminInternoPage() {
       </section>
 
       {busy ? (
-        <div className="fixed bottom-4 right-4 flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-soft">
+        <div className="fixed bottom-4 right-4 flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <Loader2 className="h-4 w-4 animate-spin" /> Processando...
         </div>
       ) : null}

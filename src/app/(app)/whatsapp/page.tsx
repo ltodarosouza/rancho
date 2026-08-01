@@ -406,41 +406,41 @@ export default function WhatsAppPage() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <section className="overflow-hidden rounded-lg bg-emerald-950 p-6 text-white shadow-soft md:p-8">
+      <section className="overflow-hidden rounded-lg bg-emerald-950 p-6 text-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-8">
         <Badge tone="success">Atendimento rápido</Badge>
-        <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight md:text-5xl">WhatsApp para a rotina da fazenda.</h1>
+        <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl">WhatsApp para a rotina da fazenda.</h1>
         <p className="mt-4 max-w-3xl text-emerald-100">
           Cadastre quem pode usar o bot e registre ordenha, animais e financeiro direto pelo telefone.
         </p>
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <div className="glass rounded-lg p-5 shadow-soft">
-          <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Cadastrados</p>
-          {loading ? <Skeleton className="mt-3 h-8 w-16" /> : <strong className="mt-2 block text-3xl font-black">{initialLoadError ? "-" : totals.total}</strong>}
+        <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <p className="text-sm font-bold text-[var(--text-2)]">Cadastrados</p>
+          {loading ? <Skeleton className="mt-3 h-8 w-16" /> : <strong className="mt-2 block text-xl font-semibold">{initialLoadError ? "-" : totals.total}</strong>}
         </div>
-        <div className="glass rounded-lg p-5 shadow-soft">
-          <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Ativos</p>
-          {loading ? <Skeleton className="mt-3 h-8 w-16" /> : <strong className="mt-2 block text-3xl font-black text-emerald-700 dark:text-emerald-300">{initialLoadError ? "-" : totals.active}</strong>}
+        <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <p className="text-sm font-bold text-[var(--text-2)]">Ativos</p>
+          {loading ? <Skeleton className="mt-3 h-8 w-16" /> : <strong className="mt-2 block text-xl font-semibold text-emerald-700 dark:text-emerald-300">{initialLoadError ? "-" : totals.active}</strong>}
         </div>
-        <div className="glass rounded-lg p-5 shadow-soft">
-          <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Inativos</p>
-          {loading ? <Skeleton className="mt-3 h-8 w-16" /> : <strong className="mt-2 block text-3xl font-black text-slate-600 dark:text-slate-300">{initialLoadError ? "-" : totals.inactive}</strong>}
+        <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <p className="text-sm font-bold text-[var(--text-2)]">Inativos</p>
+          {loading ? <Skeleton className="mt-3 h-8 w-16" /> : <strong className="mt-2 block text-xl font-semibold text-[var(--text-2)]">{initialLoadError ? "-" : totals.inactive}</strong>}
         </div>
       </section>
 
       <section className={isSandbox ? "grid gap-4 lg:grid-cols-[0.9fr_1.1fr]" : "grid gap-4"}>
-        <div className="glass rounded-lg p-5 shadow-soft md:p-6">
+        <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-black">Status da integração</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <h2 className="text-[15px] font-semibold">Status da integração</h2>
+              <p className="mt-1 text-sm text-[var(--text-2)]">
                 Veja como o WhatsApp do Rancho está configurado agora.
               </p>
             </div>
             <Badge tone={isSandbox ? "warning" : "success"}>{isSandbox ? "Ambiente de testes" : "Integração ativa"}</Badge>
           </div>
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <p className="text-sm text-[var(--text-2)]">
             {isSandbox
               ? "O bot está em ambiente de testes. Para usar, o WhatsApp precisa entrar no sandbox da Twilio e também estar autorizado abaixo."
               : "A integração oficial do WhatsApp Business está ativa para os números autorizados do Rancho."}
@@ -448,22 +448,22 @@ export default function WhatsAppPage() {
         </div>
 
         {isSandbox ? (
-          <div className="glass rounded-lg p-5 shadow-soft md:p-6">
-            <h2 className="text-xl font-black">Como testar o bot agora</h2>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+          <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
+            <h2 className="text-[15px] font-semibold">Como testar o bot agora</h2>
+            <p className="mt-2 text-sm text-[var(--text-2)]">
               Enquanto estiver em testes, cada telefone precisa ativar o sandbox uma vez antes de conversar com o bot.
             </p>
-            <ol className="mt-4 space-y-3 text-sm text-slate-700 dark:text-slate-200">
+            <ol className="mt-4 space-y-3 text-sm text-[var(--text)]">
               <li className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">1</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">1</span>
                 <span>Cadastre e deixe o número ativo na lista de números autorizados.</span>
               </li>
               <li className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">2</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">2</span>
                 <span>Envie a mensagem de ativação para o número do sandbox da Twilio.</span>
               </li>
               <li className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">3</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">3</span>
                 <span>Depois da confirmação, mande uma mensagem simples, como &ldquo;menu&rdquo; ou &ldquo;vaca Mimosa deu 15 litros&rdquo;.</span>
               </li>
             </ol>
@@ -473,7 +473,7 @@ export default function WhatsAppPage() {
                 {sandboxJoinCode ? <p className="mt-1"><strong>Mensagem de ativação:</strong> join {sandboxJoinCode}</p> : null}
               </div>
             ) : null}
-            <p className="mt-4 text-xs font-bold text-slate-500 dark:text-slate-400">
+            <p className="mt-4 text-xs font-bold text-[var(--text-2)]">
               No WhatsApp oficial, essa ativação manual do sandbox deixa de existir.
             </p>
           </div>
@@ -481,17 +481,17 @@ export default function WhatsAppPage() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-        <form onSubmit={saveAuthorizedNumber} className="glass rounded-lg p-5 shadow-soft md:p-6">
+        <form onSubmit={saveAuthorizedNumber} className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
           <div className="mb-5 flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <UserPlus className="h-6 w-6 text-emerald-600" />
               <div>
-                <h2 className="text-xl font-black">{editing ? "Editar número autorizado" : "Novo número autorizado"}</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Somente números autorizados e ativos poderão usar o bot do Rancho.</p>
+                <h2 className="text-[15px] font-semibold">{editing ? "Editar número autorizado" : "Novo número autorizado"}</h2>
+                <p className="text-sm text-[var(--text-2)]">Somente números autorizados e ativos poderão usar o bot do Rancho.</p>
               </div>
             </div>
             {editing ? (
-              <button className="rounded-lg border border-slate-200 p-2 dark:border-slate-800" type="button" onClick={resetForm}>
+              <button className="rounded-lg border border-[var(--border)] p-2" type="button" onClick={resetForm}>
                 <X className="h-4 w-4" />
               </button>
             ) : null}
@@ -505,25 +505,25 @@ export default function WhatsAppPage() {
 
           <div className="space-y-4">
             <label className="block space-y-2">
-              <span className="text-sm font-bold">Nome ou apelido</span>
+              <span className="text-sm font-medium">Nome ou apelido</span>
               <input className="input" value={draft.nome} onChange={(event) => updateDraft("nome", event.target.value)} placeholder="Ex: João do curral" disabled={!canManage || busy} />
             </label>
             <label className="block space-y-2">
-              <span className="text-sm font-bold">WhatsApp</span>
+              <span className="text-sm font-medium">WhatsApp</span>
               <input className="input" value={draft.whatsapp} onChange={(event) => updateDraft("whatsapp", formatBrazilianPhone(event.target.value))} placeholder="(00) 00000-0000" disabled={!canManage || busy} required />
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-2">
-                <span className="text-sm font-bold">Função</span>
+                <span className="text-sm font-medium">Função</span>
                 <select className="input" value={draft.papel_bot} onChange={(event) => updateDraft("papel_bot", event.target.value)} disabled={!canManage || busy}>
                   {BOT_ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="text-xs text-[var(--text-2)]">
                   {BOT_ROLE_OPTIONS.find((option) => option.value === draft.papel_bot)?.description}
                 </span>
               </label>
               <label className="block space-y-2">
-                <span className="text-sm font-bold">Status</span>
+                <span className="text-sm font-medium">Status</span>
                 <select className="input" value={draft.ativo ? "ativo" : "inativo"} onChange={(event) => updateDraft("ativo", event.target.value === "ativo")} disabled={!canManage || busy}>
                   <option value="ativo">Ativo</option>
                   <option value="inativo">Inativo</option>
@@ -540,38 +540,38 @@ export default function WhatsAppPage() {
           {success ? <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{success}</p> : null}
         </form>
 
-        <div className="glass rounded-lg p-5 shadow-soft md:p-6">
+        <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
           <div className="mb-5 flex items-center gap-3">
             <ShieldCheck className="h-6 w-6 text-emerald-600" />
             <div>
-              <h2 className="text-xl font-black">Números autorizados</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Lista oficial usada pelo bot para liberar ou bloquear acesso.</p>
+              <h2 className="text-[15px] font-semibold">Números autorizados</h2>
+              <p className="text-sm text-[var(--text-2)]">Lista oficial usada pelo bot para liberar ou bloquear acesso.</p>
             </div>
           </div>
 
           <div className="space-y-3">
             {loading ? Array.from({ length: 4 }).map((_, index) => (
-              <div key={`wa-skeleton-${index}`} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+              <div key={`wa-skeleton-${index}`} className="rounded-lg border border-[var(--border)] p-4">
                 <Skeleton className="h-5 w-40" />
                 <Skeleton className="mt-3 h-4 w-56" />
               </div>
             )) : initialLoadError ? (
               <ErrorState title="Nao consegui carregar os numeros autorizados." message={error} onRetry={() => loadAuthorizedNumbers(true)} />
             ) : rows.length ? rows.map((row) => (
-              <article key={row.id} className="rounded-lg border border-slate-200 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-900/55">
+              <article key={row.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="truncate text-lg font-black">{row.nome_exibicao || "Usuário do bot"}</h3>
+                      <h3 className="truncate text-lg font-semibold">{row.nome_exibicao || "Usuário do bot"}</h3>
                       <Badge tone={row.ativo === false ? "default" : "success"}>{row.ativo === false ? "Inativo" : "Ativo"}</Badge>
                     </div>
-                    <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">{formatBrazilianPhone(row.telefone_e164)}</p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    <p className="mt-1 text-sm font-bold text-[var(--text)]">{formatBrazilianPhone(row.telefone_e164)}</p>
+                    <p className="mt-1 text-xs text-[var(--text-2)]">
                       {roleLabel(row.papel_bot)} • Cadastrado em {formatDate(row.created_at)}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button className="rounded-lg border border-slate-200 p-2 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800" type="button" onClick={() => startEdit(row)} disabled={!canManage || busy} title="Editar">
+                    <button className="rounded-lg border border-[var(--border)] p-2 hover:bg-[var(--bg)] disabled:opacity-50" type="button" onClick={() => startEdit(row)} disabled={!canManage || busy} title="Editar">
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button className="btn btn-secondary px-3 py-2 text-sm disabled:opacity-50" type="button" onClick={() => toggleNumber(row)} disabled={!canManage || busy}>
@@ -595,35 +595,35 @@ export default function WhatsAppPage() {
 
       <div className={isInternalTester ? "grid gap-6 lg:grid-cols-[0.9fr_1.1fr]" : "grid gap-6"}>
         {isInternalTester ? (
-          <div className="glass rounded-lg p-5 shadow-soft md:p-6">
+          <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
           <div className="mb-4 flex items-center gap-2">
             <Send className="h-5 w-5 text-emerald-600" />
-            <h2 className="text-xl font-black">Enviar mensagem</h2>
+            <h2 className="text-[15px] font-semibold">Enviar mensagem</h2>
           </div>
-          <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mb-4 text-sm text-[var(--text-2)]">
             Envie uma mensagem inicial ou um aviso para um WhatsApp autorizado.
           </p>
           <label className="space-y-2">
-            <span className="text-sm font-bold">Telefone</span>
+            <span className="text-sm font-medium">Telefone</span>
             <input className="input" value={phone} onChange={(event) => setPhone(formatBrazilianPhone(event.target.value))} placeholder="(00) 00000-0000" />
           </label>
           <label className="mt-4 block space-y-2">
-            <span className="text-sm font-bold">Mensagem</span>
+            <span className="text-sm font-medium">Mensagem</span>
             <textarea className="input min-h-28 resize-y" value={outboundMessage} onChange={(event) => setOutboundMessage(event.target.value)} />
           </label>
           <button className="btn btn-primary mt-4 w-full" onClick={sendMessage} type="button" disabled={sending || !phone.trim() || !outboundMessage.trim()}>
             <MessageCircle className="h-4 w-4" /> {sending ? "Enviando..." : "Enviar mensagem"}
           </button>
-          {status ? <p className="mt-3 rounded-lg bg-slate-100 p-3 text-sm font-bold dark:bg-slate-900">{status}</p> : null}
+          {status ? <p className="mt-3 rounded-lg bg-[var(--bg)] p-3 text-sm font-bold">{status}</p> : null}
           </div>
         ) : null}
 
-        <div className="glass rounded-lg p-5 shadow-soft md:p-6">
+        <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
           <div className="mb-5 flex items-center gap-3">
             <Bot className="h-6 w-6 text-amber-500" />
             <div>
-              <h2 className="text-xl font-black">Como o acesso funciona</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">O bot só executa ações de números autorizados e ativos.</p>
+              <h2 className="text-[15px] font-semibold">Como o acesso funciona</h2>
+              <p className="text-sm text-[var(--text-2)]">O bot só executa ações de números autorizados e ativos.</p>
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
@@ -633,7 +633,7 @@ export default function WhatsAppPage() {
               "Números inativos são bloqueados com uma mensagem clara.",
               "Os registros entram automaticamente na fazenda correta."
             ].map((item) => (
-              <div key={item} className="flex gap-3 rounded-lg border border-slate-200/70 bg-white/65 p-3 text-sm dark:border-slate-800 dark:bg-slate-900/55">
+              <div key={item} className="flex gap-3 rounded-lg border border-[var(--border)]/70 bg-[var(--surface)] p-3 text-sm">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                 <span>{item}</span>
               </div>
@@ -643,32 +643,32 @@ export default function WhatsAppPage() {
       </div>
 
       {isInternalTester ? (
-        <section className="glass rounded-lg p-5 shadow-soft md:p-6">
+        <section className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
           <div className="mb-5 flex items-center gap-3">
             <Bot className="h-6 w-6 text-emerald-600" />
             <div>
-              <h2 className="text-xl font-black">Ferramentas internas de teste</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Área restrita para testar o bot antes de liberar mudanças para clientes.</p>
+              <h2 className="text-[15px] font-semibold">Ferramentas internas de teste</h2>
+              <p className="text-sm text-[var(--text-2)]">Área restrita para testar o bot antes de liberar mudanças para clientes.</p>
             </div>
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
               <label className="block space-y-2">
-                <span className="text-sm font-bold">Telefone simulado</span>
+                <span className="text-sm font-medium">Telefone simulado</span>
                 <input className="input" value={botTestPhone} onChange={(event) => setBotTestPhone(formatBrazilianPhone(event.target.value))} placeholder="5583999999999" />
               </label>
-              <div className="mt-2 rounded-lg border border-slate-200 bg-white/70 p-3 text-sm dark:border-slate-800 dark:bg-slate-900/55">
+              <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">
                 {simulatedWhatsappUser ? (
                   <p>
                     Simulando: <strong>{simulatedWhatsappUser.nome_exibicao || formatBrazilianPhone(simulatedWhatsappUser.telefone_e164)}</strong> · {roleLabel(simulatedWhatsappUser.papel_bot)} · {formatBrazilianPhone(simulatedWhatsappUser.telefone_e164)}
                   </p>
                 ) : (
-                  <p className="text-slate-500 dark:text-slate-400">Informe um WhatsApp ativo cadastrado para simular admin ou funcionário.</p>
+                  <p className="text-[var(--text-2)]">Informe um WhatsApp ativo cadastrado para simular admin ou funcionário.</p>
                 )}
               </div>
               <label className="mt-4 block space-y-2">
-                <span className="text-sm font-bold">Mensagem</span>
+                <span className="text-sm font-medium">Mensagem</span>
                 <textarea className="input min-h-28 resize-y" value={botTestMessage} onChange={(event) => setBotTestMessage(event.target.value)} placeholder="vaca B-002 deu 32 litros" />
               </label>
               <label className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950/30">
@@ -690,13 +690,13 @@ export default function WhatsAppPage() {
               </button>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-900/55">
-              <h3 className="text-sm font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Resultado</h3>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-2)]">Resultado</h3>
               {botTestResult || botTestLoading ? (
                 <div className="mt-4 space-y-4">
                   {botTestLoading && botTestProcessingNoticeVisible ? (
                     <div>
-                      <p className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Mensagem intermediária</p>
+                      <p className="text-xs font-bold uppercase text-[var(--text-2)]">Mensagem intermediária</p>
                       <p className="mt-1 whitespace-pre-wrap rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">{botProcessingNoticePreview}</p>
                     </div>
                   ) : null}
@@ -705,63 +705,63 @@ export default function WhatsAppPage() {
                   {botTestResult.erro ? <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{botTestResult.erro}</p> : null}
                   {botTestResult.respostaTexto ? (
                     <div>
-                      <p className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Resposta do bot</p>
+                      <p className="text-xs font-bold uppercase text-[var(--text-2)]">Resposta do bot</p>
                       <p className="mt-1 whitespace-pre-wrap rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">{botTestResult.respostaTexto}</p>
                     </div>
                   ) : null}
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-950">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Intenção</p>
-                      <p className="mt-1 break-words text-sm font-black">{botTestResult.intencaoDetectada || "-"}</p>
+                    <div className="rounded-lg bg-[var(--bg)] p-3">
+                      <p className="text-xs font-bold text-[var(--text-2)]">Intenção</p>
+                      <p className="mt-1 break-words text-sm font-semibold">{botTestResult.intencaoDetectada || "-"}</p>
                     </div>
-                    <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-950">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Confiança</p>
-                      <p className="mt-1 text-sm font-black">{botTestResult.confianca === null ? "-" : `${Math.round(botTestResult.confianca * 100)}%`}</p>
+                    <div className="rounded-lg bg-[var(--bg)] p-3">
+                      <p className="text-xs font-bold text-[var(--text-2)]">Confiança</p>
+                      <p className="mt-1 text-sm font-semibold">{botTestResult.confianca === null ? "-" : `${Math.round(botTestResult.confianca * 100)}%`}</p>
                     </div>
-                    <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-950">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Confirmou</p>
-                      <p className="mt-1 text-sm font-black">{botTestResult.eventoConfirmado ? "Sim" : "Não"}</p>
+                    <div className="rounded-lg bg-[var(--bg)] p-3">
+                      <p className="text-xs font-bold text-[var(--text-2)]">Confirmou</p>
+                      <p className="mt-1 text-sm font-semibold">{botTestResult.eventoConfirmado ? "Sim" : "Não"}</p>
                     </div>
-                    <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-950">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Estado anterior</p>
-                      <p className="mt-1 break-words text-sm font-black">{botTestResult.estadoAnterior || "-"}</p>
+                    <div className="rounded-lg bg-[var(--bg)] p-3">
+                      <p className="text-xs font-bold text-[var(--text-2)]">Estado anterior</p>
+                      <p className="mt-1 break-words text-sm font-semibold">{botTestResult.estadoAnterior || "-"}</p>
                     </div>
-                    <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-950">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Estado novo</p>
-                      <p className="mt-1 break-words text-sm font-black">{botTestResult.estadoNovo || "-"}</p>
+                    <div className="rounded-lg bg-[var(--bg)] p-3">
+                      <p className="text-xs font-bold text-[var(--text-2)]">Estado novo</p>
+                      <p className="mt-1 break-words text-sm font-semibold">{botTestResult.estadoNovo || "-"}</p>
                     </div>
-                    <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-950">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Campos faltantes</p>
-                      <p className="mt-1 break-words text-sm font-black">{botTestResult.camposFaltantes.length ? botTestResult.camposFaltantes.join(", ") : "-"}</p>
+                    <div className="rounded-lg bg-[var(--bg)] p-3">
+                      <p className="text-xs font-bold text-[var(--text-2)]">Campos faltantes</p>
+                      <p className="mt-1 break-words text-sm font-semibold">{botTestResult.camposFaltantes.length ? botTestResult.camposFaltantes.join(", ") : "-"}</p>
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Dados extraídos</p>
+                    <p className="text-xs font-bold uppercase text-[var(--text-2)]">Dados extraídos</p>
                     <pre className="mt-1 max-h-44 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">{JSON.stringify(botTestResult.dadosExtraidos || {}, null, 2)}</pre>
                   </div>
                     </>
                   ) : null}
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Nenhuma simulação executada ainda.</p>
+                <p className="mt-4 text-sm text-[var(--text-2)]">Nenhuma simulação executada ainda.</p>
               )}
             </div>
           </div>
 
           <div className="mt-5">
-            <h3 className="text-sm font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Histórico da simulação</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-2)]">Histórico da simulação</h3>
             <div className="mt-3 space-y-3">
               {botTestHistory.length ? botTestHistory.map((item) => (
-                <article key={item.id} className="rounded-lg border border-slate-200 bg-white/70 p-3 text-sm dark:border-slate-800 dark:bg-slate-900/55">
+                <article key={item.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <strong>{formatBrazilianPhone(item.telefone)}</strong>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">{new Date(item.horario).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <span className="text-xs text-[var(--text-2)]">{new Date(item.horario).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
-                  <p className="mt-2 text-slate-600 dark:text-slate-300">Você: {item.mensagem}</p>
+                  <p className="mt-2 text-[var(--text-2)]">Você: {item.mensagem}</p>
                   <p className="mt-1 whitespace-pre-wrap font-bold text-emerald-700 dark:text-emerald-300">Bot: {item.resposta}</p>
                 </article>
               )) : (
-                <p className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">As mensagens simuladas aparecerão aqui nesta sessão.</p>
+                <p className="rounded-lg border border-dashed border-[var(--border)] p-4 text-sm text-[var(--text-2)]">As mensagens simuladas aparecerão aqui nesta sessão.</p>
               )}
             </div>
           </div>
@@ -775,7 +775,7 @@ export default function WhatsAppPage() {
           { icon: CheckCircle2, title: "Painel atualizado", text: "As informações aparecem nas áreas certas do sistema." }
         ].map((item) => {
           const Icon = item.icon;
-          return <div className="glass card-hover rounded-lg p-5" key={item.title}><Icon className="h-8 w-8 text-emerald-600" /><h3 className="mt-4 text-lg font-black">{item.title}</h3><p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{item.text}</p></div>;
+          return <div className="border border-[var(--border)] bg-[var(--surface)] card-hover rounded-lg p-5" key={item.title}><Icon className="h-8 w-8 text-emerald-600" /><h3 className="mt-4 text-lg font-semibold">{item.title}</h3><p className="mt-2 text-sm text-[var(--text-2)]">{item.text}</p></div>;
         })}
       </div>
     </div>

@@ -55,14 +55,14 @@ function SectionShell({
   children: React.ReactNode;
 }) {
   return (
-    <section className="glass rounded-lg p-5 shadow-soft md:p-6">
+    <section className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
       <div className="mb-5 flex items-center gap-3">
         <div className="rounded-lg bg-emerald-100 p-3 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
           <Icon className="h-5 w-5" />
         </div>
         <div>
-          <h2 className="text-xl font-black">{title}</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{description}</p>
+          <h2 className="text-[15px] font-semibold">{title}</h2>
+          <p className="text-sm text-[var(--text-2)]">{description}</p>
         </div>
       </div>
       {children}
@@ -82,7 +82,7 @@ function SaveButton({ saving, children }: { saving: boolean; children: React.Rea
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="space-y-2">
-      <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{label}</span>
+      <span className="text-sm font-medium text-[var(--text)]">{label}</span>
       {children}
     </label>
   );
@@ -403,11 +403,11 @@ export default function ConfiguracoesPage() {
     return (
       <div className="animate-fade-in space-y-6">
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-lg bg-[var(--bg)] px-3 py-1 text-xs font-semibold text-[var(--text)]">
             <Settings2 className="h-4 w-4" /> Configurações
           </div>
-          <h1 className="text-3xl font-black tracking-tight md:text-4xl">Configurações</h1>
-          <p className="mt-3 max-w-2xl text-slate-500 dark:text-slate-400">
+          <h1 className="text-xl font-semibold tracking-tight">Configurações</h1>
+          <p className="mt-1 text-[13px] text-[var(--text-2)]">
             Personalize a propriedade, seu perfil, preferências do sistema e alertas usados no Rancho.
           </p>
         </div>
@@ -419,11 +419,11 @@ export default function ConfiguracoesPage() {
   return (
     <div className="animate-fade-in space-y-6">
       <div>
-        <div className="mb-3 inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-lg bg-[var(--bg)] px-3 py-1 text-xs font-semibold text-[var(--text)]">
           <Settings2 className="h-4 w-4" /> Configurações
         </div>
-        <h1 className="text-3xl font-black tracking-tight md:text-4xl">Configurações</h1>
-        <p className="mt-3 max-w-2xl text-slate-500 dark:text-slate-400">
+        <h1 className="text-xl font-semibold tracking-tight">Configurações</h1>
+        <p className="mt-1 text-[13px] text-[var(--text-2)]">
           Personalize a propriedade, seu perfil, preferências do sistema e alertas usados no Rancho.
         </p>
       </div>
@@ -435,11 +435,11 @@ export default function ConfiguracoesPage() {
         {cards.map((card) => {
           const Icon = card.icon;
           return (
-            <div className="glass card-hover rounded-lg p-5" key={card.title}>
+            <div className="border border-[var(--border)] bg-[var(--surface)] card-hover rounded-lg p-5" key={card.title}>
               <Icon className="h-8 w-8 text-emerald-600 dark:text-emerald-300" />
-              <h2 className="mt-4 text-sm font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{card.title}</h2>
-              {showSkeleton ? <Skeleton className="mt-3 h-6 w-36" /> : <p className="mt-2 text-lg font-black">{card.value}</p>}
-              {showSkeleton ? <Skeleton className="mt-3 h-4 w-44" /> : <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{card.description}</p>}
+              <h2 className="mt-4 text-sm font-semibold uppercase tracking-wide text-[var(--text-2)]">{card.title}</h2>
+              {showSkeleton ? <Skeleton className="mt-3 h-6 w-36" /> : <p className="mt-2 text-lg font-semibold">{card.value}</p>}
+              {showSkeleton ? <Skeleton className="mt-3 h-4 w-44" /> : <p className="mt-2 text-sm text-[var(--text-2)]">{card.description}</p>}
             </div>
           );
         })}
@@ -468,7 +468,7 @@ export default function ConfiguracoesPage() {
                   </select>
                 </Field>
                 <Field label="Status do rancho">
-                  <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm font-bold dark:border-slate-800 dark:bg-slate-900/70">
+                  <label className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-bold">
                     <input type="checkbox" checked={farmDraft.ativa} onChange={(event) => setFarmDraft((current) => ({ ...current, ativa: event.target.checked }))} />
                     Rancho ativo
                   </label>
@@ -490,7 +490,7 @@ export default function ConfiguracoesPage() {
                   <input className="input" value={userDraft.nome} onChange={(event) => setUserDraft((current) => ({ ...current, nome: event.target.value }))} required />
                 </Field>
                 <Field label="E-mail">
-                  <input className="input bg-slate-100 text-slate-500 dark:bg-slate-900" value={session?.user?.email || "E-mail gerenciado pelo Supabase Auth"} readOnly />
+                  <input className="input bg-[var(--bg)] text-[var(--text-2)]" value={session?.user?.email || "E-mail gerenciado pelo Supabase Auth"} readOnly />
                 </Field>
                 <Field label="WhatsApp">
                   <WhatsAppInput value={userDraft.telefone} onChange={(value) => setUserDraft((current) => ({ ...current, telefone: value }))} placeholder="(00) 00000-0000" />
@@ -502,7 +502,7 @@ export default function ConfiguracoesPage() {
                   <input className="input" value={userDraft.cargo} onChange={(event) => setUserDraft((current) => ({ ...current, cargo: event.target.value }))} />
                 </Field>
                 <Field label="Papel no sistema">
-                  <input className="input bg-slate-100 text-slate-500 dark:bg-slate-900" value={roleLabels[profile?.papel || ""] || profile?.papel || "Usuário"} readOnly />
+                  <input className="input bg-[var(--bg)] text-[var(--text-2)]" value={roleLabels[profile?.papel || ""] || profile?.papel || "Usuário"} readOnly />
                 </Field>
               </div>
               <SaveButton saving={saving === "user"}>Salvar perfil</SaveButton>
@@ -520,7 +520,7 @@ export default function ConfiguracoesPage() {
                     <option value="USD">Dólar americano (USD)</option>
                     <option value="EUR">Euro (EUR)</option>
                   </select>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Moeda de exibição. Não converte valores antigos automaticamente.</p>
+                  <p className="text-xs text-[var(--text-2)]">Moeda de exibição. Não converte valores antigos automaticamente.</p>
                 </Field>
                 <Field label="Formato de data">
                   <select className="input" value={preferencesDraft.formato_data} onChange={(event) => setPreferencesDraft((current) => ({ ...current, formato_data: event.target.value }))}>
@@ -583,7 +583,7 @@ export default function ConfiguracoesPage() {
                   ["ponto_funcionarios", "Alertas de ponto e funcionários"],
                   ["whatsapp", "Notificações via WhatsApp"]
                 ].map(([key, label]) => (
-                  <label key={key} className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white/70 p-3 text-sm font-bold dark:border-slate-800 dark:bg-slate-900/70">
+                  <label key={key} className="flex items-center justify-between gap-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm font-bold">
                     <span>{label}</span>
                     <input type="checkbox" checked={Boolean(notificationsDraft[key as keyof typeof notificationsDraft])} onChange={(event) => setNotificationsDraft((current) => ({ ...current, [key]: event.target.checked }))} />
                   </label>
@@ -597,9 +597,9 @@ export default function ConfiguracoesPage() {
         <SectionShell title="WhatsApp e chatbot" description="Status real da integração e preferências do atendimento." icon={Bot}>
           {showSkeleton ? <Skeleton className="h-56 rounded-lg" /> : (
             <form onSubmit={saveWhatsApp} className="space-y-4">
-              <div className="rounded-lg border border-slate-200 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
                 <Badge tone={health?.meta ? "success" : "warning"}>{health?.meta ? "Backend configurado" : "Backend pendente"}</Badge>
-                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-3 text-sm text-[var(--text-2)]">
                   O app só salva preferências aqui. O envio real de mensagens continua dependendo do webhook e das credenciais do backend.
                 </p>
               </div>
@@ -608,7 +608,7 @@ export default function ConfiguracoesPage() {
                   <WhatsAppInput value={whatsAppDraft.numero_conectado} onChange={(value) => setWhatsAppDraft((current) => ({ ...current, numero_conectado: value }))} placeholder="(00) 00000-0000" />
                 </Field>
                 <Field label="Bot ativo como preferência">
-                  <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm font-bold dark:border-slate-800 dark:bg-slate-900/70">
+                  <label className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-bold">
                     <input type="checkbox" checked={whatsAppDraft.bot_ativo} onChange={(event) => setWhatsAppDraft((current) => ({ ...current, bot_ativo: event.target.checked }))} />
                     Bot habilitado
                   </label>
@@ -624,10 +624,10 @@ export default function ConfiguracoesPage() {
 
         <SectionShell title="Segurança e conta" description="Ações seguras relacionadas ao acesso." icon={KeyRound}>
           <div className="space-y-4">
-            <div className="rounded-lg border border-slate-200 bg-white/70 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/70">
-              <p className="font-black">Conta</p>
-              <p className="mt-1 text-slate-500 dark:text-slate-400">{session?.user?.email || "Sem e-mail autenticado neste ambiente."}</p>
-              <p className="mt-3 text-slate-500 dark:text-slate-400">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-sm">
+              <p className="font-semibold">Conta</p>
+              <p className="mt-1 text-[var(--text-2)]">{session?.user?.email || "Sem e-mail autenticado neste ambiente."}</p>
+              <p className="mt-3 text-[var(--text-2)]">
                 Alterações de e-mail e exclusão de conta não foram adicionadas porque exigem fluxo de confirmação próprio.
               </p>
             </div>

@@ -384,11 +384,8 @@ export function EmployeeScreen() {
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-            <Users className="h-4 w-4" /> Funcionários
-          </div>
-          <h1 className="text-3xl font-black tracking-tight md:text-4xl">Funcionários</h1>
-          <p className="mt-3 max-w-2xl text-slate-500 dark:text-slate-400">
+          <h1 className="text-xl font-semibold tracking-tight">Funcionários</h1>
+          <p className="mt-1 text-[13px] text-[var(--text-2)]">
             Cadastre a equipe, acompanhe ponto e gerencie folha a partir da ficha de cada funcionário.
           </p>
         </div>
@@ -421,10 +418,10 @@ export function EmployeeScreen() {
       </div>
 
       <section className="space-y-5">
-        <div className="rounded-lg border border-slate-200/70 bg-white/88 p-4 shadow-soft dark:border-slate-800 dark:bg-slate-950/70 md:p-5">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <label className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-3)]" />
               <input
                 className="input input-with-icon"
                 placeholder="Buscar por nome, função, WhatsApp ou status..."
@@ -433,7 +430,7 @@ export function EmployeeScreen() {
               />
               {search ? (
                 <button
-                  className="absolute right-3 top-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  className="absolute right-3 top-1/2 rounded-md p-1 text-[var(--text-3)] transition hover:bg-[var(--bg)] hover:text-[var(--text)]"
                   type="button"
                   onClick={() => setSearch("")}
                   title="Limpar busca"
@@ -446,8 +443,8 @@ export function EmployeeScreen() {
               <Download className="h-4 w-4" /> Exportar
             </button>
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-            {showPlaceholders ? <Skeleton className="h-5 w-32" /> : <strong className="text-slate-800 dark:text-slate-100">{`${filteredEmployees.length} funcionários`}</strong>}
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-[var(--text-2)]">
+            {showPlaceholders ? <Skeleton className="h-5 w-32" /> : <strong className="text-[var(--text)]">{`${filteredEmployees.length} funcionários`}</strong>}
             <span>encontrados na visão atual.</span>
           </div>
         </div>

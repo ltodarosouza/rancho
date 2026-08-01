@@ -22,7 +22,7 @@ export function ErrorState({
         <div className="flex min-w-0 gap-3">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-300" />
           <div className="min-w-0">
-            <p className="font-black">{title}</p>
+            <p className="font-semibold">{title}</p>
             <p className="mt-1 break-words font-semibold">{message}</p>
           </div>
         </div>
@@ -46,9 +46,9 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400", className)}>
-      <Inbox className="mx-auto h-7 w-7 text-slate-400" />
-      <p className="mt-3 font-black text-slate-700 dark:text-slate-200">{title}</p>
+    <div className={cn("rounded-lg border border-dashed border-[var(--border)] p-8 text-center text-sm text-[var(--text-2)]", className)}>
+      <Inbox className="mx-auto h-7 w-7 text-[var(--text-3)]" />
+      <p className="mt-3 font-semibold text-[var(--text)]">{title}</p>
       {message ? <p className="mt-1">{message}</p> : null}
     </div>
   );

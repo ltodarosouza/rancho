@@ -8,7 +8,7 @@ import { getAnimalSexInfo } from "@/lib/animal-sex";
 import type { AnyRecord, RelationOption } from "@/lib/types";
 
 const ANIMAL_RENDER_BATCH_SIZE = 72;
-//oaaa
+
 const categoryLabels: Record<string, string> = {
   vaca: "Vaca",
   boi: "Boi",
@@ -41,16 +41,17 @@ function displayLabel(map: Record<string, string>, value: unknown, fallback = "-
 }
 
 function phaseTone(value: unknown) {
-  if (value === "gestante") return "bg-purple-100 text-purple-700 dark:bg-purple-900/70 dark:text-purple-100";
-  if (value === "lactacao") return "bg-blue-100 text-blue-700 dark:bg-blue-900/70 dark:text-blue-100";
-  if (value === "vazia") return "bg-amber-100 text-amber-700 dark:bg-amber-900/70 dark:text-amber-100";
-  return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/70 dark:text-emerald-100";
+  if (value === "gestante") return "bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300";
+  if (value === "lactacao") return "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300";
+  if (value === "vazia") return "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300";
+  if (value === "seca") return "bg-[var(--bg)] text-[var(--text-2)]";
+  return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300";
 }
 
 function normalizeSexValue(value: unknown) {
   return String(value || "")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .trim()
     .toLowerCase();
 }
@@ -68,54 +69,39 @@ function getAnimalSexVisual(animal: AnyRecord) {
 
   if (isMale) {
     return {
-      card: "border-blue-300 bg-blue-50/70 hover:border-blue-400 hover:bg-blue-100/70 dark:border-blue-700/80 dark:bg-blue-950/45 dark:hover:border-blue-500 dark:hover:bg-blue-900/45",
-      stripe: "bg-blue-500 dark:bg-blue-400",
-      icon: "border-blue-300 bg-blue-100 text-blue-700 dark:border-blue-600 dark:bg-blue-900/80 dark:text-blue-100",
-      badge: "border-blue-300 bg-blue-100 text-blue-700 dark:border-blue-600 dark:bg-blue-900/80 dark:text-blue-100",
-      infoBox: "bg-white/85 ring-blue-200/80 dark:bg-slate-950/60 dark:ring-blue-800/60"
+      stripe: "bg-blue-400",
+      badge: "bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300"
     };
   }
 
   if (isFemale) {
     return {
-      card: "border-pink-300 bg-pink-50/70 hover:border-pink-400 hover:bg-pink-100/70 dark:border-pink-700/80 dark:bg-pink-950/45 dark:hover:border-pink-500 dark:hover:bg-pink-900/45",
-      stripe: "bg-pink-500 dark:bg-pink-400",
-      icon: "border-pink-300 bg-pink-100 text-pink-700 dark:border-pink-600 dark:bg-pink-900/80 dark:text-pink-100",
-      badge: "border-pink-300 bg-pink-100 text-pink-700 dark:border-pink-600 dark:bg-pink-900/80 dark:text-pink-100",
-      infoBox: "bg-white/85 ring-pink-200/80 dark:bg-slate-950/60 dark:ring-pink-800/60"
+      stripe: "bg-pink-400",
+      badge: "bg-pink-50 text-pink-600 dark:bg-pink-950/50 dark:text-pink-300"
     };
   }
 
   return {
-    card: "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700",
-    stripe: "bg-slate-300 dark:bg-slate-700",
-    icon: "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
-    badge: "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
-    infoBox: "bg-white ring-slate-200/70 dark:bg-slate-900/70 dark:ring-slate-800"
+    stripe: "bg-[var(--text-3)]",
+    badge: "bg-[var(--bg)] text-[var(--text-2)]"
   };
 }
 
 function AnimalCardSkeleton() {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+    <article className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
       <div className="flex items-start gap-3">
-        <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
+        <Skeleton className="h-9 w-9 shrink-0 rounded-md" />
         <div className="min-w-0 flex-1">
-          <Skeleton className="h-6 w-24" />
-          <Skeleton className="mt-2 h-4 w-16" />
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="mt-2 h-3.5 w-16" />
         </div>
-        <Skeleton className="h-6 w-16 rounded-full" />
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
-        <Skeleton className="h-8 rounded-lg" />
-        <Skeleton className="h-8 rounded-lg" />
-        <Skeleton className="h-8 rounded-lg" />
-        <Skeleton className="h-8 rounded-lg" />
+        <Skeleton className="h-5 w-14 rounded" />
       </div>
       <div className="mt-3 flex gap-2">
-        <Skeleton className="h-10 flex-1 rounded-lg" />
-        <Skeleton className="h-10 w-10 rounded-lg" />
-        <Skeleton className="h-10 w-10 rounded-lg" />
+        <Skeleton className="h-3 w-12" />
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="h-3 w-10" />
       </div>
     </article>
   );
@@ -194,30 +180,31 @@ export const AnimalCards = memo(function AnimalCards({
   }, [deferredSearch, loteFilter, rows.length, statusFilter]);
 
   return (
-    <section className="space-y-5">
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-950 md:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <section className="space-y-4">
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <label className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-3)]" />
             <input
-              className="input input-with-icon"
+              className="input"
+              style={{ paddingLeft: "2.25rem", paddingRight: search ? "2.25rem" : undefined }}
               placeholder="Buscar por nome, brinco, raça, fase ou lote..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
             {search ? (
               <button
-                className="absolute right-3 top-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--text-3)] transition-colors hover:bg-[var(--bg)] hover:text-[var(--text)]"
                 type="button"
                 onClick={() => setSearch("")}
                 title="Limpar busca"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
               </button>
             ) : null}
           </label>
 
-          <div className="grid gap-3 sm:grid-cols-3 lg:w-[34rem]">
+          <div className="grid gap-2 sm:grid-cols-3 lg:w-[30rem]">
             <select className="input" value={loteFilter} onChange={(event) => setLoteFilter(event.target.value)}>
               <option value="">Todos os lotes</option>
               {(relationOptions.lote_id || []).map((option) => (
@@ -230,15 +217,15 @@ export const AnimalCards = memo(function AnimalCards({
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
-            <button className="btn btn-secondary" type="button" onClick={() => onExport(filteredAnimals)}>
+            <button className="btn btn-secondary text-[13px]" type="button" onClick={() => onExport(filteredAnimals)}>
               <Download className="h-4 w-4" /> Exportar
             </button>
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-          {loading ? <Skeleton className="h-5 w-28" /> : <strong className="text-slate-800 dark:text-slate-100">{`${filteredAnimals.length} animais`}</strong>}
-          <span>encontrados na visão atual.</span>
+        <div className="mt-3 flex items-center gap-2 text-[13px] text-[var(--text-2)]">
+          {loading ? <Skeleton className="h-4 w-28" /> : <span className="font-medium text-[var(--text)]">{filteredAnimals.length} animais</span>}
+          <span>encontrados</span>
         </div>
       </div>
 
@@ -247,77 +234,53 @@ export const AnimalCards = memo(function AnimalCards({
           const lote = loteLookup[String(animal.lote_id || "")] || "Sem lote";
           const phase = displayLabel(phaseLabels, animal.fase, "Sem fase");
           const category = displayLabel(categoryLabels, animal.categoria, "Animal");
-          const status = displayLabel(statusLabels, animal.status, "Ativo");
           const sex = getAnimalSexInfo(animal);
           const sexVisual = getAnimalSexVisual(animal);
 
           return (
             <article
               key={animal.id}
-              className={`group relative min-w-0 cursor-pointer overflow-hidden rounded-lg border p-3 pl-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-soft ${sexVisual.card}`}
+              className="group relative cursor-pointer overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 pl-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-[var(--text-3)]"
               onClick={() => onView(animal)}
             >
-              <span className={`absolute inset-y-0 left-0 w-1 ${sexVisual.stripe}`} aria-hidden="true" />
+              <span className={`absolute inset-y-0 left-0 w-[3px] ${sexVisual.stripe}`} aria-hidden="true" />
 
-              <div className="flex items-start gap-3">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${sexVisual.icon}`}>
-                  <PawPrint className="h-5 w-5" />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-lg font-black tracking-tight text-slate-900 dark:text-slate-50">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="truncate text-[15px] font-semibold tracking-tight">
                     {animal.nome || animal.brinco || "Sem brinco"}
                   </h3>
-                  <p className="mt-1 truncate text-sm font-bold text-slate-500 dark:text-slate-400">
-                    {animal.nome ? `Código: ${animal.brinco || "Sem brinco"}` : status}
+                  <p className="mt-0.5 truncate text-xs text-[var(--text-2)]">
+                    {animal.nome ? animal.brinco || "Sem brinco" : category} · {animal.raca || "Sem raça"}
                   </p>
                 </div>
-
-                <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <span className={`max-w-28 truncate rounded-full px-2.5 py-1 text-xs font-black ${phaseTone(animal.fase)}`}>
-                    {phase}
-                  </span>
-                  <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${sexVisual.badge}`}>
-                    {sex.label}
-                  </span>
-                </div>
+                <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold ${phaseTone(animal.fase)}`}>
+                  {phase}
+                </span>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 border-b border-slate-200/70 pb-3 text-xs dark:border-slate-800">
-                <div className={`min-w-0 rounded-lg p-2 ring-1 ${sexVisual.infoBox}`}>
-                  <p className="text-slate-500 dark:text-slate-400">Categoria</p>
-                  <strong className="mt-1 block truncate text-slate-900 dark:text-slate-50">{category}</strong>
-                </div>
-                <div className={`min-w-0 rounded-lg p-2 ring-1 ${sexVisual.infoBox}`}>
-                  <p className="text-slate-500 dark:text-slate-400">Raça</p>
-                  <strong className="mt-1 block truncate text-slate-900 dark:text-slate-50">{animal.raca || "-"}</strong>
-                </div>
-                <div className={`min-w-0 rounded-lg p-2 ring-1 ${sexVisual.infoBox}`}>
-                  <p className="text-slate-500 dark:text-slate-400">Lote</p>
-                  <strong className="mt-1 block truncate text-slate-900 dark:text-slate-50">{lote}</strong>
-                </div>
-                <div className={`min-w-0 rounded-lg p-2 ring-1 ${sexVisual.infoBox}`}>
-                  <p className="text-slate-500 dark:text-slate-400">Status</p>
-                  <strong className="mt-1 block truncate text-slate-900 dark:text-slate-50">{status}</strong>
-                </div>
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-3)]">
+                <span>{lote}</span>
+                <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${sexVisual.badge}`}>{sex.label}</span>
+                {animal.peso ? <span>{animal.peso} kg</span> : null}
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex gap-1.5 border-t border-[var(--border-light)] pt-3">
                 <button
-                  className="btn h-10 min-h-10 flex-1 bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700"
+                  className="btn btn-primary flex-1 py-1.5 text-xs"
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
                     onView(animal);
                   }}
                 >
-                  <Eye className="h-4 w-4" /> Ver ficha
+                  <Eye className="h-3.5 w-3.5" /> Ver ficha
                 </button>
 
                 {canManage ? (
                   <>
                     <button
-                      className="h-10 rounded-lg border border-slate-200 bg-white p-2.5 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+                      className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-1.5 text-[var(--text-2)] transition-colors hover:bg-[var(--bg)]"
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
@@ -325,10 +288,10 @@ export const AnimalCards = memo(function AnimalCards({
                       }}
                       title="Editar animal"
                     >
-                      <Pencil className="h-4 w-4" />
+                      <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
-                      className="h-10 rounded-lg border border-red-200 bg-white p-2.5 text-red-600 transition hover:bg-red-50 dark:border-red-800 dark:bg-slate-900 dark:text-red-300 dark:hover:bg-red-950/60"
+                      className="rounded-md border border-red-200 bg-[var(--surface)] p-1.5 text-red-500 transition-colors hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/40"
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
@@ -336,7 +299,7 @@ export const AnimalCards = memo(function AnimalCards({
                       }}
                       title="Excluir animal"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </>
                 ) : null}
@@ -361,4 +324,3 @@ export const AnimalCards = memo(function AnimalCards({
     </section>
   );
 });
-//o

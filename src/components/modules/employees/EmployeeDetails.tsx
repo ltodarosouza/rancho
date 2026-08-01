@@ -241,14 +241,14 @@ export function EmployeeDetails({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm md:p-6">
-      <section className="flex max-h-[96vh] w-full max-w-6xl animate-fade-in flex-col overflow-hidden rounded-t-lg border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-950 md:rounded-lg">
-        <header className="border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-white to-cyan-50 p-5 dark:border-slate-800 dark:from-emerald-950/40 dark:via-slate-950 dark:to-cyan-950/20 md:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 md:p-6">
+      <section className="flex max-h-[96vh] w-full max-w-6xl animate-fade-in flex-col overflow-hidden rounded-t-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:rounded-lg">
+        <header className="border-b border-[var(--border)] bg-[var(--surface)] p-5 md:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-700 dark:text-emerald-300">Ficha do funcionário</p>
-              <h2 className="mt-2 text-4xl font-black tracking-tight">{employee.nome || "Funcionário"}</h2>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-emerald-700 dark:text-emerald-300">Ficha do funcionário</p>
+              <h2 className="mt-2 text-lg font-semibold tracking-tight">{employee.nome || "Funcionário"}</h2>
+              <p className="mt-2 text-sm text-[var(--text-2)]">
                 {employee.funcao || "Função não informada"} - {employee.ativo !== false ? "Ativo" : "Inativo"}
               </p>
             </div>
@@ -259,14 +259,14 @@ export function EmployeeDetails({
               {canManage ? <button className="btn btn-secondary" type="button" onClick={() => setEditingEmployee(true)}>
                 <Pencil className="h-4 w-4" /> Editar dados
               </button> : null}
-              <button className="rounded-lg border border-slate-200 p-3 hover:bg-white dark:border-slate-800 dark:hover:bg-slate-900" type="button" onClick={onClose} title="Fechar">
+              <button className="rounded-lg border border-[var(--border)] p-3 hover:bg-[var(--bg)]" type="button" onClick={onClose} title="Fechar">
                 <X className="h-5 w-5" />
               </button>
             </div>
           </div>
         </header>
 
-        <div className="border-b border-slate-200 px-5 dark:border-slate-800 md:px-6">
+        <div className="border-b border-[var(--border)] px-5  md:px-6">
           <nav className="flex gap-6 overflow-auto">
             {[
               ["resumo", "Resumo"],
@@ -275,7 +275,7 @@ export function EmployeeDetails({
             ].map(([value, label]) => (
               <button
                 key={value}
-                className={`border-b-2 px-1 py-4 text-sm font-black transition ${tab === value ? "border-emerald-600 text-emerald-700 dark:text-emerald-300" : "border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"}`}
+                className={`border-b-2 px-1 py-4 text-sm font-semibold transition ${tab === value ? "border-emerald-600 text-emerald-700 dark:text-emerald-300" : "border-transparent text-[var(--text-2)] hover:text-[var(--text)]"}`}
                 type="button"
                 onClick={() => setTab(value as Tab)}
               >
@@ -286,33 +286,33 @@ export function EmployeeDetails({
         </div>
 
         <div className="overflow-y-auto p-5 md:p-6">
-          {error ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
+          {error ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
 
           {tab === "resumo" ? (
             <div className="space-y-5">
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900 dark:bg-emerald-950/30">
                   <DollarSign className="h-6 w-6 text-emerald-700" />
-                  <p className="mt-4 text-sm font-black">Folha estimada</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Mês atual</p>
-                  {showDetailPlaceholders ? <Skeleton className="mt-4 h-9 w-32" /> : <h3 className="mt-4 text-3xl font-black">{formatCurrency(estimatedPayroll)}</h3>}
+                  <p className="mt-4 text-sm font-semibold">Folha estimada</p>
+                  <p className="text-xs text-[var(--text-2)]">Mês atual</p>
+                  {showDetailPlaceholders ? <Skeleton className="mt-4 h-9 w-32" /> : <h3 className="mt-4 text-[15px] font-semibold">{formatCurrency(estimatedPayroll)}</h3>}
                 </div>
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-5 dark:border-blue-900 dark:bg-blue-950/30">
                   <Clock3 className="h-6 w-6 text-blue-700" />
-                  <p className="mt-4 text-sm font-black">Pontos no mês</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Entradas e saídas</p>
-                  {showDetailPlaceholders ? <Skeleton className="mt-4 h-9 w-20" /> : <h3 className="mt-4 text-3xl font-black">{pointThisMonth}</h3>}
+                  <p className="mt-4 text-sm font-semibold">Pontos no mês</p>
+                  <p className="text-xs text-[var(--text-2)]">Entradas e saídas</p>
+                  {showDetailPlaceholders ? <Skeleton className="mt-4 h-9 w-20" /> : <h3 className="mt-4 text-[15px] font-semibold">{pointThisMonth}</h3>}
                 </div>
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30">
                   <FileText className="h-6 w-6 text-amber-700" />
-                  <p className="mt-4 text-sm font-black">Registros de folha</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Histórico salvo</p>
-                  {showDetailPlaceholders ? <Skeleton className="mt-4 h-9 w-20" /> : <h3 className="mt-4 text-3xl font-black">{payrolls.length}</h3>}
+                  <p className="mt-4 text-sm font-semibold">Registros de folha</p>
+                  <p className="text-xs text-[var(--text-2)]">Histórico salvo</p>
+                  {showDetailPlaceholders ? <Skeleton className="mt-4 h-9 w-20" /> : <h3 className="mt-4 text-[15px] font-semibold">{payrolls.length}</h3>}
                 </div>
               </div>
 
-              <section className="rounded-lg border border-slate-200 p-5 dark:border-slate-800">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Dados do funcionário</p>
+              <section className="rounded-lg border border-[var(--border)] p-5 ">
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-2)]">Dados do funcionário</p>
                 <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
                   {[
                     ["Cargo / função", employee.funcao || "-"],
@@ -324,8 +324,8 @@ export function EmployeeDetails({
                     ["Carga mensal", `${employee.carga_horaria_mensal || 0}h`],
                     ["Status", employee.ativo !== false ? "Ativo" : "Inativo"]
                   ].map(([label, value]) => (
-                    <div className="flex items-start justify-between gap-4 rounded-lg bg-slate-50 p-3 dark:bg-slate-900" key={label}>
-                      <span className="text-slate-500 dark:text-slate-400">{label}</span>
+                    <div className="flex items-start justify-between gap-4 rounded-lg bg-[var(--bg)]p-3" key={label}>
+                      <span className="text-[var(--text-2)]">{label}</span>
                       <strong className="text-right">{value}</strong>
                     </div>
                   ))}
@@ -338,8 +338,8 @@ export function EmployeeDetails({
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-black">Registros de ponto</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Pontos vinculados a {employee.nome}.</p>
+                  <h3 className="text-[15px] font-semibold">Registros de ponto</h3>
+                  <p className="text-sm text-[var(--text-2)]">Pontos vinculados a {employee.nome}.</p>
                 </div>
                 <button className="btn btn-primary" type="button" onClick={() => setShowPointForm(true)}>
                   <Plus className="h-4 w-4" /> Registrar ponto
@@ -347,21 +347,21 @@ export function EmployeeDetails({
               </div>
 
               {showPointForm ? (
-                <form onSubmit={submitPoint} className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/55">
+                <form onSubmit={submitPoint} className="rounded-lg border border-[var(--border)] bg-[var(--bg)]p-4 ">
                   <div className="grid gap-4 md:grid-cols-3">
                     <label className="space-y-2">
-                      <span className="text-sm font-bold">Tipo</span>
+                      <span className="text-sm font-medium">Tipo</span>
                       <select className="input" value={pointDraft.tipo} onChange={(event) => setPointDraft((current) => ({ ...current, tipo: event.target.value }))}>
                         <option value="entrada">Entrada</option>
                         <option value="saida">Saída</option>
                       </select>
                     </label>
                     <label className="space-y-2">
-                      <span className="text-sm font-bold">Data e hora</span>
+                      <span className="text-sm font-medium">Data e hora</span>
                       <input className="input" type="datetime-local" value={pointDraft.registrado_em} onChange={(event) => setPointDraft((current) => ({ ...current, registrado_em: event.target.value }))} />
                     </label>
                     <label className="space-y-2 md:col-span-1">
-                      <span className="text-sm font-bold">Observação</span>
+                      <span className="text-sm font-medium">Observação</span>
                       <input className="input" value={pointDraft.observacao} onChange={(event) => setPointDraft((current) => ({ ...current, observacao: event.target.value }))} />
                     </label>
                   </div>
@@ -374,23 +374,23 @@ export function EmployeeDetails({
 
               <div className="space-y-3">
                 {showDetailPlaceholders ? Array.from({ length: 4 }).map((_, index) => (
-                  <div key={`point-skeleton-${index}`} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                  <div key={`point-skeleton-${index}`} className="rounded-lg border border-[var(--border)] p-4 ">
                     <Skeleton className="h-5 w-36" />
                     <Skeleton className="mt-3 h-4 w-56 max-w-full" />
                   </div>
                 )) : timeEntries.length ? timeEntries.map((entry) => (
-                  <div key={entry.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                  <div key={entry.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-4 ">
                     <div>
                       <div className="flex items-center gap-2">
                         <strong>{entry.tipo === "saida" ? "Saída" : "Entrada"}</strong>
                         <Badge tone={entry.tipo === "saida" ? "warning" : "success"}>{formatDate(entry.registrado_em)}</Badge>
                       </div>
-                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{entry.observacao || "Sem observação"}</p>
+                      <p className="mt-1 text-sm text-[var(--text-2)]">{entry.observacao || "Sem observação"}</p>
                     </div>
-                    <Clock3 className="h-5 w-5 text-slate-400" />
+                    <Clock3 className="h-5 w-5 text-[var(--text-3)]" />
                   </div>
                 )) : (
-                  <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-slate-500 dark:border-slate-700">
+                  <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center text-[var(--text-2)]">
                     Nenhum ponto registrado para este funcionário.
                   </div>
                 )}
@@ -400,38 +400,38 @@ export function EmployeeDetails({
 
           {tab === "folha" ? (
             <div className="space-y-5">
-              <form onSubmit={submitPayroll} className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/55">
+              <form onSubmit={submitPayroll} className="rounded-lg border border-[var(--border)] bg-[var(--bg)]p-4 ">
                 <div className="mb-4">
-                  <h3 className="text-xl font-black">Folha do funcionário</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Atualize o registro mensal sem criar lançamento financeiro duplicado.</p>
+                  <h3 className="text-[15px] font-semibold">Folha do funcionário</h3>
+                  <p className="text-sm text-[var(--text-2)]">Atualize o registro mensal sem criar lançamento financeiro duplicado.</p>
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
                   <label className="space-y-2">
-                    <span className="text-sm font-bold">Competência</span>
+                    <span className="text-sm font-medium">Competência</span>
                     <input className="input" type="month" value={payrollDraft.competencia} onChange={(event) => setPayrollDraft((current) => ({ ...current, competencia: event.target.value }))} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-bold">Salário-base</span>
+                    <span className="text-sm font-medium">Salário-base</span>
                     <CurrencyInput value={payrollDraft.salario_base} onChange={(value) => setPayrollDraft((current) => ({ ...current, salario_base: value }))} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-bold">Horas extras</span>
+                    <span className="text-sm font-medium">Horas extras</span>
                     <input className="input" type="number" step="0.01" value={payrollDraft.horas_extras} onChange={(event) => setPayrollDraft((current) => ({ ...current, horas_extras: event.target.value }))} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-bold">Valor horas extras</span>
+                    <span className="text-sm font-medium">Valor horas extras</span>
                     <CurrencyInput value={payrollDraft.valor_horas_extras} onChange={(value) => setPayrollDraft((current) => ({ ...current, valor_horas_extras: value }))} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-bold">Descontos</span>
+                    <span className="text-sm font-medium">Descontos</span>
                     <CurrencyInput value={payrollDraft.descontos} onChange={(value) => setPayrollDraft((current) => ({ ...current, descontos: value }))} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-bold">Adiantamentos</span>
+                    <span className="text-sm font-medium">Adiantamentos</span>
                     <CurrencyInput value={payrollDraft.adiantamentos} onChange={(value) => setPayrollDraft((current) => ({ ...current, adiantamentos: value }))} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-bold">Status</span>
+                    <span className="text-sm font-medium">Status</span>
                     <select className="input" value={payrollDraft.status} onChange={(event) => setPayrollDraft((current) => ({ ...current, status: event.target.value }))}>
                       <option value="rascunho">Rascunho</option>
                       <option value="fechada">Fechada</option>
@@ -440,11 +440,11 @@ export function EmployeeDetails({
                     </select>
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-bold">Pago em</span>
+                    <span className="text-sm font-medium">Pago em</span>
                     <input className="input" type="date" value={payrollDraft.pago_em} onChange={(event) => setPayrollDraft((current) => ({ ...current, pago_em: event.target.value }))} />
                   </label>
                   <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-                    <p className="text-sm font-black text-emerald-900 dark:text-emerald-100">Total líquido</p>
+                    <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Total líquido</p>
                     <strong className="mt-2 block text-2xl">{formatCurrency(payrollTotal(payrollDraft))}</strong>
                   </div>
                 </div>
@@ -455,25 +455,25 @@ export function EmployeeDetails({
 
               <div className="space-y-3">
                 {showDetailPlaceholders ? Array.from({ length: 3 }).map((_, index) => (
-                  <div key={`payroll-skeleton-${index}`} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                  <div key={`payroll-skeleton-${index}`} className="rounded-lg border border-[var(--border)] p-4 ">
                     <Skeleton className="h-5 w-40" />
                     <Skeleton className="mt-3 h-4 w-60 max-w-full" />
                   </div>
                 )) : payrolls.length ? payrolls.map((row) => (
-                  <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                  <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-4 ">
                     <div>
                       <div className="flex items-center gap-2">
                         <strong>{monthKey(row.competencia)}</strong>
                         <Badge tone={row.status === "paga" ? "success" : "info"}>{row.status || "rascunho"}</Badge>
                       </div>
-                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                      <p className="mt-1 text-sm text-[var(--text-2)]">
                         Base {formatCurrency(row.salario_base)} - Total {formatCurrency(row.total_liquido ?? payrollTotal(row))}
                       </p>
                     </div>
-                    <CalendarDays className="h-5 w-5 text-slate-400" />
+                    <CalendarDays className="h-5 w-5 text-[var(--text-3)]" />
                   </div>
                 )) : (
-                  <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-slate-500 dark:border-slate-700">
+                  <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center text-[var(--text-2)]">
                     Nenhuma folha registrada para este funcionário.
                   </div>
                 )}
@@ -482,7 +482,7 @@ export function EmployeeDetails({
           ) : null}
         </div>
 
-        <footer className="border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+        <footer className="border-t border-[var(--border)] bg-[var(--surface)] p-4">
           <button className="btn btn-secondary w-full" type="button" onClick={onClose}>
             <CalendarDays className="h-4 w-4" /> Fechar ficha
           </button>

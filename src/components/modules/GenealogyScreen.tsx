@@ -107,7 +107,7 @@ function sexInfo(animal?: AnyRecord | null) {
       stripe: "bg-sky-400 dark:bg-sky-600",
       icon: "border-sky-200 bg-sky-100 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200",
       badge: "border-sky-200 bg-sky-100 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200",
-      softBox: "bg-white/80 ring-sky-200/70 dark:bg-slate-950/50 dark:ring-sky-900/70",
+      softBox: "bg-white/80 ring-sky-200/70 dark:bg-[var(--surface)] dark:ring-sky-900/70",
       activeRing: "ring-2 ring-emerald-400/80 dark:ring-emerald-500/70"
     };
   }
@@ -119,18 +119,18 @@ function sexInfo(animal?: AnyRecord | null) {
       stripe: "bg-rose-400 dark:bg-rose-600",
       icon: "border-rose-200 bg-rose-100 text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-200",
       badge: "border-rose-200 bg-rose-100 text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-200",
-      softBox: "bg-white/80 ring-rose-200/70 dark:bg-slate-950/50 dark:ring-rose-900/70",
+      softBox: "bg-white/80 ring-rose-200/70 dark:bg-[var(--surface)] dark:ring-rose-900/70",
       activeRing: "ring-2 ring-emerald-400/80 dark:ring-emerald-500/70"
     };
   }
 
   return {
     label: "Sexo não informado",
-    card: "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700",
-    stripe: "bg-slate-300 dark:bg-slate-700",
-    icon: "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
-    badge: "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
-    softBox: "bg-white ring-slate-200/70 dark:bg-slate-900/70 dark:ring-slate-800",
+    card: "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--text-3)]",
+    stripe: "bg-[var(--text-3)]",
+    icon: "border-[var(--border)] bg-[var(--bg)] text-[var(--text-2)]",
+    badge: "border-[var(--border)] bg-[var(--bg)] text-[var(--text-2)]",
+    softBox: "bg-[var(--surface)] ring-[var(--border)]",
     activeRing: "ring-2 ring-emerald-400/80 dark:ring-emerald-500/70"
   };
 }
@@ -197,26 +197,26 @@ function TreeCard({
   return (
     <div
       className={cn(
-        "relative z-10 min-w-0 overflow-hidden rounded-lg border text-left shadow-sm transition",
+        "relative z-10 min-w-0 overflow-hidden rounded-lg border text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition",
         compact ? "p-2.5 pl-4" : "p-3 pl-4",
-        animal ? sex.card : "border-dashed border-slate-300 bg-white/85 text-slate-500 dark:border-slate-700 dark:bg-slate-900/70",
+        animal ? sex.card : "border-dashed border-[var(--border)] bg-[var(--surface)]/85 text-[var(--text-2)]",
         active ? sex.activeRing : ""
       )}
     >
       {animal ? <span className={`absolute inset-y-0 left-0 w-1 ${sex.stripe}`} aria-hidden="true" /> : null}
-      <p className="truncate text-[0.68rem] font-black uppercase tracking-[0.14em] text-slate-400">{label}</p>
+      <p className="truncate text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]">{label}</p>
       <strong
-        className={cn("mt-1 block truncate text-slate-950 dark:text-slate-100", compact ? "text-xs md:text-sm" : "text-sm md:text-base")}
+        className={cn("mt-1 block truncate text-[var(--text)]", compact ? "text-xs md:text-sm" : "text-sm md:text-base")}
         title={animalLabel(animal)}
       >
         {animalLabel(animal)}
       </strong>
       {animal ? (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[0.68rem] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
+          <span className="inline-flex rounded bg-emerald-100 px-2 py-0.5 text-[0.68rem] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
             {categoryLabel(animal.categoria)}
           </span>
-          <span className={`inline-flex rounded-full border px-2 py-0.5 text-[0.68rem] font-bold ${sex.badge}`}>
+          <span className={`inline-flex rounded border px-2 py-0.5 text-[0.68rem] font-bold ${sex.badge}`}>
             {sex.label}
           </span>
         </div>
@@ -248,7 +248,7 @@ function GenealogyTreeCanvas({
 }) {
   return (
     <div className="w-full overflow-x-auto pb-2">
-      <div className="relative mx-auto min-w-[920px] max-w-7xl rounded-lg border border-emerald-100 bg-white p-6 shadow-sm dark:border-emerald-900/50 dark:bg-slate-950">
+      <div className="relative mx-auto min-w-[920px] max-w-[1200px] rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="relative">
           <div className="grid grid-cols-4 gap-4">
             <TreeCard label="Avó materna" animal={tree.maternalGrandmother} compact />
@@ -307,7 +307,7 @@ function GenealogyTreeCanvas({
               </div>
 
               {tree.children.length > 6 ? (
-                <div className="mx-auto mt-3 max-w-md rounded-lg border border-dashed border-slate-300 bg-white p-3 text-center text-sm font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                <div className="mx-auto mt-3 max-w-md rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface)] p-3 text-center text-sm font-medium text-[var(--text-2)]">
                   +{tree.children.length - 6} descendente(s) direto(s) não exibido(s) nesta visão.
                 </div>
               ) : null}
@@ -315,7 +315,7 @@ function GenealogyTreeCanvas({
           ) : (
             <div className="relative pt-8">
               <ConnectorLine className="left-1/2 top-0 h-8 w-0.5 -translate-x-1/2 opacity-50" />
-              <div className="mx-auto max-w-md rounded-lg border border-dashed border-slate-300 bg-white p-4 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              <div className="mx-auto max-w-md rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface)] p-4 text-center text-sm text-[var(--text-2)]">
                 Nenhum descendente direto cadastrado.
               </div>
             </div>
@@ -328,7 +328,7 @@ function GenealogyTreeCanvas({
 
 function AnimalSkeleton() {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+    <article className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
       <div className="flex gap-3">
         <Skeleton className="h-10 w-10 rounded-lg" />
         <div className="flex-1">
@@ -355,7 +355,7 @@ function AnimalSelectionCard({
   const sex = sexInfo(animal);
 
   return (
-    <article className={`relative overflow-hidden rounded-lg border p-3 pl-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-soft ${sex.card}`}>
+    <article className={`relative overflow-hidden rounded-lg border p-3 pl-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:border-[var(--text-3)] ${sex.card}`}>
       <span className={`absolute inset-y-0 left-0 w-1 ${sex.stripe}`} aria-hidden="true" />
 
       <div className="flex items-start gap-3">
@@ -364,31 +364,31 @@ function AnimalSelectionCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-lg font-black text-slate-900 dark:text-slate-50">
+          <h2 className="truncate text-[15px] font-semibold text-[var(--text)]">
             {animal.nome || animal.brinco || "Sem brinco"}
           </h2>
-          <p className="mt-1 truncate text-sm font-bold text-slate-500 dark:text-slate-400">
+          <p className="mt-1 truncate text-sm font-medium text-[var(--text-2)]">
             {animal.nome ? `Codigo: ${animal.brinco || "Sem brinco"}` : categoryLabel(animal.categoria)}
           </p>
         </div>
 
-        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-black ${sex.badge}`}>
+        <span className={`shrink-0 rounded border px-2.5 py-1 text-xs font-semibold ${sex.badge}`}>
           {sex.label}
         </span>
       </div>
 
       <div className="mt-3 grid gap-2 text-xs">
         <div className={`flex justify-between gap-3 rounded-lg p-2 ring-1 ${sex.softBox}`}>
-          <span className="text-slate-500 dark:text-slate-400">Categoria</span>
-          <strong className="truncate text-right text-slate-900 dark:text-slate-50">{categoryLabel(animal.categoria)}</strong>
+          <span className="text-[var(--text-2)]">Categoria</span>
+          <strong className="truncate text-right text-[var(--text)]">{categoryLabel(animal.categoria)}</strong>
         </div>
         <div className={`flex justify-between gap-3 rounded-lg p-2 ring-1 ${sex.softBox}`}>
-          <span className="text-slate-500 dark:text-slate-400">Mãe</span>
-          <strong className="truncate text-right text-slate-900 dark:text-slate-50">{animalLabel(mother)}</strong>
+          <span className="text-[var(--text-2)]">Mãe</span>
+          <strong className="truncate text-right text-[var(--text)]">{animalLabel(mother)}</strong>
         </div>
         <div className={`flex justify-between gap-3 rounded-lg p-2 ring-1 ${sex.softBox}`}>
-          <span className="text-slate-500 dark:text-slate-400">Pai</span>
-          <strong className="truncate text-right text-slate-900 dark:text-slate-50">{animalLabel(father)}</strong>
+          <span className="text-[var(--text-2)]">Pai</span>
+          <strong className="truncate text-right text-[var(--text)]">{animalLabel(father)}</strong>
         </div>
       </div>
 
@@ -686,11 +686,8 @@ export function GenealogyScreen() {
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-            <GitBranch className="h-4 w-4" /> Genealogia
-          </div>
-          <h1 className="text-3xl font-black tracking-tight md:text-4xl">Genealogia</h1>
-          <p className="mt-3 max-w-2xl text-slate-500 dark:text-slate-400">
+          <h1 className="text-xl font-semibold tracking-tight">Genealogia</h1>
+          <p className="mt-3 max-w-2xl text-[var(--text-2)]">
             {selected ? "Visualize a árvore genealógica e edite os vínculos familiares." : "Selecione um animal para visualizar a árvore genealógica."}
           </p>
         </div>
@@ -701,7 +698,7 @@ export function GenealogyScreen() {
           </button>
         ) : (
           <label className="relative w-full max-w-xl">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-3)]" />
             <input
               className="input input-with-icon"
               placeholder="Buscar por nome, brinco, código, raça ou categoria..."
@@ -742,7 +739,7 @@ export function GenealogyScreen() {
         </>
       ) : tree ? (
         <section className="space-y-6">
-          <article className={`relative overflow-hidden rounded-lg border p-5 pl-6 shadow-sm ${selectedSex.card}`}>
+          <article className={`relative overflow-hidden rounded-lg border p-5 pl-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${selectedSex.card}`}>
             <span className={`absolute inset-y-0 left-0 w-1.5 ${selectedSex.stripe}`} aria-hidden="true" />
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex min-w-0 items-start gap-4">
@@ -750,22 +747,22 @@ export function GenealogyScreen() {
                   <PawPrint className="h-6 w-6" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Animal selecionado</p>
-                  <h2 className="mt-1 truncate text-2xl font-black text-slate-950 dark:text-slate-50">{animalLabel(selected)}</h2>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-emerald-700 dark:text-emerald-300">Animal selecionado</p>
+                  <h2 className="mt-1 truncate text-lg font-semibold text-[var(--text)]">{animalLabel(selected)}</h2>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
+                    <span className="rounded bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
                       Categoria: {categoryLabel(selected.categoria)}
                     </span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                    <span className="rounded bg-[var(--bg)] px-3 py-1 text-xs font-semibold text-[var(--text)]">
                       Fase: {phaseLabel(selected.fase)}
                     </span>
-                    <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700 dark:bg-violet-950 dark:text-violet-200">
+                    <span className="rounded bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200">
                       Reprodução: {reproductionLabel}
                     </span>
-                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-black text-blue-700 dark:bg-blue-950 dark:text-blue-200">
+                    <span className="rounded bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-200">
                       Último parto: {lastParto ? formatDateLabel(lastParto.data_evento || lastParto.created_at) : "-"}
                     </span>
-                    <span className={`rounded-full border px-3 py-1 text-xs font-black ${selectedSex.badge}`}>
+                    <span className={`rounded border px-3 py-1 text-xs font-semibold ${selectedSex.badge}`}>
                       {selectedSex.label}
                     </span>
                   </div>
@@ -780,17 +777,17 @@ export function GenealogyScreen() {
 
           <section className="space-y-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Árvore genealógica</p>
-              <h2 className="mt-1 text-xl font-black">Linhagem familiar</h2>
+              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-2)]">Árvore genealógica</p>
+              <h2 className="mt-1 text-[15px] font-semibold">Linhagem familiar</h2>
             </div>
             <GenealogyTreeCanvas selected={selected} tree={tree} />
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-            <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 dark:border-slate-800 md:flex-row md:items-end md:justify-between">
+          <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="flex flex-col gap-2 border-b border-[var(--border)] pb-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Descendentes diretos</p>
-                <h2 className="mt-1 text-xl font-black">{directDescendants.length} cria(s) vinculada(s)</h2>
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-emerald-700 dark:text-emerald-300">Descendentes diretos</p>
+                <h2 className="mt-1 text-[15px] font-semibold">{directDescendants.length} cria(s) vinculada(s)</h2>
               </div>
               <Badge tone={directDescendants.length ? "success" : "default"}>{lastParto ? `Último parto ${formatDateLabel(lastParto.data_evento || lastParto.created_at)}` : "Sem parto registrado"}</Badge>
             </div>
@@ -805,23 +802,23 @@ export function GenealogyScreen() {
                       <span className={`absolute inset-y-0 left-0 w-1 ${childSex.stripe}`} aria-hidden="true" />
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <h3 className="truncate text-base font-black text-slate-950 dark:text-slate-50">{animalLabel(child)}</h3>
-                          <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400">Nascimento: {formatDateLabel(child.data_nascimento)}</p>
+                          <h3 className="truncate text-base font-semibold text-[var(--text)]">{animalLabel(child)}</h3>
+                          <p className="mt-1 text-xs font-medium text-[var(--text-2)]">Nascimento: {formatDateLabel(child.data_nascimento)}</p>
                         </div>
-                        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-black ${childSex.badge}`}>{childSex.label}</span>
+                        <span className={`shrink-0 rounded border px-2.5 py-1 text-xs font-semibold ${childSex.badge}`}>{childSex.label}</span>
                       </div>
                       <div className="mt-3 grid gap-2 text-xs">
                         <div className={`flex justify-between gap-3 rounded-lg p-2 ring-1 ${childSex.softBox}`}>
-                          <span className="text-slate-500 dark:text-slate-400">Categoria</span>
-                          <strong className="truncate text-right text-slate-900 dark:text-slate-50">{categoryLabel(child.categoria)}</strong>
+                          <span className="text-[var(--text-2)]">Categoria</span>
+                          <strong className="truncate text-right text-[var(--text)]">{categoryLabel(child.categoria)}</strong>
                         </div>
                         <div className={`flex justify-between gap-3 rounded-lg p-2 ring-1 ${childSex.softBox}`}>
-                          <span className="text-slate-500 dark:text-slate-400">Pai</span>
-                          <strong className="truncate text-right text-slate-900 dark:text-slate-50">{animalLabel(childFather)}</strong>
+                          <span className="text-[var(--text-2)]">Pai</span>
+                          <strong className="truncate text-right text-[var(--text)]">{animalLabel(childFather)}</strong>
                         </div>
                         <div className={`flex justify-between gap-3 rounded-lg p-2 ring-1 ${childSex.softBox}`}>
-                          <span className="text-slate-500 dark:text-slate-400">Status</span>
-                          <strong className="truncate text-right text-slate-900 dark:text-slate-50">{String(child.status || "ativo")}</strong>
+                          <span className="text-[var(--text-2)]">Status</span>
+                          <strong className="truncate text-right text-[var(--text)]">{String(child.status || "ativo")}</strong>
                         </div>
                       </div>
                     </article>
@@ -829,17 +826,17 @@ export function GenealogyScreen() {
                 })}
               </div>
             ) : (
-              <div className="mt-5 rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm font-bold text-slate-500 dark:border-slate-700 dark:text-slate-300">
+              <div className="mt-5 rounded-lg border border-dashed border-[var(--border)] p-6 text-center text-sm font-medium text-[var(--text-2)]">
                 Nenhum descendente direto cadastrado.
               </div>
             )}
           </section>
 
-          <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/30">
+          <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-emerald-900 dark:bg-emerald-950/30">
             <div className="flex flex-col gap-2 border-b border-emerald-200 pb-4 dark:border-emerald-900 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Parto e cria</p>
-                <h2 className="mt-1 text-xl font-black">Registrar parto/cria a partir deste animal</h2>
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-emerald-700 dark:text-emerald-300">Parto e cria</p>
+                <h2 className="mt-1 text-[15px] font-semibold">Registrar parto/cria a partir deste animal</h2>
               </div>
               <Baby className="h-6 w-6 text-emerald-700 dark:text-emerald-300" />
             </div>
@@ -847,33 +844,33 @@ export function GenealogyScreen() {
             {canRegisterBirth ? (
               <div className="mt-5 grid gap-4 md:grid-cols-3">
                 <label className="space-y-2">
-                  <span className="text-sm font-bold">Data do parto</span>
+                  <span className="text-sm font-medium">Data do parto</span>
                   <input className="input" type="date" value={birthDraft.data_parto} onChange={(event) => setBirthDraft((current) => ({ ...current, data_parto: event.target.value }))} />
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold">Sexo da cria</span>
+                  <span className="text-sm font-medium">Sexo da cria</span>
                   <select className="input" value={birthDraft.cria_sexo} onChange={(event) => setBirthDraft((current) => ({ ...current, cria_sexo: event.target.value }))}>
                     <option value="femea">Fêmea</option>
                     <option value="macho">Macho</option>
                   </select>
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold">Código/brinco da cria</span>
+                  <span className="text-sm font-medium">Código/brinco da cria</span>
                   <input className="input" value={birthDraft.cria_codigo} onChange={(event) => setBirthDraft((current) => ({ ...current, cria_codigo: event.target.value }))} placeholder="Ex: B-123" />
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold">Nome da cria</span>
+                  <span className="text-sm font-medium">Nome da cria</span>
                   <input className="input" value={birthDraft.cria_nome} onChange={(event) => setBirthDraft((current) => ({ ...current, cria_nome: event.target.value }))} />
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold">Pai</span>
+                  <span className="text-sm font-medium">Pai</span>
                   <select className="input" value={birthDraft.pai_id} onChange={(event) => setBirthDraft((current) => ({ ...current, pai_id: event.target.value }))}>
                     <option value="">Não informado</option>
                     {fatherOptions.map((option) => <option key={option.id} value={option.id}>{animalLabel(option)}</option>)}
                   </select>
                 </label>
                 <label className="space-y-2 md:col-span-3">
-                  <span className="text-sm font-bold">Observações do parto</span>
+                  <span className="text-sm font-medium">Observações do parto</span>
                   <textarea className="input min-h-24 resize-y" value={birthDraft.observacoes} onChange={(event) => setBirthDraft((current) => ({ ...current, observacoes: event.target.value }))} />
                 </label>
               </div>
@@ -890,18 +887,18 @@ export function GenealogyScreen() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-            <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 dark:border-slate-800 md:flex-row md:items-end md:justify-between">
+          <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="flex flex-col gap-2 border-b border-[var(--border)] pb-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Editar genealogia</p>
-                <h2 className="mt-1 text-xl font-black">Mãe, pai e observações</h2>
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-emerald-700 dark:text-emerald-300">Editar genealogia</p>
+                <h2 className="mt-1 text-[15px] font-semibold">Mãe, pai e observações</h2>
               </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">As opções bloqueiam o próprio animal e seus descendentes.</p>
+              <p className="text-sm text-[var(--text-2)]">As opções bloqueiam o próprio animal e seus descendentes.</p>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <label className="space-y-2">
-                <span className="text-sm font-bold">Mãe</span>
+                <span className="text-sm font-medium">Mãe</span>
                 <select className="input" value={draft.mae_id} onChange={(event) => setDraft((current) => ({ ...current, mae_id: event.target.value }))}>
                   <option value="">Não informado</option>
                   {parentOptions.map((option) => <option key={option.id} value={option.id}>{animalLabel(option)}</option>)}
@@ -909,7 +906,7 @@ export function GenealogyScreen() {
               </label>
 
               <label className="space-y-2">
-                <span className="text-sm font-bold">Pai</span>
+                <span className="text-sm font-medium">Pai</span>
                 <select className="input" value={draft.pai_id} onChange={(event) => setDraft((current) => ({ ...current, pai_id: event.target.value }))}>
                   <option value="">Não informado</option>
                   {parentOptions.map((option) => <option key={option.id} value={option.id}>{animalLabel(option)}</option>)}
@@ -917,7 +914,7 @@ export function GenealogyScreen() {
               </label>
 
               <label className="space-y-2 md:col-span-2">
-                <span className="text-sm font-bold">Observações genealógicas</span>
+                <span className="text-sm font-medium">Observações genealógicas</span>
                 <textarea
                   className="input min-h-32 resize-y"
                   value={draft.genealogia_observacoes}
@@ -927,7 +924,7 @@ export function GenealogyScreen() {
               </label>
             </div>
 
-            <div className="mt-5 flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-4 dark:border-slate-800">
+            <div className="mt-5 flex flex-wrap justify-end gap-3 border-t border-[var(--border)] pt-4">
               <button className="btn btn-secondary" type="button" onClick={clearSelection}>
                 Voltar para seleção
               </button>
@@ -941,4 +938,3 @@ export function GenealogyScreen() {
     </div>
   );
 }
-//oi

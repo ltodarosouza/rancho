@@ -46,7 +46,7 @@ function FieldInput({
       return (
         <div className="grid gap-2 sm:grid-cols-2">
           {options.map((option) => (
-            <label key={option.value} className={cn("flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold transition", value === option.value ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100" : "border-slate-200 bg-white/70 text-slate-600 hover:border-emerald-300 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300")}>
+            <label key={option.value} className={cn("flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition", value === option.value ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] hover:border-emerald-300")}>
               <input className="accent-emerald-700" type="radio" name={field.name} value={option.value} checked={value === option.value} onChange={(event) => onChange(event.target.value)} required={field.required} />
               {option.label}
             </label>
@@ -68,7 +68,7 @@ function FieldInput({
 
   if (field.type === "checkbox") {
     return (
-      <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm font-bold dark:border-slate-800 dark:bg-slate-900/70">
+      <label className="flex items-center gap-3 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-medium">
         <input type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />
         Sim
       </label>
@@ -130,14 +130,14 @@ export function ModuleForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="glass rounded-lg p-5 shadow-soft md:p-6">
+    <form onSubmit={handleSubmit} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-black">{editing ? "Editar registro" : "Novo registro"}</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Preencha os campos principais e salve o registro.</p>
+          <h2 className="text-lg font-semibold">{editing ? "Editar registro" : "Novo registro"}</h2>
+          <p className="mt-1 text-sm text-[var(--text-2)]">Preencha os campos principais e salve o registro.</p>
         </div>
         {editing ? (
-          <button type="button" onClick={onCancel} className="rounded-lg border border-slate-200 p-2 dark:border-slate-700">
+          <button type="button" onClick={onCancel} className="rounded-md border border-[var(--border)] p-2">
             <X className="h-4 w-4" />
           </button>
         ) : null}
@@ -145,9 +145,9 @@ export function ModuleForm({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {config.fields.map((field) => (
           <label key={field.name} className={cn("space-y-2", field.type === "textarea" && "md:col-span-2 xl:col-span-3")}>
-            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{field.label}{field.required ? " *" : ""}</span>
+            <span className="text-sm font-medium text-[var(--text)]">{field.label}{field.required ? " *" : ""}</span>
             <FieldInput field={field} value={values[field.name]} onChange={(value) => update(field.name, value)} relationOptions={relationOptions[field.name]} />
-            {field.helper ? <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{field.helper}</p> : null}
+            {field.helper ? <p className="text-xs font-medium text-[var(--text-3)]">{field.helper}</p> : null}
           </label>
         ))}
       </div>

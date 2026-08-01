@@ -97,69 +97,69 @@ export function EmployeeForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 backdrop-blur-sm md:items-center">
-      <form onSubmit={submit} className="w-full max-w-4xl animate-fade-in rounded-lg border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-800 dark:bg-slate-950 md:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 md:items-center">
+      <form onSubmit={submit} className="w-full max-w-4xl animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-black">{employee?.id ? "Editar funcionário" : accessMode === "bot_only" ? "Cadastrar apenas WhatsApp" : "Novo funcionário"}</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <h2 className="text-xl font-semibold">{employee?.id ? "Editar funcionário" : accessMode === "bot_only" ? "Cadastrar apenas WhatsApp" : "Novo funcionário"}</h2>
+            <p className="mt-1 text-sm text-[var(--text-2)]">
               {accessMode === "bot_only" && !employee?.id
                 ? "Este funcionário não terá login no painel; ele poderá usar apenas o bot do WhatsApp se estiver ativo."
                 : "Dados profissionais, salário e contato do colaborador."}
             </p>
           </div>
-          <button className="rounded-lg border border-slate-200 p-2 dark:border-slate-800" type="button" onClick={onClose} title="Fechar">
+          <button className="rounded-lg border border-[var(--border)] p-2" type="button" onClick={onClose} title="Fechar">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {formError ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{formError}</div> : null}
+        {formError ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{formError}</div> : null}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <label className="space-y-2">
-            <span className="text-sm font-bold">Nome *</span>
+            <span className="text-sm font-medium">Nome *</span>
             <input className="input" value={values.nome} onChange={(event) => update("nome", event.target.value)} required />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-bold">Cargo / função *</span>
+            <span className="text-sm font-medium">Cargo / função *</span>
             <input className="input" value={values.funcao} onChange={(event) => update("funcao", event.target.value)} required />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-bold">WhatsApp {requiresWhatsApp ? "*" : ""}</span>
+            <span className="text-sm font-medium">WhatsApp {requiresWhatsApp ? "*" : ""}</span>
             <WhatsAppInput value={values.contato_whatsapp} onChange={(value) => update("contato_whatsapp", value)} placeholder="+55 (88) 99999-9999" required={requiresWhatsApp} />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-bold">CPF</span>
+            <span className="text-sm font-medium">CPF</span>
             <CPFInput value={values.cpf} onChange={(value) => update("cpf", value)} placeholder="000.000.000-00" />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-bold">Salário-base</span>
+            <span className="text-sm font-medium">Salário-base</span>
             <CurrencyInput value={values.salario_base} onChange={(value) => update("salario_base", value)} />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-bold">Admissão</span>
+            <span className="text-sm font-medium">Admissão</span>
             <input className="input" type="date" value={values.data_admissao} onChange={(event) => update("data_admissao", event.target.value)} />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-bold">Carga mensal</span>
+            <span className="text-sm font-medium">Carga mensal</span>
             <input className="input" type="number" step="1" min="0" value={values.carga_horaria_mensal} onChange={(event) => update("carga_horaria_mensal", event.target.value)} />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-bold">Valor hora extra</span>
+            <span className="text-sm font-medium">Valor hora extra</span>
             <CurrencyInput value={values.valor_hora_extra} onChange={(value) => update("valor_hora_extra", value)} />
           </label>
           {requiresWhatsApp ? (
             <label className="space-y-2">
-              <span className="text-sm font-bold">Permissões no bot</span>
+              <span className="text-sm font-medium">Permissões no bot</span>
               <select className="input" value={values.papel_bot} onChange={(event) => update("papel_bot", event.target.value)}>
                 {BOT_ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
-              <span className="block text-xs text-slate-500 dark:text-slate-400">
+              <span className="block text-xs text-[var(--text-2)]">
                 {BOT_ROLE_OPTIONS.find((option) => option.value === values.papel_bot)?.description}
               </span>
             </label>
           ) : null}
-          <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm font-bold dark:border-slate-800 dark:bg-slate-900/70">
+          <label className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-medium">
             <input type="checkbox" checked={values.ativo} onChange={(event) => update("ativo", event.target.checked)} />
             Funcionário ativo
           </label>

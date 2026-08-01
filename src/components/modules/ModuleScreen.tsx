@@ -488,15 +488,12 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-            <Icon className="h-4 w-4" /> {config.title}
-          </div>
-          <h1 className="text-3xl font-black tracking-tight md:text-4xl">{config.title}</h1>
-          <p className="mt-3 max-w-2xl text-slate-500 dark:text-slate-400">{config.subtitle}</p>
+          <h1 className="text-xl font-semibold tracking-tight">{config.title}</h1>
+          <p className="mt-1 text-[13px] text-[var(--text-2)]">{config.subtitle}</p>
         </div>
-        <button className="btn btn-secondary" type="button" onClick={() => load(true)} disabled={loading}>
+        <button className="btn btn-secondary text-[13px]" type="button" onClick={() => load(true)} disabled={loading}>
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> {loading ? "Atualizando..." : "Atualizar"}
         </button>
       </div>
@@ -509,28 +506,28 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
         />
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {(config.quickStats || []).map((stat, index) => (
-          <StatCard key={stat.label} title={stat.label} value={initialError ? "-" : calcStat(rows, stat)} hint="Resumo da tela" icon={index % 2 ? Activity : Icon} tone={index % 2 ? "blue" : "green"} loading={showPlaceholders} />
+          <StatCard key={stat.label} title={stat.label} value={initialError ? "-" : calcStat(rows, stat)} icon={index % 2 ? Activity : Icon} tone={index % 2 ? "blue" : "green"} loading={showPlaceholders} />
         ))}
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-5">
         {canManage ? (
-          <div ref={formRef} className="scroll-mt-24">
+          <div ref={formRef} className="scroll-mt-16">
             <ModuleForm config={config} editing={editing} onSubmit={submit} onCancel={() => setEditing(null)} busy={busy} relationOptions={relationOptions} />
           </div>
         ) : (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
             Seu perfil pode consultar esta área, mas não pode criar, editar ou excluir registros.
           </div>
         )}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black">{config.key === "rebanho" ? "Animais do rebanho" : "Registros"}</h2>
-            <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-              <Plus className="h-4 w-4" /> {showPlaceholders ? <Skeleton className="h-4 w-20" /> : initialError ? "-" : config.key === "rebanho" ? `${rows.length} animais` : `${filteredRows.length} itens`}
-            </div>
+            <h2 className="text-[15px] font-semibold">{config.key === "rebanho" ? "Animais do rebanho" : "Registros"}</h2>
+            <span className="text-xs font-medium text-[var(--text-2)]">
+              {showPlaceholders ? <Skeleton className="h-4 w-20" /> : initialError ? "-" : config.key === "rebanho" ? `${rows.length} animais` : `${filteredRows.length} itens`}
+            </span>
           </div>
           {config.key === "rebanho" ? (
             <AnimalCards
@@ -586,13 +583,13 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
       ) : null}
 
       {animalDeleteTarget && typeof document !== "undefined" ? createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-          <section className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
-            <h2 className="text-xl font-black">Excluir animal?</h2>
-            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <section className="w-full max-w-lg rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl">
+            <h2 className="text-lg font-semibold">Excluir animal?</h2>
+            <p className="mt-3 text-sm text-[var(--text-2)]">
               Ao confirmar, {animalDeleteTarget.nome || animalDeleteTarget.brinco || "este animal"} será excluído do rebanho e os vínculos de produção, eventos e genealogia relacionados também serão removidos ou atualizados.
             </p>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-2 text-sm text-[var(--text-3)]">
               Se quiser preservar o histórico sem usar mais esse animal nos lançamentos, escolha apenas inativar.
             </p>
 

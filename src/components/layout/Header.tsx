@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { canAccessPlatformAdmin } from "@/lib/platform-admin";
 import { canViewPath } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-//henrique eh 
+
 const globalDestinations = [
   { href: "/dashboard", label: "Dashboard", helper: "Visão geral da fazenda", keywords: ["inicio", "painel", "resumo", "geral"] },
   { href: "/lotes", label: "Lotes", helper: "Grupos e manejo do rebanho", keywords: ["lote", "piquete", "manejo", "grupo"] },
@@ -31,8 +31,28 @@ const globalDestinations = [
   { href: "/configuracoes", label: "Configurações", helper: "Conta e preferências", keywords: ["configuracao", "preferencia", "conta", "perfil"] }
 ];
 
+const breadcrumbMap: Record<string, string> = {
+  "/dashboard": "Principal",
+  "/lotes": "Rebanho",
+  "/rebanho": "Rebanho",
+  "/genealogia": "Rebanho",
+  "/reproducao": "Rebanho",
+  "/eventos": "Rebanho",
+  "/producao": "Rebanho",
+  "/estoque": "Estoque",
+  "/financeiro": "Financeiro",
+  "/relatorios": "Financeiro",
+  "/funcionarios": "Equipe",
+  "/ponto": "Equipe",
+  "/folha": "Equipe",
+  "/whatsapp": "Atendimento",
+  "/admin-interno": "Sistema",
+  "/suporte": "Sistema",
+  "/configuracoes": "Sistema"
+};
+
 function normalizeSearch(value: string) {
-  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return value.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
 function findDestinations(value: string) {
@@ -64,6 +84,12 @@ export function Header() {
   const searchResults = useMemo(() => (
     findDestinations(globalSearch).filter((item) => (isPlatformAdmin || item.href !== "/admin-interno") && canViewPath(profile, item.href))
   ), [globalSearch, isPlatformAdmin, profile]);
+
+  const currentPage = useMemo(() => {
+    return globalDestinations.find((item) => pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href)));
+  }, [pathname]);
+
+  const breadcrumb = breadcrumbMap[pathname] || "Principal";
 
   useEffect(() => {
     const saved = localStorage.getItem("rancho-theme");
@@ -118,28 +144,33 @@ export function Header() {
 
   return (
     <>
-      <header className="no-print fixed inset-x-0 top-0 z-40 border-b border-slate-200/60 bg-white/95 px-4 py-3 shadow-[0_10px_28px_-24px_rgba(15,23,42,0.75)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/95 lg:left-72 md:bg-white/82 md:px-8 md:backdrop-blur-2xl md:dark:bg-slate-950/78">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3 lg:hidden">
-            <button
-              className="shrink-0 rounded-lg border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-              onClick={() => setOpen((value) => !value)}
-              type="button"
-              aria-controls="mobile-navigation"
-              aria-expanded={open}
-              title={open ? "Fechar menu" : "Abrir menu"}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-            <strong className="min-w-0 truncate text-base">Rancho Pro</strong>
-          </div>
+      <header className="no-print fixed inset-x-0 top-0 z-40 flex h-[52px] items-center justify-between gap-4 border-b border-[var(--border)] bg-[var(--surface)] px-4 lg:left-56 lg:px-6">
+        <div className="flex min-w-0 items-center gap-2 lg:hidden">
+          <button
+            className="shrink-0 rounded-md border border-[var(--border)] bg-[var(--surface)] p-1.5"
+            onClick={() => setOpen((value) => !value)}
+            type="button"
+            aria-controls="mobile-navigation"
+            aria-expanded={open}
+            title={open ? "Fechar menu" : "Abrir menu"}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <strong className="min-w-0 truncate text-sm font-semibold">Rancho</strong>
+        </div>
 
-          <form onSubmit={submitSearch} className="relative hidden max-w-xl flex-1 lg:block">
-            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white/75 px-4 py-2 shadow-sm transition focus-within:border-emerald-500/60 focus-within:ring-4 focus-within:ring-emerald-700/10 dark:border-slate-800 dark:bg-slate-900/70">
-              <Search className="h-4 w-4 text-slate-400" />
+        <div className="hidden min-w-0 items-center gap-1.5 lg:flex">
+          <span className="text-[13px] text-[var(--text-3)]">{breadcrumb} /</span>
+          <span className="text-sm font-semibold text-[var(--text)]">{currentPage?.label || "Página"}</span>
+        </div>
+
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <form onSubmit={submitSearch} className="relative hidden lg:block">
+            <div className="flex min-w-[200px] items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] px-2.5 py-1.5 text-[13px] text-[var(--text-3)] transition-colors focus-within:border-pasture focus-within:ring-2 focus-within:ring-pasture/10">
+              <Search className="h-3.5 w-3.5" />
               <input
-                className="w-full bg-transparent text-sm outline-none"
-                placeholder="Buscar atalho: animal, estoque, funcionário..."
+                className="w-full bg-transparent text-[13px] text-[var(--text)] outline-none placeholder:text-[var(--text-3)]"
+                placeholder="Buscar página..."
                 value={globalSearch}
                 onBlur={() => window.setTimeout(() => setSearchOpen(false), 120)}
                 onChange={(event) => {
@@ -157,90 +188,69 @@ export function Header() {
                   }
                 }}
               />
+              <kbd className="rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-0.5 text-[10px] text-[var(--text-3)]">Ctrl K</kbd>
             </div>
 
             {searchOpen && globalSearch.trim() ? (
-              <div className="absolute left-0 right-0 top-12 z-30 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
+              <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-lg">
                 {searchResults.length ? searchResults.map((item) => (
                   <button
                     key={item.href}
-                    className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                    className="flex w-full items-center justify-between gap-4 px-3 py-2.5 text-left transition-colors hover:bg-[var(--bg)]"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => goTo(item.href)}
                     type="button"
                   >
                     <span>
-                      <span className="block text-sm font-black">{item.label}</span>
-                      <span className="block text-xs text-slate-500 dark:text-slate-400">{item.helper}</span>
+                      <span className="block text-sm font-semibold">{item.label}</span>
+                      <span className="block text-xs text-[var(--text-2)]">{item.helper}</span>
                     </span>
-                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">Abrir</span>
                   </button>
                 )) : (
-                  <div className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">Nenhum atalho encontrado.</div>
+                  <div className="px-3 py-2.5 text-sm text-[var(--text-3)]">Nenhum atalho encontrado.</div>
                 )}
               </div>
             ) : null}
           </form>
 
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <NotificationsMenu />
-            <button onClick={toggleTheme} className="rounded-lg border border-slate-200 bg-white/70 p-2 transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/70 dark:hover:bg-slate-800" type="button" title="Tema">
-              {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          <NotificationsMenu />
+          <button onClick={toggleTheme} className="flex h-[34px] w-[34px] items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] transition-colors hover:bg-[var(--bg)]" type="button" title="Tema">
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          {logoutError ? <span className="hidden text-xs font-semibold text-red-600 dark:text-red-400 md:inline">{logoutError}</span> : null}
+          {!isDemo ? (
+            <button onClick={handleSignOut} disabled={isLoggingOut} className="flex h-[34px] w-[34px] items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] transition-colors hover:bg-[var(--bg)] disabled:opacity-60" type="button" title={isLoggingOut ? "Saindo da conta..." : "Sair"}>
+              {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
             </button>
-            {logoutError ? <span className="hidden text-xs font-bold text-red-700 dark:text-red-300 md:inline">{logoutError}</span> : null}
-            {!isDemo ? (
-              <button onClick={handleSignOut} disabled={isLoggingOut} className="rounded-lg border border-slate-200 bg-white/70 p-2 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900/70 dark:hover:bg-slate-800" type="button" title={isLoggingOut ? "Saindo da conta..." : "Sair"}>
-                {isLoggingOut ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogOut className="h-5 w-5" />}
-              </button>
-            ) : null}
-            <div className="hidden rounded-lg bg-slate-900 px-4 py-2 text-right text-white dark:bg-white dark:text-slate-900 md:block">
-              <p className="text-xs text-slate-300 dark:text-slate-500">{profile?.fazenda?.nome || "Fazenda"}</p>
-              <p className="text-sm font-black">{profile?.nome || "Administrador"}</p>
-            </div>
-          </div>
+          ) : null}
         </div>
-
-        {isLoggingOut ? (
-          <div className="absolute inset-x-0 top-full z-40 border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-center text-sm font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
-            Saindo da conta...
-          </div>
-        ) : null}
       </header>
+
+      {isLoggingOut ? (
+        <div className="no-print fixed inset-x-0 top-[52px] z-40 border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-center text-sm font-semibold text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100 lg:left-56">
+          Saindo da conta...
+        </div>
+      ) : null}
 
       {open ? (
         <div className="no-print lg:hidden">
           <button
-            className="fixed inset-0 z-40 cursor-default bg-slate-950/35"
+            className="fixed inset-0 z-40 cursor-default bg-black/40"
             type="button"
             aria-label="Fechar menu"
             onClick={() => setOpen(false)}
           />
           <section
             id="mobile-navigation"
-            className="fixed inset-x-3 bottom-3 top-[5.25rem] z-50 isolate flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950"
+            className="fixed inset-x-0 bottom-0 top-[52px] z-50 flex flex-col overflow-hidden bg-[var(--surface)]"
           >
-            <div className="m-3 mb-0 flex shrink-0 items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 dark:bg-emerald-950/40">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">Menu</p>
-                <p className="text-sm font-black text-slate-900 dark:text-slate-100">Áreas da fazenda</p>
-              </div>
-              <button
-                className="rounded-lg border border-emerald-200 bg-white p-2 text-emerald-700 shadow-sm dark:border-emerald-900 dark:bg-slate-900 dark:text-emerald-200"
-                type="button"
-                onClick={() => setOpen(false)}
-                title="Fechar menu"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-white p-3 dark:bg-slate-950">
+            <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4">
               {visibleGroups.map((group) => (
                 <section key={group.label}>
-                  <p className="mb-2 px-1 text-[0.68rem] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                  <p className="mb-2 px-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">
                     {group.label}
                   </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="space-y-0.5">
                     {group.items.map((item) => {
                       const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
                       const Icon = item.icon;
@@ -251,16 +261,11 @@ export function Header() {
                           onClick={() => setOpen(false)}
                           aria-current={active ? "page" : undefined}
                           className={cn(
-                            "flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-emerald-900 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-200",
-                            active && "border-emerald-200 bg-emerald-100 text-emerald-900 shadow-sm dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100"
+                            "flex min-w-0 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-[var(--text)] transition-colors",
+                            active ? "bg-pasture/10 text-pasture dark:text-emerald-300" : "hover:bg-[var(--bg)]"
                           )}
                         >
-                          <span className={cn(
-                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500 dark:bg-slate-950 dark:text-slate-400",
-                            active && "bg-white text-emerald-700 dark:bg-slate-900 dark:text-emerald-200"
-                          )}>
-                            <Icon className="h-4 w-4" />
-                          </span>
+                          <Icon className="h-4 w-4 shrink-0 opacity-70" />
                           <span className="min-w-0 truncate">{item.label}</span>
                         </Link>
                       );
@@ -269,6 +274,23 @@ export function Header() {
                 </section>
               ))}
             </nav>
+
+            <div className="border-t border-[var(--border)] p-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{profile?.nome || "Usuário"}</p>
+                  <p className="truncate text-xs text-[var(--text-2)]">{profile?.fazenda?.nome || "Fazenda"}</p>
+                </div>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border)] text-[var(--text-2)]"
+                  type="button"
+                  title="Fechar menu"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           </section>
         </div>
       ) : null}

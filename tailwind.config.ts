@@ -11,14 +11,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        pasture: "#2f855a",
-        meadow: "#ecfdf5"
+        pasture: "#16803C",
+        meadow: "#ECFDF3"
       },
       boxShadow: {
-        soft: "0 24px 80px rgba(15, 23, 42, 0.08)"
-      },
-      backgroundImage: {
-        grid: "radial-gradient(circle at 1px 1px, rgba(15,23,42,0.08) 1px, transparent 0)"
+        soft: "0 4px 12px rgba(0, 0, 0, 0.06)"
       }
     }
   },

@@ -114,7 +114,7 @@ function exportStockCsv(rows: AnyRecord[]) {
 
 function StockItemSkeleton() {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white/72 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+    <article className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -134,7 +134,7 @@ function StockItemSkeleton() {
         <Skeleton className="h-11 rounded-lg" />
         <Skeleton className="h-11 rounded-lg" />
       </div>
-      <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-4 flex flex-col gap-3 border-t border-[var(--border-light)] pt-4 sm:flex-row sm:items-center sm:justify-between">
         <Skeleton className="h-4 w-56 max-w-full" />
         <div className="flex gap-2">
           <Skeleton className="h-9 w-9 rounded-lg" />
@@ -180,48 +180,48 @@ function StockActionModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 backdrop-blur-sm md:items-center">
-      <form onSubmit={submit} className="w-full max-w-lg animate-fade-in rounded-lg border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-800 dark:bg-slate-950">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 md:items-center">
+      <form onSubmit={submit} className="w-full max-w-lg animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-lg">
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
-            <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-900">
+            <div className="rounded-lg bg-[var(--bg)] p-3">
               <Icon className={`h-6 w-6 ${copy.tone}`} />
             </div>
             <div>
-              <h2 className="text-xl font-black">{copy.title}</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{copy.subtitle}</p>
+              <h2 className="text-lg font-semibold">{copy.title}</h2>
+              <p className="mt-1 text-sm text-[var(--text-2)]">{copy.subtitle}</p>
             </div>
           </div>
-          <button className="rounded-lg border border-slate-200 p-2 dark:border-slate-800" type="button" onClick={onClose}>
+          <button className="rounded-md border border-[var(--border)] p-2" type="button" onClick={onClose}>
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mt-5 rounded-lg bg-slate-50 p-4 text-sm dark:bg-slate-900">
-          <p className="font-black">{action.item.nome}</p>
-          <p className="mt-1 text-slate-500 dark:text-slate-400">
+        <div className="mt-5 rounded-lg bg-[var(--bg)] p-4 text-sm">
+          <p className="font-semibold">{action.item.nome}</p>
+          <p className="mt-1 text-[var(--text-2)]">
             Saldo atual: {formatStockQuantity(current, action.item.unidade_medida)}
           </p>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
-            <span className="text-sm font-bold">{action.type === "ajuste" ? "Novo saldo" : "Quantidade"}</span>
+            <span className="text-sm font-medium">{action.type === "ajuste" ? "Novo saldo" : "Quantidade"}</span>
             <input className="input" type="number" step="0.001" min="0" value={quantity} onChange={(event) => setQuantity(event.target.value)} required />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-bold">Valor unitário</span>
+            <span className="text-sm font-medium">Valor unitário</span>
             <input className="input" type="number" step="0.01" min="0" value={unitValue} onChange={(event) => setUnitValue(event.target.value)} />
           </label>
         </div>
 
         <label className="mt-4 block space-y-2">
-          <span className="text-sm font-bold">Motivo</span>
+          <span className="text-sm font-medium">Motivo</span>
           <textarea className="input min-h-24 resize-y" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ex: compra de ração, uso no trato, contagem física..." />
         </label>
 
         <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
-          <span className="font-bold text-emerald-900 dark:text-emerald-100">Depois da ação: </span>
+          <span className="font-medium text-emerald-900 dark:text-emerald-100">Depois da ação: </span>
           {formatStockQuantity(nextQuantity, action.item.unidade_medida)}
         </div>
 
@@ -410,11 +410,8 @@ export function StockScreen({ config }: { config: ModuleConfig }) {
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-            <PackageOpen className="h-4 w-4" /> Estoque
-          </div>
-          <h1 className="text-3xl font-black tracking-tight md:text-4xl">Gestão de Estoque</h1>
-          <p className="mt-3 max-w-2xl text-slate-500 dark:text-slate-400">
+          <h1 className="text-xl font-semibold tracking-tight">Gestão de Estoque</h1>
+          <p className="mt-1 text-[13px] text-[var(--text-2)]">
             Controle entradas, retiradas e ajustes de cada produto sem editar o saldo manualmente.
           </p>
         </div>
@@ -445,16 +442,16 @@ export function StockScreen({ config }: { config: ModuleConfig }) {
           <ModuleForm config={config} editing={editing} onSubmit={submitItem} onCancel={() => setEditing(null)} busy={busy} relationOptions={{} as Record<string, RelationOption[]>} />
         </div>
       ) : (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
           Seu perfil pode consultar o estoque, mas não pode criar, editar ou movimentar itens.
         </div>
       )}
 
-      <section className="glass rounded-lg p-4 shadow-soft md:p-5">
+      <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-xl font-black">Itens do estoque</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <h2 className="text-[15px] font-semibold">Itens do estoque</h2>
+            <p className="mt-1 text-sm text-[var(--text-2)]">
               Use os botões de cada item para adicionar, retirar ou ajustar saldo.
             </p>
           </div>
@@ -469,21 +466,21 @@ export function StockScreen({ config }: { config: ModuleConfig }) {
             const recentMovement = lastMovementByItem.get(item.id);
 
             return (
-              <article key={item.id} className="rounded-lg border border-slate-200 bg-white/72 p-4 shadow-sm transition hover:border-emerald-300 hover:shadow-soft dark:border-slate-800 dark:bg-slate-900/60">
+              <article key={item.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:border-[var(--text-3)]">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-black">{item.nome}</h3>
+                      <h3 className="text-[15px] font-semibold">{item.nome}</h3>
                       <Badge tone={critical ? "danger" : "success"}>{critical ? "Atenção" : "Ok"}</Badge>
                     </div>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    <p className="mt-1 text-sm text-[var(--text-2)]">
                       {stockCategoryLabels[String(item.categoria)] || item.categoria || "Sem categoria"} • {item.fornecedor || "Sem fornecedor"}
                     </p>
                   </div>
                   <div className="text-left md:text-right">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Saldo atual</p>
-                    <p className="mt-1 text-2xl font-black">{formatStockQuantity(current, item.unidade_medida)}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Mínimo: {formatStockQuantity(minimum, item.unidade_medida)}</p>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--text-3)]">Saldo atual</p>
+                    <p className="mt-1 text-xl font-semibold tabular-nums">{formatStockQuantity(current, item.unidade_medida)}</p>
+                    <p className="text-xs text-[var(--text-2)]">Mínimo: {formatStockQuantity(minimum, item.unidade_medida)}</p>
                   </div>
                 </div>
 
@@ -499,8 +496,8 @@ export function StockScreen({ config }: { config: ModuleConfig }) {
                   </button>
                 </div>
 
-                <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-slate-500 dark:text-slate-400">
+                <div className="mt-4 flex flex-col gap-3 border-t border-[var(--border-light)] pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-[var(--text-2)]">
                     {recentMovement ? (
                       <span>Última movimentação: {movementLabels[String(recentMovement.tipo)] || recentMovement.tipo} em {formatDate(recentMovement.created_at)}</span>
                     ) : (
@@ -510,10 +507,10 @@ export function StockScreen({ config }: { config: ModuleConfig }) {
                   <div className="flex gap-2">
                     {canManage ? (
                       <>
-                        <button className="rounded-lg border border-slate-200 p-2 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800" type="button" onClick={() => startEditing(item)} title="Editar item">
+                        <button className="rounded-md border border-[var(--border)] p-2 hover:bg-[var(--bg)]" type="button" onClick={() => startEditing(item)} title="Editar item">
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950" type="button" onClick={() => removeItem(item)} title="Excluir item">
+                        <button className="rounded-md border border-red-200 p-2 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/40" type="button" onClick={() => removeItem(item)} title="Excluir item">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </>

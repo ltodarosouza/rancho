@@ -18,24 +18,26 @@ export function Sidebar() {
     .filter((group) => group.items.length);
 
   return (
-    <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-72 overflow-y-auto border-r border-slate-200/70 bg-white/90 p-4 backdrop-blur-2xl dark:border-slate-800 dark:bg-slate-950/85 lg:block">
-      <Link href="/dashboard" className="mb-6 flex items-center gap-3 rounded-lg bg-emerald-900 p-4 text-white shadow-soft">
-        <div className="rounded-lg bg-white/15 p-3">
-          <PawPrint className="h-7 w-7" />
+    <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-56 flex-col overflow-y-auto border-r border-[#1e2620] bg-[#141C17] lg:flex"
+      style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}
+    >
+      <Link href="/dashboard" className="flex items-center gap-2.5 border-b border-white/[0.06] px-4 pb-4 pt-5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-pasture">
+          <PawPrint className="h-[18px] w-[18px] text-white" />
         </div>
-        <div>
-          <p className="text-lg font-black leading-none">Rancho Pro</p>
-          <p className="mt-1 text-xs font-semibold text-emerald-100">Gestão agropecuária</p>
+        <div className="min-w-0">
+          <p className="text-[15px] font-semibold leading-none tracking-tight text-[#E8EDE9]">Rancho</p>
+          <p className="mt-1 text-[11px] text-[#A3B0A7]">Gestão agropecuária</p>
         </div>
       </Link>
 
-      <nav className="space-y-6">
+      <nav className="flex-1 px-2 py-2">
         {visibleGroups.map((group) => (
-          <section key={group.label}>
-            <p className="px-3 text-[0.68rem] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+          <section key={group.label} className="mb-4">
+            <p className="px-2 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#A3B0A7]/50">
               {group.label}
             </p>
-            <div className="mt-2 space-y-1">
+            <div className="space-y-0.5">
               {group.items.map((item) => {
                 const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
                 const Icon = item.icon;
@@ -45,16 +47,14 @@ export function Sidebar() {
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-300 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-200",
-                      active && "bg-emerald-100 text-emerald-900 shadow-sm dark:bg-emerald-950 dark:text-emerald-100"
+                      "group relative flex items-center gap-2 rounded-[5px] px-2 py-[7px] text-[13px] font-medium text-[#A3B0A7] transition-colors hover:bg-white/[0.06] hover:text-[#D0D7D2]",
+                      active && "bg-pasture/[0.15] font-medium text-emerald-300"
                     )}
                   >
-                    <span className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition group-hover:text-emerald-700 dark:text-slate-400 dark:group-hover:text-emerald-200",
-                      active && "bg-white/70 text-emerald-700 dark:bg-slate-900/70 dark:text-emerald-200"
-                    )}>
-                      <Icon className="h-4 w-4" />
-                    </span>
+                    {active ? (
+                      <span className="absolute -left-2 bottom-1.5 top-1.5 w-[3px] rounded-r bg-pasture" aria-hidden="true" />
+                    ) : null}
+                    <Icon className={cn("h-4 w-4 shrink-0 opacity-70", active && "opacity-100")} />
                     <span className="min-w-0 truncate">{item.label}</span>
                   </Link>
                 );
@@ -63,6 +63,18 @@ export function Sidebar() {
           </section>
         ))}
       </nav>
+
+      <div className="border-t border-white/[0.06] px-3 py-3">
+        <div className="flex items-center gap-2 px-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-pasture/30 text-[11px] font-semibold text-emerald-300">
+            {(profile?.nome || "U").charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[12.5px] font-medium text-[#D0D7D2]">{profile?.nome || "Usuário"}</p>
+            <p className="truncate text-[11px] text-[#A3B0A7]">{profile?.fazenda?.nome || "Fazenda"}</p>
+          </div>
+        </div>
+      </div>
     </aside>
   );
 }

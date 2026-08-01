@@ -268,35 +268,35 @@ export function AnimalDetailModal({
   const showDetailPlaceholders = detailsLoading || Boolean(error && !events.length && !productions.length);
 
   return (
-    <div className="fixed inset-y-0 left-0 right-0 z-40 bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-100 lg:left-72">
+    <div className="fixed inset-y-0 left-0 right-0 z-40 bg-[var(--bg)] text-[var(--text)] lg:left-56">
       <section className="flex h-dvh w-full animate-fade-in flex-col overflow-hidden">
-        <header className="shrink-0 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-white to-lime-50 p-4 dark:border-slate-800 dark:from-emerald-950 dark:via-slate-950 dark:to-lime-950">
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <header className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] p-4">
+          <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-700 dark:text-emerald-300">Ficha 360</p>
-              <h2 className="mt-1 truncate text-3xl font-black tracking-tight md:text-4xl">{animal.nome || animal.brinco || "Animal"}</h2>
-              {animal.nome ? <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-400">Código: {animal.brinco || "Sem brinco"}</p> : null}
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                <span>{categoria} • {fase || "Fase não informada"} • {lote}</span>
-                <span className={`rounded-full border px-3 py-1 text-xs font-black ${sex.className}`}>{sex.label}</span>
+              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]">Ficha do animal</p>
+              <h2 className="mt-1 truncate text-2xl font-semibold tracking-tight">{animal.nome || animal.brinco || "Animal"}</h2>
+              {animal.nome ? <p className="mt-0.5 text-sm text-[var(--text-2)]">Código: {animal.brinco || "Sem brinco"}</p> : null}
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--text-2)]">
+                <span>{categoria} · {fase || "Fase não informada"} · {lote}</span>
+                <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${sex.className}`}>{sex.label}</span>
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
               <button className="btn btn-primary" type="button" onClick={() => openEventForm()}>
-                <Plus className="h-4 w-4" /> Novo registro de manejo
+                <Plus className="h-4 w-4" /> Novo manejo
               </button>
               <Link className="btn btn-secondary" href={`/genealogia?animal=${animal.id}`} onClick={onClose}>
                 Ver genealogia
               </Link>
-              <button className="rounded-lg border border-slate-200 p-3 hover:bg-white dark:border-slate-800 dark:hover:bg-slate-900" type="button" onClick={onClose} title="Fechar">
-                <X className="h-5 w-5" />
+              <button className="rounded-md border border-[var(--border)] p-2.5 transition-colors hover:bg-[var(--bg)]" type="button" onClick={onClose} title="Fechar">
+                <X className="h-5 w-5 text-[var(--text-2)]" />
               </button>
             </div>
           </div>
         </header>
 
-        <div className="shrink-0 border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-950">
-          <nav className="mx-auto flex max-w-7xl gap-6 overflow-auto">
+        <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4">
+          <nav className="mx-auto flex max-w-[1200px] gap-6 overflow-auto">
             {[
               ["resumo", "Resumo"],
               ["reproducao", "Reprodução"],
@@ -304,7 +304,7 @@ export function AnimalDetailModal({
             ].map(([value, label]) => (
               <button
                 key={value}
-                className={`border-b-2 px-1 py-3 text-sm font-black transition ${tab === value ? "border-emerald-600 text-emerald-700 dark:text-emerald-300" : "border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"}`}
+                className={`border-b-2 px-1 py-3 text-sm font-semibold transition ${tab === value ? "border-emerald-600 text-emerald-700 dark:text-emerald-400" : "border-transparent text-[var(--text-3)] hover:text-[var(--text)]"}`}
                 type="button"
                 onClick={() => setTab(value as Tab)}
               >
@@ -314,59 +314,59 @@ export function AnimalDetailModal({
           </nav>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-3 dark:bg-slate-950 md:p-4">
-          <div className="mx-auto max-w-7xl">
-          {error ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--bg)] p-3 md:p-4">
+          <div className="mx-auto max-w-[1200px]">
+          {error ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
 
           {tab === "resumo" ? (
             <div className="space-y-4">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
-                  <TrendingUp className="h-5 w-5 text-blue-700" />
-                  <p className="mt-3 text-sm font-black">Média leite/dia</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Últimos 7 dias</p>
-                  {showDetailPlaceholders ? <Skeleton className="mt-3 h-8 w-24" /> : <h3 className="mt-3 text-2xl font-black">{formatNumber(metrics.dailyAverage, " L")}</h3>}
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+                  <TrendingUp className="h-4 w-4 text-blue-500" />
+                  <p className="mt-2.5 text-[13px] font-medium text-[var(--text-2)]">Média leite/dia</p>
+                  <p className="text-[11px] text-[var(--text-3)]">Últimos 7 dias</p>
+                  {showDetailPlaceholders ? <Skeleton className="mt-2 h-7 w-24" /> : <h3 className="mt-2 text-xl font-semibold tabular-nums">{formatNumber(metrics.dailyAverage, " L")}</h3>}
                 </div>
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-                  <Activity className="h-5 w-5 text-emerald-700" />
-                  <p className="mt-3 text-sm font-black">Produção recente</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Últimos 30 dias</p>
-                  {showDetailPlaceholders ? <Skeleton className="mt-3 h-8 w-24" /> : <h3 className="mt-3 text-2xl font-black">{formatNumber(metrics.production30, " L")}</h3>}
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+                  <Activity className="h-4 w-4 text-emerald-500" />
+                  <p className="mt-2.5 text-[13px] font-medium text-[var(--text-2)]">Produção recente</p>
+                  <p className="text-[11px] text-[var(--text-3)]">Últimos 30 dias</p>
+                  {showDetailPlaceholders ? <Skeleton className="mt-2 h-7 w-24" /> : <h3 className="mt-2 text-xl font-semibold tabular-nums">{formatNumber(metrics.production30, " L")}</h3>}
                 </div>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
-                  <Stethoscope className="h-5 w-5 text-amber-700" />
-                  <p className="mt-3 text-sm font-black">Custo de saúde</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Mês atual</p>
-                  {showDetailPlaceholders ? <Skeleton className="mt-3 h-8 w-28" /> : <h3 className="mt-3 text-2xl font-black">{formatCurrency(metrics.monthCost)}</h3>}
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+                  <Stethoscope className="h-4 w-4 text-amber-500" />
+                  <p className="mt-2.5 text-[13px] font-medium text-[var(--text-2)]">Custo de saúde</p>
+                  <p className="text-[11px] text-[var(--text-3)]">Mês atual</p>
+                  {showDetailPlaceholders ? <Skeleton className="mt-2 h-7 w-28" /> : <h3 className="mt-2 text-xl font-semibold tabular-nums">{formatCurrency(metrics.monthCost)}</h3>}
                 </div>
-                <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-900 dark:bg-purple-950/30">
-                  <Heart className="h-5 w-5 text-purple-700" />
-                  <p className="mt-3 text-sm font-black">Status reprodutivo</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Snapshot atual</p>
-                  <h3 className="mt-3 text-2xl font-black">{reproductiveStatus}</h3>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+                  <Heart className="h-4 w-4 text-purple-500" />
+                  <p className="mt-2.5 text-[13px] font-medium text-[var(--text-2)]">Status reprodutivo</p>
+                  <p className="text-[11px] text-[var(--text-3)]">Snapshot atual</p>
+                  <h3 className="mt-2 text-xl font-semibold">{reproductiveStatus}</h3>
                 </div>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Caderno de manejo</p>
-                      <h3 className="mt-2 text-xl font-black">Saúde e histórico do animal</h3>
+                      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]">Caderno de manejo</p>
+                      <h3 className="mt-1 text-[15px] font-semibold">Saúde e histórico do animal</h3>
                     </div>
                     <button className="btn btn-secondary" type="button" onClick={() => openEventForm()}>
-                      <Plus className="h-4 w-4" /> Registrar agora
+                      <Plus className="h-4 w-4" /> Registrar
                     </button>
                   </div>
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <div className="rounded-lg bg-slate-100 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Manejos</p>{showDetailPlaceholders ? <Skeleton className="mt-2 h-5 w-12" /> : <strong>{metrics.eventCount}</strong>}</div>
-                    <div className="rounded-lg bg-slate-100 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Peso atual</p><strong>{formatNumber(animal.peso, " kg")}</strong></div>
-                    <div className="rounded-lg bg-slate-100 p-4 dark:bg-slate-900"><p className="text-sm text-slate-500">Status</p><strong>{status}</strong></div>
+                    <div className="rounded-md bg-[var(--bg)] p-3"><p className="text-xs text-[var(--text-3)]">Manejos</p>{showDetailPlaceholders ? <Skeleton className="mt-2 h-5 w-12" /> : <strong className="text-sm">{metrics.eventCount}</strong>}</div>
+                    <div className="rounded-md bg-[var(--bg)] p-3"><p className="text-xs text-[var(--text-3)]">Peso atual</p><strong className="text-sm">{formatNumber(animal.peso, " kg")}</strong></div>
+                    <div className="rounded-md bg-[var(--bg)] p-3"><p className="text-xs text-[var(--text-3)]">Status</p><strong className="text-sm">{status}</strong></div>
                   </div>
                 </section>
 
-                <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Dados do animal</p>
+                <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]">Dados do animal</p>
                   <div className="mt-3 space-y-2 text-sm">
                     {[
                       ["Nome", animal.nome || "-"],
@@ -381,9 +381,9 @@ export function AnimalDetailModal({
                       ["Nascimento", formatDate(animal.data_nascimento)],
                       ["Observações", animal.observacoes || "-"]
                     ].map(([label, value]) => (
-                      <div className="flex items-start justify-between gap-4 border-b border-emerald-200/70 pb-2 last:border-0 dark:border-emerald-900" key={label}>
-                        <span className="text-slate-500 dark:text-slate-400">{label}</span>
-                        <strong className="text-right">{value}</strong>
+                      <div className="flex items-start justify-between gap-4 border-b border-[var(--border-light)] pb-2 last:border-0" key={label}>
+                        <span className="text-[var(--text-3)]">{label}</span>
+                        <strong className="text-right text-[var(--text)]">{value}</strong>
                       </div>
                     ))}
                   </div>
@@ -397,10 +397,10 @@ export function AnimalDetailModal({
               <div className="rounded-lg border border-purple-200 bg-purple-50 p-5 dark:border-purple-900 dark:bg-purple-950/30">
                 <div className="flex items-center gap-2 text-purple-800 dark:text-purple-200">
                   <Heart className="h-5 w-5" />
-                  <strong>Status reprodutivo atual</strong>
+                  <strong className="text-sm">Status reprodutivo atual</strong>
                 </div>
-                <h3 className="mt-4 text-3xl font-black">{reproductiveStatus}</h3>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{reproductiveStatusDetail}</p>
+                <h3 className="mt-3 text-2xl font-semibold">{reproductiveStatus}</h3>
+                <p className="mt-1.5 text-sm text-[var(--text-2)]">{reproductiveStatusDetail}</p>
               </div>
 
               <button className="btn w-full bg-purple-600 text-white" type="button" onClick={() => openEventForm("inseminacao", "Cobertura / inseminação registrada.")}>
@@ -415,29 +415,29 @@ export function AnimalDetailModal({
           {tab === "timeline" ? (
             <div className="space-y-3">
               {showDetailPlaceholders ? Array.from({ length: 4 }).map((_, index) => (
-                <div key={`timeline-skeleton-${index}`} className="flex gap-3 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                <div key={`timeline-skeleton-${index}`} className="flex gap-3 rounded-lg border border-[var(--border)] p-4">
                   <Skeleton className="mt-1 h-3 w-3 rounded-full" />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Skeleton className="h-5 w-28" />
-                      <Skeleton className="h-6 w-20 rounded-full" />
+                      <Skeleton className="h-6 w-20 rounded" />
                     </div>
                     <Skeleton className="mt-3 h-4 w-64 max-w-full" />
                   </div>
                 </div>
               )) : timeline.length ? timeline.map((entry) => (
-                <div key={entry.id} className="flex gap-3 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                <div key={entry.id} className="flex gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
                   <div className={`mt-1 h-3 w-3 rounded-full ${entry.tone === "producao" ? "bg-blue-500" : "bg-emerald-500"}`} />
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <strong>{entry.title}</strong>
+                      <strong className="text-sm">{entry.title}</strong>
                       <Badge tone={entry.tone === "producao" ? "info" : "success"}>{formatDate(entry.date)}</Badge>
                     </div>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{entry.text}</p>
+                    <p className="mt-1 text-sm text-[var(--text-2)]">{entry.text}</p>
                   </div>
                 </div>
               )) : (
-                <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-slate-500 dark:border-slate-700">
+                <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center text-[var(--text-3)]">
                   Nenhum registro no histórico ainda.
                 </div>
               )}
@@ -445,46 +445,46 @@ export function AnimalDetailModal({
           ) : null}
 
           {showForm ? (
-            <form onSubmit={submitEvent} className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <form onSubmit={submitEvent} className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-black">Novo registro de manejo</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Esse registro fica vinculado ao animal {animal.brinco}.</p>
+                  <h3 className="text-[15px] font-semibold">Novo registro de manejo</h3>
+                  <p className="text-sm text-[var(--text-2)]">Esse registro fica vinculado ao animal {animal.brinco}.</p>
                 </div>
-                <button className="rounded-lg border border-slate-200 p-2 dark:border-slate-800" type="button" onClick={() => setShowForm(false)}>
+                <button className="rounded-md border border-[var(--border)] p-2" type="button" onClick={() => setShowForm(false)}>
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
               <div className="grid gap-4 md:grid-cols-3">
                 <label className="space-y-2">
-                  <span className="text-sm font-bold">Tipo</span>
+                  <span className="text-sm font-medium">Tipo</span>
                   <select className="input" value={draft.tipo} onChange={(event) => setDraft((current) => ({ ...current, tipo: event.target.value }))}>
                     {eventTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
                   </select>
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold">Data e hora</span>
+                  <span className="text-sm font-medium">Data e hora</span>
                   <input className="input" type="datetime-local" value={draft.data_evento} onChange={(event) => setDraft((current) => ({ ...current, data_evento: event.target.value }))} />
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold">Custo</span>
+                  <span className="text-sm font-medium">Custo</span>
                   <input className="input" type="number" step="0.01" value={draft.custo} onChange={(event) => setDraft((current) => ({ ...current, custo: event.target.value }))} />
                 </label>
               </div>
 
               <label className="mt-4 block space-y-2">
-                <span className="text-sm font-bold">Descrição</span>
+                <span className="text-sm font-medium">Descrição</span>
                 <textarea className="input min-h-24 resize-y" value={draft.descricao} onChange={(event) => setDraft((current) => ({ ...current, descricao: event.target.value }))} />
               </label>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <label className="space-y-2">
-                  <span className="text-sm font-bold">Medicamento</span>
+                  <span className="text-sm font-medium">Medicamento</span>
                   <input className="input" value={draft.medicamento} onChange={(event) => setDraft((current) => ({ ...current, medicamento: event.target.value }))} />
                 </label>
                 <label className="space-y-2">
-                  <span className="text-sm font-bold">Dose</span>
+                  <span className="text-sm font-medium">Dose</span>
                   <input className="input" value={draft.dose} onChange={(event) => setDraft((current) => ({ ...current, dose: event.target.value }))} />
                 </label>
               </div>

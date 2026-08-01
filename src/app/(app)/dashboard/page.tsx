@@ -2,10 +2,9 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Activity, AlertTriangle, Banknote, Droplets, PackageOpen, PawPrint, TrendingDown, TrendingUp, Users } from "lucide-react";
+import { AlertTriangle, Droplets, PackageOpen, PawPrint, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StatCard } from "@/components/ui/StatCard";
-import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/AsyncState";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -61,12 +60,12 @@ const emptyDashboard: DashboardViewData = {
 
 function ChartSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 p-4">
       {Array.from({ length: 5 }).map((_, index) => (
-        <div key={`chart-skeleton-${index}`} className="grid grid-cols-[5rem_1fr_5rem] items-center gap-3">
-          <Skeleton className="h-4 w-16" />
+        <div key={`chart-skeleton-${index}`} className="grid grid-cols-[5rem_1fr_3rem] items-center gap-3">
+          <Skeleton className="h-3.5 w-16" />
           <Skeleton className="h-3 w-full rounded-full" />
-          <Skeleton className="h-4 w-14 justify-self-end" />
+          <Skeleton className="h-3.5 w-12 justify-self-end" />
         </div>
       ))}
     </div>
@@ -115,70 +114,68 @@ export default function DashboardPage() {
   }, [load]);
   useEffect(() => onDashboardUpdated(() => { void load({ forceRefresh: true }); }), [load]);
 
-  const profitLabel = formatCurrency(data.cards.profit);
-  const incomeLabel = formatCurrency(data.cards.income);
-  const expensesLabel = formatCurrency(data.cards.expenses);
-  const productionTodayLabel = formatNumber(data.cards.productionToday, " L");
-  const productionMonthLabel = formatNumber(data.cards.productionMonth, " L");
   const hasLoaded = data !== emptyDashboard;
   const initialLoading = loading && !hasLoaded;
   const initialError = Boolean(error && !hasLoaded);
   const showPlaceholders = initialLoading;
+
   return (
-    <div className="animate-fade-in space-y-8">
-      <section className="overflow-hidden rounded-lg bg-emerald-900 p-6 text-white shadow-soft md:p-8">
-        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-          <div>
-            <Badge tone="success">Painel da fazenda</Badge>
-            <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight md:text-5xl">
-              {profile?.fazenda?.nome || "Controle da fazenda"} em tempo real.
-            </h1>
-            <p className="mt-5 max-w-2xl text-lg text-emerald-100">
-              Acompanhe rebanho, leite, estoque, financeiro, equipe e pagamentos em uma visão simples para o dia a dia.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <button onClick={() => load({ forceRefresh: true })} className="btn bg-white text-emerald-950 disabled:cursor-not-allowed disabled:opacity-70" type="button" disabled={loading}>{loading ? "Atualizando..." : "Atualizar painel"}</button>
-              <a href="/whatsapp" className="btn border border-white/25 bg-white/10 text-white">Abrir WhatsApp</a>
-            </div>
-          </div>
-          <div className="rounded-lg border border-white/15 bg-white/10 p-5 backdrop-blur-xl">
-            {initialLoading ? (
-              <>
-                <Link href="/financeiro" className="flex min-w-0 items-center justify-between gap-4 rounded-lg outline-none transition hover:bg-white/5 focus-visible:ring-4 focus-visible:ring-white/20">
-                  <div className="min-w-0 flex-1">
-                    <Skeleton className="h-4 w-32 bg-white/20" />
-                    <Skeleton className="mt-3 h-10 w-48 max-w-full bg-white/20" />
-                  </div>
-                  <Skeleton className="h-10 w-10 rounded-lg bg-white/20" />
-                </Link>
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  {Array.from({ length: 4 }).map((_, index) => <Skeleton key={`hero-card-${index}`} className="h-20 rounded-lg bg-white/20" />)}
-                </div>
-              </>
-            ) : initialError ? (
-              <div className="rounded-lg border border-white/20 bg-white/10 p-4 text-sm font-bold text-white">
-                Não foi possível carregar os dados do painel agora.
-              </div>
-            ) : (
-              <>
-                <Link href="/financeiro" className="flex min-w-0 items-center justify-between gap-4 rounded-lg outline-none transition hover:bg-white/5 focus-visible:ring-4 focus-visible:ring-white/20">
-                  <div className="min-w-0">
-                    <p className="text-sm text-emerald-100">Resultado do mês</p>
-                    <h2 className="mt-2 max-w-full truncate text-[clamp(1.45rem,3vw,2.25rem)] font-black tabular-nums" title={profitLabel}>{profitLabel}</h2>
-                  </div>
-                  <Activity className="h-10 w-10 shrink-0 text-lime-200" />
-                </Link>
-                <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
-                  <Link href="/financeiro" className="min-w-0 rounded-lg bg-white/10 p-4 outline-none transition hover:bg-white/15 focus-visible:ring-4 focus-visible:ring-white/20"><p className="text-emerald-100">Entradas</p><strong className="block truncate font-black tabular-nums" title={incomeLabel}>{incomeLabel}</strong></Link>
-                  <Link href="/financeiro" className="min-w-0 rounded-lg bg-white/10 p-4 outline-none transition hover:bg-white/15 focus-visible:ring-4 focus-visible:ring-white/20"><p className="text-emerald-100">Saídas</p><strong className="block truncate font-black tabular-nums" title={expensesLabel}>{expensesLabel}</strong></Link>
-                  <Link href="/producao" className="min-w-0 rounded-lg bg-white/10 p-4 outline-none transition hover:bg-white/15 focus-visible:ring-4 focus-visible:ring-white/20"><p className="text-emerald-100">Hoje</p><strong className="block truncate font-black tabular-nums" title={productionTodayLabel}>{productionTodayLabel}</strong></Link>
-                  <Link href="/producao" className="min-w-0 rounded-lg bg-white/10 p-4 outline-none transition hover:bg-white/15 focus-visible:ring-4 focus-visible:ring-white/20"><p className="text-emerald-100">Mês</p><strong className="block truncate font-black tabular-nums" title={productionMonthLabel}>{productionMonthLabel}</strong></Link>
-                </div>
-              </>
-            )}
-          </div>
+    <div className="animate-fade-in space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{profile?.fazenda?.nome || "Dashboard"}</h1>
+          <p className="mt-0.5 text-[13px] text-[var(--text-2)]">Visão geral da fazenda em tempo real</p>
         </div>
-      </section>
+        <button onClick={() => load({ forceRefresh: true })} className="btn btn-secondary text-[13px]" type="button" disabled={loading}>
+          {loading ? "Atualizando..." : "Atualizar painel"}
+        </button>
+      </div>
+
+      {/* Summary strip */}
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4">
+          {showPlaceholders ? (
+            <>
+              <div><Skeleton className="h-3 w-20 mb-1.5" /><Skeleton className="h-6 w-28" /></div>
+              <div className="hidden sm:block h-8 w-px bg-[var(--border)]" />
+              <div><Skeleton className="h-3 w-16 mb-1.5" /><Skeleton className="h-6 w-24" /></div>
+              <div className="hidden sm:block h-8 w-px bg-[var(--border)]" />
+              <div><Skeleton className="h-3 w-14 mb-1.5" /><Skeleton className="h-6 w-24" /></div>
+              <div className="hidden sm:block h-8 w-px bg-[var(--border)]" />
+              <div><Skeleton className="h-3 w-20 mb-1.5" /><Skeleton className="h-6 w-16" /></div>
+            </>
+          ) : initialError ? (
+            <p className="text-sm text-[var(--text-3)]">Não foi possível carregar os dados do painel.</p>
+          ) : (
+            <>
+              <Link href="/financeiro" className="min-w-0 rounded-md px-1 py-0.5 transition-colors hover:bg-[var(--bg)]">
+                <p className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--text-3)]">Resultado do mês</p>
+                <p className={`mt-0.5 text-lg font-semibold tabular-nums tracking-tight ${data.cards.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{formatCurrency(data.cards.profit)}</p>
+              </Link>
+              <div className="hidden h-8 w-px bg-[var(--border)] sm:block" />
+              <Link href="/financeiro" className="min-w-0 rounded-md px-1 py-0.5 transition-colors hover:bg-[var(--bg)]">
+                <p className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--text-3)]">Entradas</p>
+                <p className="mt-0.5 text-lg font-semibold tabular-nums tracking-tight">{formatCurrency(data.cards.income)}</p>
+              </Link>
+              <div className="hidden h-8 w-px bg-[var(--border)] sm:block" />
+              <Link href="/financeiro" className="min-w-0 rounded-md px-1 py-0.5 transition-colors hover:bg-[var(--bg)]">
+                <p className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--text-3)]">Saídas</p>
+                <p className="mt-0.5 text-lg font-semibold tabular-nums tracking-tight">{formatCurrency(data.cards.expenses)}</p>
+              </Link>
+              <div className="hidden h-8 w-px bg-[var(--border)] sm:block" />
+              <Link href="/producao" className="min-w-0 rounded-md px-1 py-0.5 transition-colors hover:bg-[var(--bg)]">
+                <p className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--text-3)]">Produção hoje</p>
+                <p className="mt-0.5 text-lg font-semibold tabular-nums tracking-tight">{formatNumber(data.cards.productionToday, " L")}</p>
+              </Link>
+              <div className="hidden h-8 w-px bg-[var(--border)] sm:block" />
+              <Link href="/producao" className="min-w-0 rounded-md px-1 py-0.5 transition-colors hover:bg-[var(--bg)]">
+                <p className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--text-3)]">Produção mês</p>
+                <p className="mt-0.5 text-lg font-semibold tabular-nums tracking-tight">{formatNumber(data.cards.productionMonth, " L")}</p>
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
 
       {error && hasLoaded ? (
         <ErrorState
@@ -195,53 +192,63 @@ export default function DashboardPage() {
         />
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total de animais" value={initialError ? "-" : data.cards.totalAnimals} hint="Rebanho cadastrado" icon={PawPrint} tone="green" loading={showPlaceholders} href="/rebanho" />
-        <StatCard title="Animais ativos" value={initialError ? "-" : data.cards.activeAnimals} hint="Status ativo" icon={PawPrint} tone="green" loading={showPlaceholders} href="/rebanho" />
-        <StatCard title="Produção diária" value={initialError ? "-" : formatNumber(data.cards.productionToday, " L")} hint="Litros registrados hoje" icon={Droplets} tone="blue" loading={showPlaceholders} href="/producao" />
-        <StatCard title="Entrada do mês" value={initialError ? "-" : formatCurrency(data.cards.income)} hint="Transações de entrada" icon={TrendingUp} tone="green" loading={showPlaceholders} href="/financeiro" />
-        <StatCard title="Saída do mês" value={initialError ? "-" : formatCurrency(data.cards.expenses)} hint="Transações de saída" icon={TrendingDown} tone="red" loading={showPlaceholders} href="/financeiro" />
-        <StatCard title="Resultado do mês" value={initialError ? "-" : formatCurrency(data.cards.profit)} hint="Entradas menos saídas" icon={Banknote} tone="amber" loading={showPlaceholders} href="/financeiro" />
-        <StatCard title="Estoque crítico" value={initialError ? "-" : data.cards.criticalStock} hint="Itens abaixo do mínimo" icon={PackageOpen} tone="red" loading={showPlaceholders} href="/estoque" />
-        <StatCard title="Funcionários ativos" value={initialError ? "-" : data.cards.activeEmployees} hint="Equipe operacional" icon={Users} tone="blue" loading={showPlaceholders} href="/funcionarios" />
-      </section>
+      {/* Stat cards */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard title="Animais ativos" value={initialError ? "-" : data.cards.activeAnimals} icon={PawPrint} tone="green" loading={showPlaceholders} href="/rebanho" />
+        <StatCard title="Produção diária" value={initialError ? "-" : formatNumber(data.cards.productionToday, " L")} icon={Droplets} tone="blue" loading={showPlaceholders} href="/producao" />
+        <StatCard title="Estoque crítico" value={initialError ? "-" : data.cards.criticalStock} hint={data.cards.criticalStock > 0 ? "itens abaixo do mínimo" : undefined} icon={PackageOpen} tone={data.cards.criticalStock > 0 ? "red" : "green"} loading={showPlaceholders} href="/estoque" />
+        <StatCard title="Funcionários" value={initialError ? "-" : data.cards.activeEmployees} icon={Users} tone="slate" loading={showPlaceholders} href="/funcionarios" />
+      </div>
 
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="glass rounded-lg p-5 shadow-soft">
-          <h2 className="text-xl font-black">Produção por dia</h2>
-          <p className="mb-6 mt-1 text-sm text-slate-500 dark:text-slate-400">Evolução recente da produção leiteira.</p>
-          {showPlaceholders ? <ChartSkeleton /> : initialError ? <p className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700">Não foi possível carregar este gráfico agora.</p> : <BarChart data={data.charts.productionByDay} suffix=" L" />}
+      {/* Charts */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center gap-2 border-b border-[var(--border-light)] px-4 py-3">
+            <h2 className="text-sm font-semibold">Produção por dia</h2>
+          </div>
+          {showPlaceholders ? <ChartSkeleton /> : initialError ? <p className="p-6 text-center text-sm text-[var(--text-3)]">Não foi possível carregar este gráfico agora.</p> : (
+            <div className="p-4">
+              <BarChart data={data.charts.productionByDay} suffix=" L" />
+            </div>
+          )}
         </div>
-        <div className="glass rounded-lg p-5 shadow-soft">
-          <h2 className="text-xl font-black">Ranking por animal</h2>
-          <p className="mb-6 mt-1 text-sm text-slate-500 dark:text-slate-400">Top brincos por volume registrado.</p>
-          {showPlaceholders ? <ChartSkeleton /> : initialError ? <p className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700">Não foi possível carregar este gráfico agora.</p> : <BarChart data={data.charts.animalRanking} suffix=" L" />}
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center gap-2 border-b border-[var(--border-light)] px-4 py-3">
+            <h2 className="text-sm font-semibold">Top produção por animal</h2>
+          </div>
+          {showPlaceholders ? <ChartSkeleton /> : initialError ? <p className="p-6 text-center text-sm text-[var(--text-3)]">Não foi possível carregar este gráfico agora.</p> : (
+            <div className="p-4">
+              <BarChart data={data.charts.animalRanking} suffix=" L" />
+            </div>
+          )}
         </div>
-      </section>
+      </div>
 
-      <section className="glass rounded-lg p-5 shadow-soft">
-        <div className="mb-4 flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-amber-500" />
-          <h2 className="text-xl font-black">Alertas de estoque</h2>
+      {/* Stock alerts */}
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center gap-2 border-b border-[var(--border-light)] px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <h2 className="text-sm font-semibold">Alertas de estoque</h2>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="divide-y divide-[var(--border-light)]">
           {showPlaceholders ? Array.from({ length: 3 }).map((_, index) => (
-            <div key={`stock-alert-skeleton-${index}`} className="rounded-lg border border-slate-200 bg-white/60 p-4 dark:border-slate-800 dark:bg-slate-900/40">
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="mt-3 h-4 w-48 max-w-full" />
+            <div key={`stock-alert-skeleton-${index}`} className="flex items-center gap-3 px-4 py-3">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="ml-auto h-4 w-40" />
             </div>
           )) : initialError ? (
-            <p className="text-sm text-slate-500">Não foi possível carregar os alertas de estoque agora.</p>
+            <p className="px-4 py-4 text-sm text-[var(--text-3)]">Não foi possível carregar os alertas de estoque agora.</p>
           ) : data.criticalStock.length ? data.criticalStock.map((item) => (
-            <div key={item.id} className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
-              <p className="font-black">{item.nome}</p>
-              <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
-                Atual: {formatStockQuantity(item.quantidade_atual, item.unidade_medida)} | Mínimo: {formatStockQuantity(item.quantidade_minima, item.unidade_medida)}
-              </p>
+            <div key={item.id} className="flex items-center gap-3 px-4 py-3">
+              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${Number(item.quantidade_atual || 0) <= Number(item.quantidade_minima || 0) * 0.5 ? "bg-red-500" : "bg-amber-500"}`} />
+              <span className="text-[13px] font-medium">{item.nome}</span>
+              <span className="ml-auto text-xs text-[var(--text-2)] tabular-nums">
+                {formatStockQuantity(item.quantidade_atual, item.unidade_medida)} / mín. {formatStockQuantity(item.quantidade_minima, item.unidade_medida)}
+              </span>
             </div>
-          )) : <p className="text-sm text-slate-500">Nenhum item crítico no momento.</p>}
+          )) : <p className="px-4 py-4 text-sm text-[var(--text-3)]">Nenhum item crítico no momento.</p>}
         </div>
-      </section>
+      </div>
     </div>
   );
 }

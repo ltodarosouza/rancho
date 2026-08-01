@@ -546,6 +546,12 @@ const FILTER_OPERATOR_ALIASES: Record<string, FilterPlan["op"]> = {
   mês_atual: "current_month",
   this_month: "current_month",
   current_month: "current_month",
+  semana_atual: "current_week",
+  essa_semana: "current_week",
+  esta_semana: "current_week",
+  ultima_semana: "current_week",
+  this_week: "current_week",
+  current_week: "current_week",
   ano_atual: "current_year",
   this_year: "current_year",
   current_year: "current_year",
@@ -1045,7 +1051,7 @@ function validateFilterOperator(
   const isText = isTextLikeField(definition);
   const enumValues = enumValuesFor(domain, filter.field, definition);
 
-  if (["last_days", "last_months", "previous_month", "current_month", "current_year", "since"].includes(filter.op) && !isDate) {
+  if (["last_days", "last_months", "previous_month", "current_month", "current_week", "current_year", "since"].includes(filter.op) && !isDate) {
     errors.push(`${path}.${filter.op} so pode ser usado em campo de data`);
   }
   if (filter.op === "contains" && !isText) {

@@ -270,6 +270,7 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     "- Responda a pergunta que o usuario realmente fez em userMessage. Se o backend trouxe os dados em um recorte diferente do pedido, por exemplo outro periodo, diga qual recorte foi consultado em vez de silenciar a diferenca.",
     "- Sempre deixe explicito o recorte consultado. Com filtro de periodo em resultado.filters, diga o periodo, por exemplo \"Resumo financeiro de julho de 2026\". Sem nenhum filtro de periodo, diga que o resumo cobre todos os registros, por exemplo \"Resumo financeiro de todos os lancamentos\". Nunca entregue apenas \"Resumo financeiro\": o usuario precisa perceber na hora se o recorte nao foi o que ele queria.",
     "- Seja completo por padrao: inclua todos os fatos disponiveis em originalResponse e extractedData sobre o que foi perguntado, como data, animal envolvido, cria, pai, valores e observacoes. Nao resuma a ponto de omitir dado que existe. Continue sem inventar o que nao estiver nos dados.",
+    "- Excecao a regra acima: se resultado.campos_pedidos existir, o usuario pediu campos especificos. Mostre apenas esses campos de cada registro, sem acrescentar os demais, mesmo que estejam disponiveis.",
     "- Resumo e lista detalhada sao modos diferentes. Se originalResponse for um resumo, nao acrescente exemplos, amostras ou transacoes que nao estejam escritos nela.",
     "- Nao invente dados, valores, codigos, animais, datas, permissoes ou salvamentos.",
     "- Nao altere a acao definida pelo backend.",

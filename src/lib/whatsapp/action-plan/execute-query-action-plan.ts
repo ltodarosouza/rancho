@@ -176,6 +176,7 @@ function eventReportPeriod(plan: QueryActionPlan) {
   if (daysMatch) return { period: `ultimos_${daysMatch[1]}`, days: Number(daysMatch[1]) };
   if (dateFilter?.op === "current_month") return { period: "mes" };
   if (dateFilter?.op === "previous_month") return { period: "mes_passado" };
+  if (dateFilter?.op === "current_week") return { period: "semana" };
   if (dateFilter?.op === "current_year") return { period: "ano" };
   if (dateFilter?.op === "last_days" && Number(dateFilter.value) === 1) return { period: "hoje" };
   if (dateFilter?.op === "last_days" && Number(dateFilter.value)) return { period: `ultimos_${Number(dateFilter.value)}`, days: Number(dateFilter.value) };
@@ -274,6 +275,16 @@ function dateRangeFor(filter: FilterPlan, baseDate: Date) {
   if (filter.op === "current_year") {
     const year = baseISO.slice(0, 4);
     return { start: getRanchDayRange(`${year}-01-01`).start, end: getRanchDayRange(`${Number(year) + 1}-01-01`).start };
+  }
+
+  // "essa semana" nao tinha operador: o modelo tentava current_week, o
+  // validador recusava e a pergunta virava outro recorte. Semana comeca na
+  // segunda, que e como o produtor conta a semana de trabalho.
+  if (filter.op === "current_week") {
+    const reference = new Date(`${baseISO}T12:00:00.000Z`);
+    const weekday = (reference.getUTCDay() + 6) % 7;
+    const startISO = addRanchDays(baseISO, -weekday);
+    return { start: getRanchDayRange(startISO).start, end: getRanchDayRange(addRanchDays(startISO, 7)).start };
   }
 
   if (filter.op === "since") {
@@ -1139,8 +1150,16 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
       if (seenRows.has(key)) return false;
       seenRows.add(key);
       return true;
-    })
-    .slice(0, limit);
+    });
+
+  // A consulta chega ordenada da mais recente para a mais antiga. Sem honrar o
+  // orderBy do plano, "os primeiros partos do ano" devolvia justamente os
+  // ultimos, ou seja, a resposta errada com cara de certa.
+  if (plan.orderBy?.direction === "asc") {
+    rows = [...rows].sort((left, right) =>
+      String(left.data_evento || "").localeCompare(String(right.data_evento || "")));
+  }
+  rows = rows.slice(0, limit);
   const calvesByMother = new Map<string, AnyRecord[]>();
   for (const animal of animals) {
     const motherId = String(animal.mae_id || "");
@@ -1345,12 +1364,13 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
 }
 
 function periodText(plan: QueryActionPlan) {
-  const filter = plan.filters.find((item) => ["last_months", "last_days", "previous_month", "current_month", "current_year", "since", "between"].includes(item.op));
+  const filter = plan.filters.find((item) => ["last_months", "last_days", "previous_month", "current_month", "current_week", "current_year", "since", "between"].includes(item.op));
   if (!filter) return "";
   if (filter.op === "last_months") return `dos últimos ${filter.value} meses`;
   if (filter.op === "last_days") return `dos últimos ${filter.value} dias`;
   if (filter.op === "previous_month") return "do mês anterior";
   if (filter.op === "current_month") return "do mês atual";
+  if (filter.op === "current_week") return "desta semana";
   if (filter.op === "current_year") return "do ano atual";
   if (filter.op === "since") {
     const monthName = monthNameFromText(filter.value);
@@ -2021,6 +2041,10 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
       registros: rows.length,
       metrics,
       filters: plan.filters,
+      // Quando o usuario pede campos especificos, a resposta nao pode devolver
+      // a ficha inteira. Vai como instrucao para quem redige, o que vale para
+      // qualquer dominio sem mexer em cada montador de texto.
+      campos_pedidos: plan.select?.length ? plan.select : undefined,
       amostra: querySample(domain, rows, relationContext),
       // Linhas exatamente da pagina respondida. Diferente de amostra, que
       // sempre parte da primeira linha e corrompe paginas seguintes.

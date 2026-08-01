@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v20";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v22";
 
 const EXAMPLES = [
   {
@@ -482,7 +482,8 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Comparacoes, rankings, maior, menor, primeiro, ultimo ou top por entidade usam aggregations + groupBy na entidade + orderBy na metrica. Para producao por animal, agrupe por animal_ref, agregue litros com sum e ordene litros desc para maior ou asc para menor; use limit=1 quando a pergunta pedir somente qual animal e um limite maior quando pedir ranking/lista.",
     "Em consultas de producao por categoria, como vaca, novilha ou outro tipo de animal, use animal_categoria. animal_ref e somente para nome, brinco ou codigo de um animal especifico. Nao gere subquery ou filtro aninhado.",
     "Resumo, historico ou total de producao de um animal especifico deve manter filtro animal_ref e nunca virar total do rebanho. O valor de animal_ref pode conter a forma natural completa, como 'vaca 090'; o backend resolve nome ou brinco.",
-    "Diferencie periodos de calendario: este mes/agora usa current_month; este ano usa current_year; mes passado ou mes anterior usa previous_month; ultimos N meses usa last_months com value=N; ultimos N dias usa last_days com value=N. Qualquer pedido com periodo precisa de filtro em data. previous_month e current_year nao recebem value.",
+    "Diferencie periodos de calendario: este mes/agora usa current_month; esta semana ou essa semana usa current_week; este ano usa current_year; mes passado ou mes anterior usa previous_month; ultimos N meses usa last_months com value=N; ultimos N dias usa last_days com value=N. previous_month, current_week e current_year nao recebem value.",
+    "Em consulta, periodo citado pelo usuario precisa virar filtro em data. Em registro e o oposto: data ausente significa hoje, entao registre com data=hoje e nunca use clarify so porque a data nao foi dita.",
     "\"Ultimo mes\" e \"esse ultimo mes\" na fala do produtor significam o mes corrente, entao use current_month. Somente \"mes passado\" e \"mes anterior\" viram previous_month. A mesma leitura vale para ultima semana, que e a semana corrente.",
     "Dados de pessoas da equipe usam domain=funcionarios; presenca, entrada e saida usam domain=ponto_funcionario.",
     "Ao cadastrar funcionario com WhatsApp, papel_bot representa o perfil de acesso e so pode ser funcionario, veterinario, contador, gerente ou admin. Se o usuario informar o perfil, preserve-o; se nao informar, use funcionario, que tem menor privilegio.",

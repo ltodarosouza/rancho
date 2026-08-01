@@ -20,6 +20,7 @@ export type FilterOperator =
   | "last_months"
   | "previous_month"
   | "current_month"
+  | "current_week"
   | "current_year"
   | "since";
 
@@ -227,6 +228,7 @@ export const FILTER_OPERATORS: readonly FilterOperator[] = [
   "last_months",
   "previous_month",
   "current_month",
+  "current_week",
   "current_year",
   "since"
 ];

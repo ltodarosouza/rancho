@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { TABLES } from "@/lib/tables";
+import { TABLES, whatsappMessageDirection } from "@/lib/tables";
 import { processWhatsappMessage } from "@/services/whatsapp/process-message";
 import { sendOutboundWhatsAppText } from "@/services/whatsapp/outbound";
 import { MetaWhatsAppApiError, type MetaIncomingMessage } from "@/services/whatsapp/meta";
@@ -12,7 +12,7 @@ export async function wasMetaMessageProcessed(messageId: string) {
     .from(TABLES.whatsappMensagens)
     .select("wa_message_id")
     .eq("wa_message_id", messageId)
-    .eq("direcao", "entrada")
+    .eq("direcao", whatsappMessageDirection("entrada"))
     .limit(1)
     .maybeSingle();
 

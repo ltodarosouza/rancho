@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { TABLES } from "@/lib/tables";
+import { TABLES, whatsappMessageDirection } from "@/lib/tables";
 import type { AnyRecord } from "@/lib/types";
 import { addRanchDays, getRanchDayRange, getRanchTodayISO, resolveDefaultEventDate } from "@/lib/dates/ranch-time";
 import { formatStockUnit, normalizeRanchoText, parseRanchoMessage } from "@/lib/whatsapp/nlp";
@@ -440,7 +440,7 @@ async function queryWhatsappRegistrations(supabase: SupabaseAdmin, owner: WhatsA
     .from(TABLES.whatsappMensagens)
     .select("payload,telefone_e164,direcao,created_at,processada_em")
     .eq("fazenda_id", owner.fazenda_id)
-    .eq("direcao", "entrada")
+    .eq("direcao", whatsappMessageDirection("entrada"))
     .gte("processada_em", range.start)
     .lt("processada_em", range.end)
     .limit(3000);

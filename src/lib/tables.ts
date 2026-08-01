@@ -23,6 +23,22 @@ export const TABLES = {
   auditoriaLogs: "auditoria_logs"
 } as const;
 
+/**
+ * whatsapp_mensagens.direcao tem check constraint que aceita somente
+ * 'inbound' e 'outbound'. O restante do bot fala entrada/saida, entao a
+ * conversao acontece aqui, na fronteira com o banco, e nunca em cada query.
+ */
+export const WHATSAPP_MESSAGE_DIRECTION = {
+  entrada: "inbound",
+  saida: "outbound"
+} as const;
+
+export type WhatsAppMessageDirection = keyof typeof WHATSAPP_MESSAGE_DIRECTION;
+
+export function whatsappMessageDirection(direction: WhatsAppMessageDirection) {
+  return WHATSAPP_MESSAGE_DIRECTION[direction];
+}
+
 export const FARM_SCOPED_TABLES = new Set<string>([
   TABLES.usuarios,
   TABLES.lotes,

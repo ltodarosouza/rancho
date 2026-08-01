@@ -209,7 +209,8 @@ module.exports = function loadBotTestSection(context) {
           fazenda_id: row.fazenda_id || BOT_TEST_FARM_ID,
           telefone_e164: row.telefone_e164 || test.phone || BOT_TEST_ADMIN_PHONE,
           wa_message_id: row.wa_message_id || `wa-message-extra-${index + 1}`,
-          direcao: row.direcao || "entrada",
+          // whatsapp_mensagens.direcao so aceita inbound/outbound no banco real.
+          direcao: row.direcao || "inbound",
           tipo: row.tipo || "text",
           payload: row.payload || { body: row.body || "" },
           processada_em: row.processada_em || new Date().toISOString(),

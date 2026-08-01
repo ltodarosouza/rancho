@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { TABLES } from "@/lib/tables";
+import { TABLES, whatsappMessageDirection } from "@/lib/tables";
 import type { AnyRecord } from "@/lib/types";
 import { getRanchTodayISO } from "@/lib/dates/ranch-time";
 import { normalizeWhatsappNumber, whatsappNumbersMatch } from "@/lib/phone";
@@ -609,7 +609,7 @@ async function saveWhatsAppMessage(
       fazenda_id: input.owner?.fazenda_id || null,
       telefone_e164: input.owner?.telefone_e164 || input.phone,
       wa_message_id: waMessageId,
-      direcao: input.direction,
+      direcao: whatsappMessageDirection(input.direction),
       tipo: "text",
       payload: {
         body: input.body,
@@ -2972,7 +2972,7 @@ async function whatsappRegistrationReportData(supabase: SupabaseAdmin, owner: Wh
     .from(TABLES.whatsappMensagens)
     .select("payload,telefone_e164,direcao,created_at,processada_em")
     .eq("fazenda_id", owner.fazenda_id)
-    .eq("direcao", "entrada")
+    .eq("direcao", whatsappMessageDirection("entrada"))
     .gte("processada_em", range.start)
     .lt("processada_em", range.end)
     .limit(2000);
@@ -3123,7 +3123,7 @@ async function queryTodayWhatsappMessageRegistrations(supabase: SupabaseAdmin, o
     .from(TABLES.whatsappMensagens)
     .select("payload,telefone_e164,direcao,created_at,processada_em")
     .eq("fazenda_id", owner.fazenda_id)
-    .eq("direcao", "entrada")
+    .eq("direcao", whatsappMessageDirection("entrada"))
     .gte("processada_em", range.start)
     .lt("processada_em", range.end)
     .order("processada_em", { ascending: false })

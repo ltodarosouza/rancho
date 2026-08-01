@@ -318,6 +318,10 @@ function queryTable(domain: DomainManifestEntry) {
   if (domain.tableName) return domain.tableName;
   if (domain.domain === "estoque") return TABLES.estoqueMovimentacoes;
   if (domain.domain === "genealogia") return TABLES.animais;
+  // observacoes e agenda_tarefas so declaram sourceName. Sem esta linha,
+  // "eventos que a 090 ja teve" caia em "nao tenho mapeamento seguro", porque
+  // o relatorio geral atendia observacoes mas a consulta por animal nao.
+  if (domain.sourceName && !domain.sourceName.includes("+")) return domain.sourceName;
   return null;
 }
 
@@ -607,6 +611,58 @@ function shortDate(value: unknown) {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const EVENT_TYPE_LABEL: Record<string, string> = {
+  parto: "Parto",
+  aborto: "Aborto",
+  inseminacao: "Inseminação",
+  prenhez: "Prenhez",
+  pre_parto: "Pré-parto",
+  cio: "Cio",
+  protocolo: "Protocolo",
+  reteste: "Reteste",
+  vacina: "Vacina",
+  doenca: "Doença",
+  tratamento: "Tratamento",
+  pesagem: "Pesagem",
+  morte: "Morte",
+  observacao: "Observação"
+};
+
+function eventTypeLabel(value: unknown) {
+  const key = normalizedText(value).replace(/\s+/g, "_");
+  return EVENT_TYPE_LABEL[key] || String(value || "Evento");
+}
+
+/** Historico do animal: o que aconteceu com ele, com data e observacao. */
+function animalHistoryLines(relations: AnyRecord) {
+  const history = relations.animalHistory as AnyRecord | undefined;
+  if (!history) return [];
+  const events = (history.eventos || []) as AnyRecord[];
+  const milkings = (history.ordenhas || []) as AnyRecord[];
+  const lines: string[] = [];
+
+  if (events.length) {
+    lines.push("", `Histórico de eventos (${events.length}):`);
+    events.slice(0, 15).forEach((event, index) => {
+      const detail = [event.descricao, event.medicamento].filter(Boolean).join(" - ");
+      lines.push(`${index + 1}. ${shortDate(event.data_evento || event.created_at)} - ${eventTypeLabel(event.tipo)}${detail ? ` - ${detail}` : ""}`);
+    });
+    if (events.length > 15) lines.push(`...e mais ${events.length - 15} evento(s).`);
+  } else {
+    lines.push("", "Histórico de eventos: sem registros.");
+  }
+
+  if (milkings.length) {
+    const total = milkings.reduce((sum, row) => sum + Number(row.litros || 0), 0);
+    lines.push("", `Últimas ordenhas (${milkings.length}, total ${numberText(total)} L):`);
+    milkings.slice(0, 5).forEach((row) => {
+      lines.push(`- ${shortDate(row.ordenhado_em)} - ${numberText(Number(row.litros || 0))} L${row.turno ? ` (${row.turno})` : ""}`);
+    });
+  }
+
+  return lines;
+}
 
 /** Data e hora no fuso do rancho. O ISO cru mostra UTC e adianta o relogio. */
 function ranchDateTimeText(value: unknown) {
@@ -1658,8 +1714,9 @@ function buildResponse(
       `Fase: ${animal.fase || "sem fase"}.`,
       animal.peso ? `Peso: ${numberText(Number(animal.peso))} kg.` : "Peso: sem registro.",
       animal.raca ? `Raça: ${animal.raca}.` : "Raça: sem registro.",
-      animal.observacoes ? `Observações: ${animal.observacoes}` : "Observações: sem registros."
-    ].join("\n");
+      animal.observacoes ? `Observações: ${animal.observacoes}` : "Observações: sem registros.",
+      ...animalHistoryLines(relations)
+    ].filter(Boolean).join("\n");
   }
 
   if (domain.domain === "funcionarios") {
@@ -1674,9 +1731,48 @@ function buildResponse(
     return buildGenealogyResponse(rows, plan, relations, pagination?.offset || 0, pagination?.pageSize || 10);
   }
 
+  if (domain.domain === "observacoes" || domain.domain === "saude_sanitario") {
+    return buildEventListResponse(rows, domain, relations, pagination?.offset || 0, pagination?.pageSize || 12);
+  }
+
+  // Ultimo recurso: em vez de anunciar apenas a contagem, lista o que achou.
+  // "Registros encontrados: 3" nao responde o que o usuario perguntou.
+  if (!rows.length) return `Não encontrei registros de ${domain.label.toLowerCase()} para essa consulta.`;
   return [
-    `Consulta de ${domain.label.toLowerCase()}:`,
-    `Registros encontrados: ${rows.length}.`
+    `Consulta de ${domain.label.toLowerCase()} (${rows.length}):`,
+    ...rows.slice(0, 12).map((row, index) => {
+      const clean = sanitizeRowForUser(row, relations);
+      const parts = Object.entries(clean)
+        .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "")
+        .slice(0, 6)
+        .map(([key, value]) => `${key.replace(/_/g, " ")}: ${String(value)}`);
+      return `${index + 1}. ${parts.join(", ")}`;
+    }),
+    rows.length > 12 ? `...e mais ${rows.length - 12} registro(s).` : ""
+  ].filter(Boolean).join("\n");
+}
+
+/** Lista de eventos com data, tipo, animal e observacao. */
+function buildEventListResponse(
+  rows: AnyRecord[],
+  domain: DomainManifestEntry,
+  relations: AnyRecord,
+  offset = 0,
+  pageSize = 12
+) {
+  if (!rows.length) return `Não encontrei eventos registrados para essa consulta.`;
+  const pageRows = rows.slice(offset, offset + pageSize);
+  if (!pageRows.length) return "Não há mais eventos para mostrar.";
+  const nextOffset = offset + pageRows.length;
+  return [
+    offset ? `Mais ${pageRows.length} evento(s):` : `Eventos encontrados (${rows.length}):`,
+    ...pageRows.map((row, index) => {
+      const animal = relations.animalsById?.get(String(row.animal_id || ""));
+      const detail = [row.descricao, row.medicamento].filter(Boolean).join(" - ");
+      const who = animal ? `${animalLabel(animal)} - ` : "";
+      return `${offset + index + 1}. ${shortDate(row.data_evento || row.created_at)} - ${who}${eventTypeLabel(row.tipo)}${detail ? ` - ${detail}` : ""}`;
+    }),
+    nextOffset < rows.length ? `...e mais ${rows.length - nextOffset} evento(s). Responda "mostrar mais" para continuar.` : "Fim da lista."
   ].join("\n");
 }
 
@@ -1691,6 +1787,37 @@ async function loadRelationContext(supabase: ActionPlanSupabaseLike | null | und
       .eq("fazenda_id", owner.fazenda_id)
       .limit(1000);
     relations.animalsById = new Map(((data || []) as AnyRecord[]).map((animal) => [String(animal.id), animal]));
+  }
+
+  // Ficha de um animal sem historico responde pela metade: o produtor quer
+  // saber o que aconteceu com ele, com data e observacao, nao so o cadastro.
+  if (plan.domain === "animais" && hasSpecificAnimalRefFilter(plan) && relations.animalsById) {
+    const reference = plan.filters.find((filter) => filter.field === "animal_ref")?.value;
+    const target = Array.from(relations.animalsById.values() as Iterable<AnyRecord>)
+      .find((animal) => referenceMatches([animal.brinco, animal.nome, animal.id], reference));
+    if (target) {
+      const [events, milkings] = await Promise.all([
+        supabase
+          .from(TABLES.eventosAnimal)
+          .select("id,tipo,data_evento,descricao,medicamento,custo,created_at")
+          .eq("fazenda_id", owner.fazenda_id)
+          .eq("animal_id", target.id)
+          .order("data_evento", { ascending: false })
+          .limit(50),
+        supabase
+          .from(TABLES.ordenhas)
+          .select("id,litros,ordenhado_em,turno")
+          .eq("fazenda_id", owner.fazenda_id)
+          .eq("animal_id", target.id)
+          .order("ordenhado_em", { ascending: false })
+          .limit(10)
+      ]);
+      relations.animalHistory = {
+        animalId: String(target.id),
+        eventos: (events?.data || []) as AnyRecord[],
+        ordenhas: (milkings?.data || []) as AnyRecord[]
+      };
+    }
   }
 
   if (plan.domain === "funcionarios" || plan.domain === "ponto_funcionario" || plan.filters.some((filter) => filter.field === "funcionario_ref")) {

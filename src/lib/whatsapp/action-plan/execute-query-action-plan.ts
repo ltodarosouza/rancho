@@ -454,6 +454,13 @@ function filterMatches(row: AnyRecord, domain: DomainManifestEntry, filter: Filt
     if (filter.op === "eq") return animalCategoryMatches(row, filter.value);
     if (filter.op === "neq") return !animalCategoryMatches(row, filter.value);
   }
+  if (domain.domain === "animais" && filter.field === "animal_ref") {
+    const collectiveCategory = collectiveAnimalCategory(filter.value);
+    if (collectiveCategory) {
+      if (filter.op === "eq") return animalCategoryMatches(row, collectiveCategory);
+      if (filter.op === "neq") return !animalCategoryMatches(row, collectiveCategory);
+    }
+  }
   if (filter.field === "animal_categoria") {
     const animal = domain.domain === "animais"
       ? row
@@ -758,6 +765,10 @@ function animalCategoryPlural(category: unknown) {
   return "animais";
 }
 
+function collectiveAnimalCategory(value: unknown) {
+  return isCollectiveAnimalRef(value) ? animalCategoryFromQueryText(value) : null;
+}
+
 function isCollectiveAnimalRef(value: unknown) {
   const text = normalizedText(value);
   if (/^(?:vaca|vacas|vaga|vagas|animal|animais|rebanho|gado|boi|bois|touro|touros|bezerro|bezerros|bezerra|bezerras|novilha|novilhas|meus animais|minhas vacas)$/.test(text)) return true;
@@ -787,9 +798,18 @@ function countByText(rows: AnyRecord[], selector: (row: AnyRecord) => unknown) {
 }
 
 function buildAnimalCollectiveResponse(rows: AnyRecord[], plan: QueryActionPlan, offset = 0, pageSize = 10) {
-  const category = plan.filters.find((filter) => filter.field === "categoria")?.value;
+  const category = plan.filters.find((filter) => filter.field === "categoria")?.value
+    || plan.filters.map((filter) => filter.field === "animal_ref" ? collectiveAnimalCategory(filter.value) : null).find(Boolean);
   const label = animalCategoryPlural(category);
   if (!rows.length) return `Não encontrei ${label} cadastrados no rebanho.`;
+
+  const countOnly = Boolean(plan.aggregations?.some((aggregation) => aggregation.op === "count"))
+    || normalizedText(plan.semantic?.report?.type) === "contagem";
+  if (countOnly) {
+    const status = plan.filters.find((filter) => filter.field === "status" && filter.op === "eq")?.value;
+    const statusSuffix = normalizedText(status) === "ativo" ? " ativos" : status ? ` com status ${status}` : "";
+    return `Total de ${label}${statusSuffix}: ${rows.length}.`;
+  }
 
   const active = rows.filter((row) => !["morto", "inativo", "vendido"].includes(normalizedText(row.status || "ativo"))).length;
   const categories = countByText(rows, (row) => row.categoria || "sem categoria");
@@ -953,6 +973,8 @@ function emptyReproductionTextForKinds(kinds: string[], subject = "Animais") {
 function reproductionAnimalMatches(animal: AnyRecord, plan: QueryActionPlan) {
   return plan.filters.every((filter) => {
     if (filter.field === "animal_ref") {
+      const collectiveCategory = collectiveAnimalCategory(filter.value);
+      if (collectiveCategory) return animalCategoryMatches(animal, collectiveCategory);
       const candidates = [animal.brinco, animal.nome, animal.id].filter(Boolean);
       if (filter.op === "in") {
         const values = Array.isArray(filter.value) ? filter.value : [filter.value];
@@ -971,6 +993,18 @@ function reproductionAnimalMatches(animal: AnyRecord, plan: QueryActionPlan) {
     }
     return true;
   });
+}
+
+function reproductionEventHistoryRequested(plan: QueryActionPlan, domain: DomainManifestEntry) {
+  if (plan.filters.some((filter) => domain.dateFields.includes(filter.field))) return true;
+  const descriptor = normalizedText([
+    plan.operation,
+    plan.semantic?.intent,
+    plan.semantic?.operation,
+    plan.semantic?.report?.type,
+    plan.semantic?.report?.detailLevel
+  ].filter(Boolean).join(" "));
+  return /\b(?:historico|evento|listar|lista|registros|detalhado)\b/.test(descriptor);
 }
 
 /**
@@ -1084,6 +1118,7 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
   const range = dateFilter ? dateRangeFor(dateFilter, baseDate) : null;
   const kinds = targetReproductionKinds(plan);
   const kind = kinds.length === 1 ? kinds[0] : undefined;
+  const eventHistory = reproductionEventHistoryRequested(plan, domain);
   const limit = Math.min(plan.limit || domain.maxLimit, domain.maxLimit);
 
   let query = input.supabase
@@ -1121,21 +1156,25 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
 
   let rows: AnyRecord[];
   if (kinds.length) {
-    const eventsByAnimal = new Map<string, AnyRecord[]>();
-    for (const event of allEvents) {
-      const animalId = String(event.animal_id || "");
-      if (!animalId) continue;
-      eventsByAnimal.set(animalId, [...(eventsByAnimal.get(animalId) || []), event]);
-    }
-    rows = Array.from(eventsByAnimal.values())
-      .flatMap((events) => kinds.map((item) => activeReproductionEventForKind(events, item)))
-      .filter((event): event is AnyRecord => Boolean(event));
-    if (kinds.includes("prenhez")) {
-      const existing = new Set(rows.map((event) => String(event.animal_id || "")));
-      for (const animal of matchingAnimals) {
-        if (existing.has(String(animal.id))) continue;
-        if (["gestante", "prenhe", "prenha"].includes(normalizedText(animal.fase))) {
-          rows.push({ animal_id: animal.id, kind: "prenhez", tipo: "prenhez", data_evento: null, descricao: "Status atual do animal" });
+    if (eventHistory) {
+      rows = allEvents.filter((event) => kinds.includes(String(event.kind || "")));
+    } else {
+      const eventsByAnimal = new Map<string, AnyRecord[]>();
+      for (const event of allEvents) {
+        const animalId = String(event.animal_id || "");
+        if (!animalId) continue;
+        eventsByAnimal.set(animalId, [...(eventsByAnimal.get(animalId) || []), event]);
+      }
+      rows = Array.from(eventsByAnimal.values())
+        .flatMap((events) => kinds.map((item) => activeReproductionEventForKind(events, item)))
+        .filter((event): event is AnyRecord => Boolean(event));
+      if (kinds.includes("prenhez")) {
+        const existing = new Set(rows.map((event) => String(event.animal_id || "")));
+        for (const animal of matchingAnimals) {
+          if (existing.has(String(animal.id))) continue;
+          if (["gestante", "prenhe", "prenha"].includes(normalizedText(animal.fase))) {
+            rows.push({ animal_id: animal.id, kind: "prenhez", tipo: "prenhez", data_evento: null, descricao: "Status atual do animal" });
+          }
         }
       }
     }
@@ -1170,7 +1209,9 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
   }
 
   const subject = reproductionSubject(plan);
-  const title = reproductionTitleForKinds(kinds, subject);
+  const title = eventHistory
+    ? kinds.length === 1 && kind === "parto" ? `Partos registrados de ${subject.toLowerCase()}` : "Eventos reprodutivos registrados"
+    : reproductionTitleForKinds(kinds, subject);
   const singleAnimal = specificAnimalFilter && matchingAnimals.length === 1 ? matchingAnimals[0] : undefined;
   const pageSize = Math.max(1, input.pagination?.pageSize || 12);
   const offset = Math.max(0, input.pagination?.offset || 0);
@@ -1776,6 +1817,32 @@ function buildProductionResponse(
   ].join("\n");
 }
 
+function animalSelectedFieldLines(animal: AnyRecord, plan: QueryActionPlan, relations: AnyRecord) {
+  const selected = Array.from(new Set((plan.select || []).filter((field) => field !== "id")));
+  if (!selected.length) return [];
+
+  const lot = relations.lotsById?.get(String(animal.lote_id || ""))?.nome;
+  const father = animal.pai_id ? animalLabel(relations.animalsById?.get(String(animal.pai_id))) : null;
+  const mother = animal.mae_id ? animalLabel(relations.animalsById?.get(String(animal.mae_id))) : null;
+  const values: Record<string, string> = {
+    brinco: `Brinco: ${animal.brinco || "nao informado"}.`,
+    nome: `Nome: ${animal.nome || "nao informado"}.`,
+    categoria: `Categoria: ${animal.categoria || "sem categoria"}.`,
+    sexo: `Sexo: ${animal.sexo || "nao informado"}.`,
+    fase: `Fase: ${animal.fase || "sem fase"}.`,
+    raca: `Raca: ${animal.raca || "sem registro"}.`,
+    lote_ref: `Lote: ${lot || "sem lote informado"}.`,
+    lote_id: `Lote: ${lot || "sem lote informado"}.`,
+    data_nascimento: `Data de nascimento: ${animal.data_nascimento ? shortDate(animal.data_nascimento) : "sem registro"}.`,
+    peso: `Peso: ${animal.peso === undefined || animal.peso === null ? "sem registro" : `${numberText(Number(animal.peso))} kg`}.`,
+    status: `Status: ${animal.status || "ativo"}.`,
+    observacoes: `Observacoes: ${animal.observacoes || "sem registros"}.`,
+    pai_ref: `Pai: ${father || "nao informado"}.`,
+    mae_ref: `Mae: ${mother || "nao informada"}.`
+  };
+  return selected.map((field) => values[field]).filter(Boolean);
+}
+
 function buildResponse(
   domain: DomainManifestEntry,
   rows: AnyRecord[],
@@ -1856,12 +1923,17 @@ function buildResponse(
     }
 
     const animal = rows[0];
+    const selectedLines = animalSelectedFieldLines(animal, plan, relations);
+    if (selectedLines.length) return [`Dados de ${animalLabel(animal)}:`, ...selectedLines].join("\n");
+    const lot = relations.lotsById?.get(String(animal.lote_id || ""))?.nome;
     return [
       `Ficha de ${animalLabel(animal)}:`,
       `Categoria: ${animal.categoria || "sem categoria"}.`,
       `Sexo: ${animal.sexo || "não informado"}.`,
       `Status: ${animal.status || "ativo"}.`,
       `Fase: ${animal.fase || "sem fase"}.`,
+      `Lote: ${lot || "sem lote informado"}.`,
+      `Data de nascimento: ${animal.data_nascimento ? shortDate(animal.data_nascimento) : "sem registro"}.`,
       animal.peso ? `Peso: ${numberText(Number(animal.peso))} kg.` : "Peso: sem registro.",
       animal.raca ? `Raça: ${animal.raca}.` : "Raça: sem registro.",
       animal.observacoes ? `Observações: ${animal.observacoes}` : "Observações: sem registros.",
@@ -1941,6 +2013,15 @@ async function loadRelationContext(supabase: ActionPlanSupabaseLike | null | und
       .eq("fazenda_id", owner.fazenda_id)
       .limit(1000);
     relations.animalsById = new Map(((data || []) as AnyRecord[]).map((animal) => [String(animal.id), animal]));
+  }
+
+  if (plan.domain === "animais" || plan.filters.some((filter) => ["lote_id", "lote_ref"].includes(filter.field))) {
+    const { data } = await supabase
+      .from(TABLES.lotes)
+      .select("id,nome")
+      .eq("fazenda_id", owner.fazenda_id)
+      .limit(1000);
+    relations.lotsById = new Map(((data || []) as AnyRecord[]).map((lot) => [String(lot.id), lot]));
   }
 
   // Ficha de um animal sem historico responde pela metade: o produtor quer

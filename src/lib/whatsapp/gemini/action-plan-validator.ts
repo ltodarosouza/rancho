@@ -1404,6 +1404,11 @@ function validateQueryPlan(plan: QueryActionPlan, domain: DomainManifestEntry, e
           errors.push(`aggregations[${index}] deve ser objeto`);
           return;
         }
+        if (String(aggregation.op || "").trim().toLowerCase() === "count") {
+          aggregation.field = "id";
+          validateAggregation(domain, aggregation, errors, `aggregations[${index}]`);
+          return;
+        }
         const original = String(aggregation.field || "").trim();
         const resolved = resolveFieldName(domain, original);
         if (resolved && resolved !== original) {

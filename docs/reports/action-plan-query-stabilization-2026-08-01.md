@@ -106,3 +106,42 @@ an animal was rejected with the same guidance that suggested reactivation.
 - `npm test`: 203/203 passed; Gemini is mocked and live calls are 0.
 - `npm run test:bot`: passed.
 - `npm run build`: passed.
+
+## Animal And Reproduction Query Completion
+
+The remaining production reports were not interpretation failures alone. The
+ActionPlan could express a precise request, but some response and validation
+paths discarded useful plan semantics after the model had supplied them.
+
+- A specific-animal query now honors `select`. Requests for a lot, birth date,
+  weight, status, or another registered field return that field instead of an
+  unrelated full record. Lot names are resolved through the authorized lots
+  relation, and birth dates use Brazilian display formatting.
+- The full animal record now also includes lot and birth date, which prevents
+  those registered values from silently disappearing when the user asks for a
+  broader history.
+- Collective animal references that reach the executor as a plural category
+  are resolved as categories rather than mistaken for an individual animal.
+  The ActionPlan prompt still asks the model for `categoria`, while this bridge
+  makes the backend tolerant of an equivalent valid semantic shape. Count
+  aggregations are canonicalized to `id` before validation, so counts work for
+  all catalog domains without requiring a numeric measure field.
+- Reproduction queries distinguish current reproductive state from historical
+  events. A period filter or an event/history semantic now lists the actual
+  matching events. Thus, "which cows calved this year" returns every PARTO
+  event in the year rather than only animals whose current state happens to be
+  parida.
+- For a message that combines a current/history query with a future or
+  conditional mutation, the ActionPlan contract now requires the model to put
+  the query first. The executor returns that query immediately and retains the
+  mutation as a normal pending confirmation. Queries stay after a mutation
+  only when the user explicitly asks for a post-confirmation result.
+
+## Regression Coverage And Verification Update
+
+- Added offline ActionPlan coverage for specific animal lot and birth-date
+  queries, collective active-bull counts, calving-event history in the current
+  year, and history-before-pending-sale sequences.
+- `npm test`: 207/207 passed; Gemini is mocked and live calls are 0.
+- `npm run test:bot`: passed.
+- `npm run build`: passed.

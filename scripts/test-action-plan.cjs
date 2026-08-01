@@ -5978,6 +5978,109 @@ test("ActionPlan canonico registra venda de leite como movimento de estoque", as
   assert(Number(result.parsed.dados?.valor) === 450, "venda deveria preservar receita");
 });
 
+test("ActionPlan responde campos especificos do animal com relacao e data", async () => {
+  const animals = [{
+    id: "animal-396", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "396", nome: "Vaca 396",
+    categoria: "vaca", sexo: "femea", fase: "lactacao", status: "ativo",
+    lote_id: "lote-reprodutores", data_nascimento: "2020-05-11"
+  }];
+  const supabase = createActionPlanSupabase({
+    [TABLES.animais]: animals,
+    [TABLES.lotes]: [{ id: "lote-reprodutores", fazenda_id: ADMIN_OWNER.fazenda_id, nome: "Reprodutores" }],
+    [TABLES.eventosAnimal]: [],
+    [TABLES.ordenhas]: []
+  });
+
+  const lot = await executeQueryActionPlan({
+    plan: { action: "query", domain: "animais", confidence: 0.94, filters: [{ field: "animal_ref", op: "eq", value: "396" }], select: ["lote_ref"], limit: 20, requiresConfirmation: false },
+    owner: ADMIN_OWNER, supabase
+  });
+  const birth = await executeQueryActionPlan({
+    plan: { action: "query", domain: "animais", confidence: 0.94, filters: [{ field: "animal_ref", op: "eq", value: "396" }], select: ["data_nascimento"], limit: 20, requiresConfirmation: false },
+    owner: ADMIN_OWNER, supabase
+  });
+
+  assert(lot.ok && lot.response.includes("Lote: Reprodutores"), `lote especifico deveria ser resolvido: ${lot.response}`);
+  assert(!lot.response.includes("Historico"), "consulta de um campo nao deve devolver a ficha inteira");
+  assert(birth.ok && birth.response.includes("11/05/2020"), `nascimento deveria usar a data cadastrada: ${birth.response}`);
+});
+
+test("ActionPlan conta categorias coletivas sem perder o filtro de status", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query", domain: "animais", confidence: 0.94,
+      filters: [{ field: "animal_ref", op: "eq", value: "touros" }, { field: "status", op: "eq", value: "ativo" }],
+      aggregations: [{ field: "id", op: "count", as: "total" }], limit: 100, requiresConfirmation: false
+    },
+    owner: ADMIN_OWNER,
+    supabase: createActionPlanSupabase({
+      [TABLES.animais]: [
+        { id: "t-01", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "T-01", nome: "Atlas", categoria: "touro", status: "ativo" },
+        { id: "t-02", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "T-02", nome: "Norte", categoria: "touro", status: "vendido" },
+        { id: "v-01", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "V-01", nome: "Lua", categoria: "vaca", status: "ativo" }
+      ]
+    })
+  });
+  assert(result.ok, `contagem coletiva deveria executar: ${result.reason}`);
+  assert(result.response.includes("Total de touros ativos: 1."), `contagem de touros ativos incorreta: ${result.response}`);
+});
+
+test("ActionPlan consulta partos por periodo como eventos, nao como estado atual", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query", domain: "reproducao", confidence: 0.94,
+      semantic: { intent: "listar_eventos_reprodutivos", report: { type: "eventos", detailLevel: "detalhado" } },
+      filters: [
+        { field: "categoria", op: "eq", value: "vaca" },
+        { field: "evento", op: "eq", value: "parto" },
+        { field: "data", op: "current_year" }
+      ], limit: 100, requiresConfirmation: false
+    },
+    owner: ADMIN_OWNER, currentDate: "2026-08-01",
+    supabase: createActionPlanSupabase({
+      [TABLES.animais]: [
+        { id: "v-090", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "090", nome: "Mimosa", categoria: "vaca" },
+        { id: "v-396", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "396", nome: "Aurora", categoria: "vaca" }
+      ],
+      [TABLES.eventosAnimal]: [
+        { id: "parto-1", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "v-090", tipo: "parto", data_evento: "2026-01-12", descricao: "Parto registrado" },
+        { id: "parto-2", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "v-090", tipo: "parto", data_evento: "2026-07-18", descricao: "Parto registrado" },
+        { id: "parto-3", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "v-396", tipo: "parto", data_evento: "2025-12-20", descricao: "Parto antigo" }
+      ]
+    })
+  });
+  assert(result.ok, `historico de partos deveria executar: ${result.reason}`);
+  assert(result.rows.length === 2, `deveria listar todos os 2 partos do ano, recebeu ${result.rows.length}`);
+  assert(result.response.includes("12/01/2026") && result.response.includes("18/07/2026"), `datas dos partos deveriam aparecer: ${result.response}`);
+  assert(!result.response.includes("20/12/2025"), "parto fora do periodo nao pode aparecer");
+});
+
+test("ActionPlan sequence consulta historico antes de deixar venda pendente", async () => {
+  const plan = {
+    action: "sequence", confidence: 0.94, requiresConfirmation: true,
+    steps: [
+      { action: "query", domain: "animais", confidence: 0.94, semantic: { report: { type: "historico", detailLevel: "detalhado" } }, filters: [{ field: "animal_ref", op: "eq", value: "080" }], limit: 20, requiresConfirmation: false },
+      { action: "update", domain: "animais", confidence: 0.94, data: { animal_ref: "080", status: "vendido" }, requiresConfirmation: true }
+    ]
+  };
+  await withGeminiMock(() => legacyMilkWithActionPlan(plan), async () => {
+    const result = await parseWithConfiguredInterpreter({
+      text: "vou vender a vaca 080 amanha e quero todo o historico dela",
+      localParsed: parseRanchoMessage("vou vender a vaca 080 amanha e quero todo o historico dela"),
+      owner: ADMIN_OWNER,
+      supabase: createActionPlanSupabase({
+        [TABLES.animais]: [{ id: "v-080", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "080", nome: "Lua", categoria: "vaca", status: "ativo" }],
+        [TABLES.lotes]: [], [TABLES.eventosAnimal]: [{ id: "evt-080", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "v-080", tipo: "observacao", data_evento: "2026-07-20", descricao: "Avaliada" }], [TABLES.ordenhas]: []
+      })
+    });
+    assert(result.kind === "compound", `consulta e venda deveriam formar uma sequencia: ${result.kind}`);
+    assert(result.immediateConsultations.length === 1, "historico deve ser mostrado antes da confirmacao da venda");
+    assert(result.immediateConsultations[0].dados?.action_plan_response?.includes("Ficha de Lua (080)"), "ficha da vaca deveria sair primeiro");
+    assert(result.pending.tipo === "ATUALIZACAO_ANIMAL", `venda deveria ficar pendente, recebeu ${result.pending.tipo}`);
+    assert(result.pending.dados?.novo_valor === "vendido", "status vendido deveria aguardar confirmacao");
+  });
+});
+
 test("Gemini live calls permanecem zeradas", () => {
   const stats = geminiRuntimeStats();
   assert(stats.liveCalls === 0, `Gemini live calls esperado 0, recebido ${stats.liveCalls}`);

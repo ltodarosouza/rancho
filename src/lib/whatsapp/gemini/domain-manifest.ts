@@ -484,28 +484,35 @@ export function getDomainManifest(domain: string, manifest: DomainManifest = RAN
   return manifest[domain] || null;
 }
 
+/**
+ * Resumo enxuto do manifest para o prompt. Este texto e reenviado em toda
+ * mensagem, entao cada campo aqui custa dinheiro por mensagem.
+ *
+ * Ficaram de fora, sem perda de informacao para o modelo:
+ * - tableName/sourceName: o modelo e proibido de escolher tabela.
+ * - relationFields: ja identificado pelo tipo "relation" do proprio campo.
+ * - maxLimit: o validador corta o limite sozinho e avisa.
+ * - label: repete o nome do dominio.
+ * Os campos viram "nome: tipo" em vez de objeto, o que corta quase metade.
+ */
 export function summarizeDomainManifestForPrompt(manifest: DomainManifest = RANCHO_DOMAIN_MANIFEST) {
   return Object.fromEntries(
     Object.entries(manifest).map(([domain, entry]) => [
       domain,
       {
-        label: entry.label,
-        source: entry.tableName || entry.sourceName,
         allowedActions: entry.allowedActions,
         fields: Object.fromEntries(
           Object.entries(entry.fields).map(([fieldName, definition]) => [
             fieldName,
             definition.enumValues?.length
-              ? { type: definition.type, enumValues: definition.enumValues }
-              : { type: definition.type }
+              ? `enum(${definition.enumValues.join("|")})`
+              : definition.type
           ])
         ),
         requiredFieldsByAction: entry.requiredFieldsByAction,
         searchableFields: entry.searchableFields,
         aggregatableFields: entry.aggregatableFields,
-        dateFields: entry.dateFields,
-        relationFields: entry.relationFields,
-        maxLimit: entry.maxLimit
+        dateFields: entry.dateFields
       }
     ])
   );

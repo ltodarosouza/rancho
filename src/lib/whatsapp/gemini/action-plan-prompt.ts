@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v17";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v19";
 
 const EXAMPLES = [
   {
@@ -63,22 +63,6 @@ const EXAMPLES = [
     }
   },
   {
-    user: "como ta a vaca 090?",
-    plan: {
-      action: "query", domain: "animais", confidence: 0.94,
-      filters: [{ field: "animal_ref", op: "eq", value: "090" }],
-      limit: 20, requiresConfirmation: false
-    }
-  },
-  {
-    user: "quais touros cadastrados?",
-    plan: {
-      action: "query", domain: "animais", confidence: 0.94,
-      filters: [{ field: "categoria", op: "eq", value: "touro" }],
-      limit: 100, requiresConfirmation: false
-    }
-  },
-  {
     user: "me manda a lista das vacas prenhas e das inseminadas",
     plan: {
       action: "query", domain: "reproducao", confidence: 0.94,
@@ -103,15 +87,6 @@ const EXAMPLES = [
       semantic: { intent: "consultar_financeiro", scope: "financeiro", period: "mes_atual", report: { type: "transacoes", detailLevel: "detalhado" } },
       filters: [{ field: "data", op: "current_month" }],
       limit: 100, requiresConfirmation: false
-    }
-  },
-  {
-    user: "como foi o financeiro desse mes?",
-    plan: {
-      action: "query", domain: "financeiro", confidence: 0.94,
-      filters: [{ field: "data", op: "current_month" }],
-      aggregations: [{ field: "valor", op: "sum", as: "total" }],
-      groupBy: ["tipo"], limit: 100, requiresConfirmation: false
     }
   },
   {
@@ -202,21 +177,6 @@ const EXAMPLES = [
         effects: [{ domain: "financeiro", type: "receita" }]
       },
       data: { tipo: "entrada", valor: 1000, categoria: "receita via WhatsApp", descricao: "receita via WhatsApp", data: "hoje" },
-      requiresConfirmation: true
-    }
-  },
-  {
-    user: "adicionar saida de mil reais",
-    plan: {
-      action: "execute", capability: "registrar_financeiro", confidence: 0.92,
-      semantic: {
-        intent: "registrar_despesa",
-        scope: "financeiro",
-        money: { value: 1000, type: "despesa", category: "despesa via WhatsApp" },
-        date: "hoje",
-        effects: [{ domain: "financeiro", type: "despesa" }]
-      },
-      data: { tipo: "saida", valor: 1000, categoria: "despesa via WhatsApp", descricao: "despesa via WhatsApp", data: "hoje" },
       requiresConfirmation: true
     }
   },
@@ -512,22 +472,22 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Quando o usuario pedir todas as transacoes, lista, detalhes, lancamentos ou movimentacoes financeiras, use semantic.report.detailLevel=detalhado e operation=listar. Preserve todos os filtros de periodo, tipo, categoria, pessoa ou descricao; nao transforme a lista pedida em mero resumo. Quando pedir resumo financeiro, use detailLevel=resumo e operation=resumir; nao solicite nem acrescente exemplos de registros.",
     "Se o contexto de sessao tiver consulta_paginacao e a nova mensagem pedir para continuar, mostrar mais, ver os restantes, abrir os registros/detalhes ou a proxima pagina, retorne action=query no mesmo dominio com semantic.operation=continuar_consulta. Nao crie novos filtros nem transforme a consulta em relatorio geral; o backend reutiliza o plano anterior validado. Sem consulta_paginacao ativa, um pedido isolado de mostrar mais deve usar clarify, nunca animais por padrao.",
     "Compra ou venda de item fisico com quantidade, unidade, item e valor deve usar domain=estoque, gera_financeiro=true. Compra vira entrada de estoque + despesa; venda vira saida de estoque + receita. Nao use somente financeiro nesses casos.",
-    "Venda de leite e uma venda de item fisico, nao uma ordenha. Frases com vendi/vendeu/venda/cliente/recebi por mais quantidade em litros de leite usam estoque com saida e, quando houver valor, financeiro com receita. Producao de leite usa verbos de ordenha ou producao, como produziu, deu, ordenhei ou tirei, sem contexto de venda.",
+    "Venda de leite e venda de item fisico, nao ordenha: usa estoque com saida e, havendo valor, financeiro com receita. Producao de leite e o ato de ordenhar, sem contexto de venda.",
     "Cadastro de item/produto/insumo/material no estoque, sem verbo de compra/venda/entrada/saida/uso, deve usar action=execute capability=cadastrar_item_estoque ou action=create domain=estoque. Quantidade inicial pode ficar ausente para o backend perguntar ao usuario.",
-    "Perguntas sobre o proprio rancho, como nome, cidade, estado, descricao ou responsavel, usam action=query domain=fazenda. Se o usuario pedir somente o nome, use select=[nome], filters=[] e nao gere resumo operacional de rebanho, producao ou financeiro. Perguntar qual e um campo nao significa filtrar por esse campo.",
-    "Consultas coletivas como dados do rebanho, dados das vacas, dados das vagas, lista das vacas, vacas cadastradas ou meus animais usam action=query domain=animais. Nao use animal_ref para plural/coletivo; use categoria quando houver vaca, boi, bezerro, novilha ou touro.",
+    "Perguntas sobre o proprio rancho usam action=query domain=fazenda. Pedindo um campo so, use apenas ele no select, por exemplo select=[nome], com filters=[]; perguntar qual e um campo nao significa filtrar por ele.",
+    "Consulta coletiva de animais usa domain=animais com categoria; animal_ref e so para uma entidade identificada, nunca para plural ou coletivo.",
     "Consultas de um animal especifico com brinco/codigo/nome claro, como dados da vaca B-001, ficha da Mimosa ou historico do animal 120, usam action=query domain=animais com filtro animal_ref. Nao transforme isso em consulta coletiva.",
     "Perguntas sobre ha quanto tempo, desde quando ou quantos dias um animal esta em um estado reprodutivo usam action=query domain=reproducao com animal_ref e status_reprodutivo/evento. Nao aplique filtro de periodo: a data do evento que iniciou o estado precisa permanecer na consulta para o backend calcular a duracao. Isso vale para qualquer animal e estado reprodutivo suportado.",
     "Comparacoes, rankings, maior, menor, primeiro, ultimo ou top por entidade usam aggregations + groupBy na entidade + orderBy na metrica. Para producao por animal, agrupe por animal_ref, agregue litros com sum e ordene litros desc para maior ou asc para menor; use limit=1 quando a pergunta pedir somente qual animal e um limite maior quando pedir ranking/lista.",
     "Em consultas de producao por categoria, como vaca, novilha ou outro tipo de animal, use animal_categoria. animal_ref e somente para nome, brinco ou codigo de um animal especifico. Nao gere subquery ou filtro aninhado.",
     "Resumo, historico ou total de producao de um animal especifico deve manter filtro animal_ref e nunca virar total do rebanho. O valor de animal_ref pode conter a forma natural completa, como 'vaca 090'; o backend resolve nome ou brinco.",
-    "Diferencie periodos de calendario: este mes/agora usa current_month; mes passado ou mes anterior usa previous_month; ultimos N meses usa last_months com value=N. previous_month nao recebe value.",
+    "Diferencie periodos de calendario: este mes/agora usa current_month; este ano usa current_year; mes passado ou mes anterior usa previous_month; ultimos N meses usa last_months com value=N; ultimos N dias usa last_days com value=N. Qualquer pedido com periodo precisa de filtro em data. previous_month e current_year nao recebem value.",
     "\"Ultimo mes\" e \"esse ultimo mes\" na fala do produtor significam o mes corrente, entao use current_month. Somente \"mes passado\" e \"mes anterior\" viram previous_month. A mesma leitura vale para ultima semana, que e a semana corrente.",
-    "Consultas de funcionarios, equipe, dados dos funcionarios, salarios ou cargos usam action=query domain=funcionarios. Consultas de ponto, presenca, quem bateu ponto, entradas ou saidas de funcionario usam action=query domain=ponto_funcionario.",
+    "Dados de pessoas da equipe usam domain=funcionarios; presenca, entrada e saida usam domain=ponto_funcionario.",
     "Ao cadastrar funcionario com WhatsApp, papel_bot representa o perfil de acesso e so pode ser funcionario, veterinario, contador, gerente ou admin. Se o usuario informar o perfil, preserve-o; se nao informar, use funcionario, que tem menor privilegio.",
     "Consultas de genealogia, ascendencia, pais ou crias usam action=query domain=genealogia. Para perguntar crias de um pai ou mae, filtre pai_ref ou mae_ref; para genealogia de um animal, filtre animal_ref ou filho_ref. Nunca use UUID ou ID interno como referencia nem como resposta ao usuario.",
     "Cadastro de animal: nao use a mesma palavra solta como nome e brinco/codigo. Se a mensagem disser apenas 'criar vaca Felipe', trate Felipe como nome e deixe brinco/codigo faltando. So preencha brinco/codigo quando houver marcador explicito (brinco, codigo, numero) ou formato claro de codigo com numero/hifen.",
-    "Consultas genericas como quais eventos teve hoje, eventos de hoje, registros de hoje, o que aconteceu hoje, movimentacoes de hoje, resumo do dia ou fechamento de hoje usam action=query domain=observacoes, operation=eventos_gerais, requiresConfirmation=false.",
+    "Consulta generica do que aconteceu no periodo, sem area definida, usa domain=observacoes com operation=eventos_gerais e requiresConfirmation=false.",
     "Nao classifique consulta generica de eventos como saude_sanitario ou reproducao. Use saude_sanitario apenas quando houver vacina, tratamento, medicamento, vermifugo, antibiotico, doenca, morte, saude ou sanitario; use reproducao apenas quando houver parto, prenhez, inseminacao, protocolo, reteste ou cio.",
     "Para tabela, use import_table. Quando conseguir ler as linhas com seguranca, prefira data.rows com campos canonicos do manifest; use table.columnMapping como apoio campo_canonico -> coluna_original.",
     "Para lista estruturada simples ja normalizada, import_table tambem deve usar data.rows com objetos por linha.",
@@ -541,7 +501,7 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Em import_table de reproducao, parto sem dados da cria ainda e uma linha valida de evento da mae. Nao use clarify para cada parto da tabela.",
     "Em import_table de reproducao, nao invente sexo, codigo, nome ou pai da cria. Se a tabela trouxer cria_sexo, cria_codigo, cria_nome ou pai_ref, preencha esses campos; se nao trouxer, deixe ausente para o backend tratar complemento em lote.",
     "Vacina, vermifugo, medicamento, antibiotico e tratamento usam create no dominio saude_sanitario, operation=registro_sanitario.",
-    "Morte, morreu, morta, morto, obito, obito com acento, faleceu ou falecimento de animal usam create domain=saude_sanitario, operation=registro_morte, evento=morte. O backend registra o evento e marca o animal como morto somente apos confirmacao.",
+    "Morte de animal usa create domain=saude_sanitario, operation=registro_morte, evento=morte. O backend so marca o animal como morto apos confirmacao.",
     "Em saude_sanitario use animal_ref, item, quantidade, unidade, tipo e data. Normalize vermifugo e antibiotico como medicamento ou tratamento sem inventar dose.",
     "Se houver lote_ref sem animal individual e o plano nao puder ser executado por lote com seguranca, use clarify. Nao gere baixa de estoque implicitamente.",
     "Ponto de funcionario em fala natural, como 'Joao chegou agora' ou 'Maria saiu', usa create domain=ponto_funcionario com funcionario_ref igual ao nome informado e tipo entrada/saida. Nao peca codigo se houver nome.",

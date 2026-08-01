@@ -263,7 +263,9 @@ function semanticDateFilter(semantic: SemanticActionPlanBlock | undefined): Filt
   const period = normalizeRanchoText(String(firstValue(semantic.period, semantic.date, semantic.report?.detailLevel) || ""));
   if (!period) return null;
   if (period.includes("hoje")) return { field: "data", op: "last_days", value: 1 };
-  if (/\b(?:mes passado|mes anterior|ultimo mes|previous month|last month)\b/.test(period.replace(/_/g, " "))) {
+  // "ultimo mes" fica de fora de proposito: na fala do produtor significa o
+  // mes corrente, e cai no current_month logo abaixo.
+  if (/\b(?:mes passado|mes anterior|previous month|last month)\b/.test(period.replace(/_/g, " "))) {
     return { field: "data", op: "previous_month" };
   }
   if (period.includes("mes")) return { field: "data", op: "current_month" };

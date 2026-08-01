@@ -537,9 +537,11 @@ const FILTER_OPERATOR_ALIASES: Record<string, FilterPlan["op"]> = {
   last_months: "last_months",
   mes_anterior: "previous_month",
   mes_passado: "previous_month",
-  ultimo_mes: "previous_month",
   previous_month: "previous_month",
   last_month: "previous_month",
+  // Na fala do produtor "ultimo mes" e o mes corrente, nao o anterior.
+  ultimo_mes: "current_month",
+  último_mes: "current_month",
   mes_atual: "current_month",
   mês_atual: "current_month",
   this_month: "current_month",

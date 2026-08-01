@@ -859,17 +859,100 @@ function reproductionAnimalMatches(animal: AnyRecord, plan: QueryActionPlan) {
   });
 }
 
+/**
+ * Prenhez, pre-parto, protocolo e reteste sao estados: duram e faz sentido
+ * dizer "esta em X ha N dias". Parto, aborto, inseminacao e cio acontecem em
+ * um instante. Tratar todos como estado produzia frases falsas, do tipo
+ * "a vaca esta em parto ha 30 dias".
+ */
+const REPRODUCTION_POINT_EVENTS = new Set(["parto", "aborto", "inseminacao", "cio"]);
+
+function isReproductionState(kind: unknown) {
+  return !REPRODUCTION_POINT_EVENTS.has(String(kind || "").trim().toLowerCase());
+}
+
 function specificReproductionResponse(row: AnyRecord, animal: AnyRecord | undefined, kind: string | undefined, baseDate: Date) {
   const label = animalLabel(animal);
-  const eventLabel = reproductiveEventLabel((kind || row.kind) as Parameters<typeof reproductiveEventLabel>[0]).toLowerCase();
+  const resolvedKind = kind || row.kind;
+  const eventLabel = reproductiveEventLabel(resolvedKind as Parameters<typeof reproductiveEventLabel>[0]).toLowerCase();
   const date = row.data_evento ? shortDate(row.data_evento) : null;
   const days = row.data_evento ? daysSince(row.data_evento, baseDate) : null;
+  const details = cleanReproductionDetail(row.descricao);
+
   if (days !== null && date) {
     const duration = `${days} ${days === 1 ? "dia" : "dias"}`;
-    return `${label} está em ${eventLabel} há ${duration}, desde ${date}.`;
+    const base = isReproductionState(resolvedKind)
+      ? `${label} está em ${eventLabel} há ${duration}, desde ${date}.`
+      : `${label}: ${eventLabel} registrado em ${date}, há ${duration}.`;
+    return details ? `${base}\n${details}` : base;
   }
-  if (date) return `${label}: ${eventLabel} registrado em ${date}.`;
-  return `${label} está em ${eventLabel}, mas o registro não tem uma data para calcular a duração.`;
+  if (date) {
+    const base = `${label}: ${eventLabel} registrado em ${date}.`;
+    return details ? `${base}\n${details}` : base;
+  }
+  if (isReproductionState(resolvedKind)) {
+    return `${label} está em ${eventLabel}, mas o registro não tem uma data para calcular a duração.`;
+  }
+  return `${label}: ${eventLabel} registrado, mas sem data no registro.`;
+}
+
+function cleanReproductionDetail(value: unknown) {
+  const text = String(value || "").trim();
+  if (!text || /^status atual do animal$/i.test(text)) return "";
+  return text;
+}
+
+const ANIMAL_SEX_LABEL: Record<string, string> = {
+  femea: "fêmea",
+  macho: "macho"
+};
+
+function daysApart(left: unknown, right: unknown) {
+  const start = new Date(String(left || "").slice(0, 10));
+  const end = new Date(String(right || "").slice(0, 10));
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  return Math.abs(Math.round((end.getTime() - start.getTime()) / 86400000));
+}
+
+/**
+ * Crias do parto. O evento guarda apenas a mae, entao a cria vem de animais
+ * com mae_id apontando para ela. Quando a mae teve mais de um parto, usamos a
+ * proximidade entre nascimento e data do evento para nao atribuir a cria
+ * errada; sem data, so assumimos quando existe uma unica cria registrada.
+ */
+function calvesForBirthEvent(
+  row: AnyRecord,
+  calvesByMother: Map<string, AnyRecord[]>,
+  animalsById: Map<string, AnyRecord>
+) {
+  if (String(row.kind || "").trim().toLowerCase() !== "parto") return [];
+  const calves = calvesByMother.get(String(row.animal_id || "")) || [];
+  if (!calves.length) return [];
+  const near = row.data_evento
+    ? calves.filter((calf) => {
+        const distance = daysApart(calf.data_nascimento, row.data_evento);
+        return distance !== null && distance <= 3;
+      })
+    : [];
+  const chosen = near.length ? near : calves.length === 1 ? calves : [];
+  return chosen.map((calf) => ({
+    calf,
+    father: calf.pai_id ? animalsById.get(String(calf.pai_id)) || null : null
+  }));
+}
+
+function birthDetailLines(
+  row: AnyRecord,
+  calvesByMother: Map<string, AnyRecord[]>,
+  animalsById: Map<string, AnyRecord>
+) {
+  return calvesForBirthEvent(row, calvesByMother, animalsById).map(({ calf, father }) => {
+    const parts = [`Cria: ${animalLabel(calf)}`];
+    const sex = ANIMAL_SEX_LABEL[String(calf.sexo || "").trim().toLowerCase()];
+    if (sex) parts.push(`sexo ${sex}`);
+    parts.push(father ? `pai ${animalLabel(father)}` : "pai não informado");
+    return `${parts.join(", ")}.`;
+  });
 }
 
 async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan: QueryActionPlan, domain: DomainManifestEntry): Promise<ExecuteQueryActionPlanResult> {
@@ -901,7 +984,9 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
     query,
     input.supabase
       .from(TABLES.animais)
-      .select("id,brinco,nome,categoria,sexo,fase,status")
+      // mae_id, pai_id e data_nascimento sustentam o cruzamento de genealogia:
+      // um parto sem a cria e o pai fica incompleto para o usuario.
+      .select("id,brinco,nome,categoria,sexo,fase,status,mae_id,pai_id,data_nascimento")
       .eq("fazenda_id", input.owner.fazenda_id)
       .limit(3000)
   ]);
@@ -953,11 +1038,23 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
       return true;
     })
     .slice(0, limit);
+  const calvesByMother = new Map<string, AnyRecord[]>();
+  for (const animal of animals) {
+    const motherId = String(animal.mae_id || "");
+    if (!motherId) continue;
+    const current = calvesByMother.get(motherId) || [];
+    current.push(animal);
+    calvesByMother.set(motherId, current);
+  }
+
   const subject = reproductionSubject(plan);
   const title = reproductionTitleForKinds(kinds, subject);
   const singleAnimal = specificAnimalFilter && matchingAnimals.length === 1 ? matchingAnimals[0] : undefined;
   const response = singleAnimal && rows.length === 1
-    ? specificReproductionResponse(rows[0], singleAnimal, kind, baseDate)
+    ? [
+        specificReproductionResponse(rows[0], singleAnimal, kind, baseDate),
+        ...birthDetailLines(rows[0], calvesByMother, animalsById)
+      ].join("\n")
     : specificAnimalFilter && !matchingAnimals.length
       ? `Não encontrei o animal ${String(specificAnimalFilter.value || "informado")} no rebanho.`
     : rows.length
@@ -969,7 +1066,9 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
           const date = row.data_evento ? shortDate(row.data_evento) : "sem data";
           const days = row.data_evento ? daysSince(row.data_evento, baseDate) : null;
           const obs = row.descricao ? ` - ${row.descricao}` : "";
-          return `${index + 1}. ${animalLabel(animal)} - ${label} - ${date}${days !== null ? ` (${days} dias)` : ""}${obs}`;
+          const calves = birthDetailLines(row, calvesByMother, animalsById);
+          const calfText = calves.length ? `\n   ${calves.join("\n   ")}` : "";
+          return `${index + 1}. ${animalLabel(animal)} - ${label} - ${date}${days !== null ? ` (${days} dias)` : ""}${obs}${calfText}`;
         }),
         rows.length > 12 ? `...e mais ${rows.length - 12} registro(s).` : ""
       ].filter(Boolean).join("\n")
@@ -980,7 +1079,29 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
   const parsed = finalizeActionPlanParsed(QUERY_INTENT_BY_DOMAIN[domain.domain] || "CONSULTA_REGISTROS_HOJE", {
     consulta: true,
     action_plan_response: response,
-    resultado: { registros: rows.length, tipo_reprodutivo: kinds.length > 1 ? kinds : kind || null }
+    resultado: {
+      registros: rows.length,
+      tipo_reprodutivo: kinds.length > 1 ? kinds : kind || null,
+      filters: plan.filters,
+      // Dados da pagina para o compositor redigir sem depender do template.
+      linhas_pagina: rows.slice(0, 12).map((row) => {
+        const animal = animalsById.get(String(row.animal_id || ""));
+        const calves = calvesForBirthEvent(row, calvesByMother, animalsById);
+        return {
+          animal: animalLabel(animal),
+          evento: reproductiveEventLabel(row.kind),
+          e_estado: isReproductionState(row.kind),
+          data: row.data_evento || null,
+          dias: row.data_evento ? daysSince(row.data_evento, baseDate) : null,
+          observacoes: cleanReproductionDetail(row.descricao) || null,
+          crias: calves.map(({ calf, father }) => ({
+            cria: animalLabel(calf),
+            sexo: ANIMAL_SEX_LABEL[String(calf.sexo || "").trim().toLowerCase()] || null,
+            pai: father ? animalLabel(father) : null
+          }))
+        };
+      })
+    }
   }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
 
   return { ok: true, parsed, response, rows };

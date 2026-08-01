@@ -4857,26 +4857,27 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       });
     }
     const activePendingContext = Boolean(pendingFromSession(previousSession)?.tipo && previousSession.etapa && previousSession.etapa !== "livre");
-    const conversationAct: ConversationAct = !activePendingContext ?{
-      messageType: "new_action",
-      intent: tableParsedPreview?.tipo || null,
-      confidence: tableParsedPreview?.confianca || 0.9,
-      targetPreviousActionId: null,
-      targetPreviousAction: null,
-      correction: null,
-      flags: [],
-      decision: "new_action",
-      reason: structuredDetection.isStructured
-        ? "Mensagem estruturada enviada ao ActionPlan."
-        : "Mensagem livre enviada ao ActionPlan.",
-      normalizedText: command,
-      hasPendingAction: Boolean(pendingFromSession(previousSession))
-    } : detectConversationAct({
+    const detectedConversationAct = detectConversationAct({
       text: message,
       command,
       session: previousSession,
       pending: pendingFromSession(previousSession)
     });
+    const conversationAct: ConversationAct = !activePendingContext && (structuredDetection.isStructured || Boolean(tableParsedPreview))
+      ? {
+        ...detectedConversationAct,
+        messageType: "new_action",
+        intent: tableParsedPreview?.tipo || null,
+        confidence: tableParsedPreview?.confianca || 0.9,
+        correction: null,
+        flags: [],
+        decision: "new_action",
+        reason: "Mensagem estruturada enviada ao ActionPlan.",
+        targetPreviousActionId: null,
+        targetPreviousAction: null,
+        hasPendingAction: Boolean(pendingFromSession(previousSession))
+      }
+      : detectedConversationAct;
     logConversationAct(message, conversationAct);
     const generalConversationText = !isGeminiPrimaryMode() && !activePendingContext && !structuredDetection.isStructured && !tableParsedPreview
       ? composeGeneralConversationText(command, previousSession)
@@ -4884,12 +4885,22 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
     const pendingActionInterpretation = previousSession.etapa === "aguardando_confirmacao"
       ? await handlePendingActionInterpretation(supabase, owner, previousSession, message)
       : null;
+    // These are dialogue controls, not ranch operations. Resolve them before
+    // any fallback can mistake a bare negation or confirmation for a record.
+    const noContextConversationAct = !activePendingContext
+      && ["confirmation", "cancellation", "correction", "negation"].includes(conversationAct.messageType)
+      ? await handleConversationActMessage(supabase, owner, previousSession, message, conversationAct)
+      : null;
 
     if (pendingActionInterpretation?.handled) {
       parsed = pendingActionInterpretation.parsed;
       suppressPreviousPending = Boolean(pendingActionInterpretation.suppressPreviousPending);
       eventConfirmed = false;
       response = pendingActionInterpretation.response || "";
+    } else if (noContextConversationAct?.handled) {
+      parsed = noContextConversationAct.parsed;
+      suppressPreviousPending = Boolean(noContextConversationAct.suppressPreviousPending);
+      response = noContextConversationAct.response || "";
     } else if (generalConversationText) {
       parsed = pendingFromSession(previousSession);
       response = generalConversationText;

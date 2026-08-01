@@ -90,6 +90,24 @@ const EXAMPLES = [
     }
   },
   {
+    user: "quero consultar o financeiro do mes de fevereiro",
+    plan: {
+      action: "query", domain: "financeiro", confidence: 0.94,
+      semantic: { intent: "consultar_financeiro", scope: "financeiro", period: "fevereiro", report: { type: "resumo", detailLevel: "resumo" } },
+      filters: [{ field: "data", op: "between", value: { month: "fevereiro" } }],
+      limit: 100, requiresConfirmation: false
+    }
+  },
+  {
+    user: "quantos animais tem registrado no rancho?",
+    plan: {
+      action: "query", domain: "animais", confidence: 0.94,
+      semantic: { intent: "contar_animais", scope: "rebanho", report: { type: "contagem", detailLevel: "resumo" } },
+      filters: [], aggregations: [{ field: "id", op: "count", as: "total_animais" }],
+      limit: 100, requiresConfirmation: false
+    }
+  },
+  {
     user: "quais eventos teve hoje?",
     plan: {
       action: "query", domain: "observacoes", operation: "eventos_gerais", confidence: 0.94,
@@ -476,7 +494,7 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Venda de leite e venda de item fisico, nao ordenha: usa estoque com saida e, havendo valor, financeiro com receita. Producao de leite e o ato de ordenhar, sem contexto de venda.",
     "Cadastro de item/produto/insumo/material no estoque, sem verbo de compra/venda/entrada/saida/uso, deve usar action=execute capability=cadastrar_item_estoque ou action=create domain=estoque. Quantidade inicial pode ficar ausente para o backend perguntar ao usuario.",
     "Perguntas sobre o proprio rancho usam action=query domain=fazenda. Pedindo um campo so, use apenas ele no select, por exemplo select=[nome], com filters=[]; perguntar qual e um campo nao significa filtrar por ele.",
-    "Consulta coletiva de animais usa domain=animais com categoria; animal_ref e so para uma entidade identificada, nunca para plural ou coletivo.",
+    "Consulta coletiva de animais usa domain=animais com categoria; animal_ref e so para uma entidade identificada, nunca para plural ou coletivo. Perguntas de quantidade, como 'quantos animais tem' ou 'quantas vacas existem', tambem sao query no dominio animais: deixe filters vazio quando nao houver recorte e use aggregation count em id.",
     "Consultas de um animal especifico com brinco/codigo/nome claro, como dados da vaca B-001, ficha da Mimosa ou historico do animal 120, usam action=query domain=animais com filtro animal_ref. Nao transforme isso em consulta coletiva.",
     "Perguntas sobre ha quanto tempo, desde quando ou quantos dias um animal esta em um estado reprodutivo usam action=query domain=reproducao com animal_ref e status_reprodutivo/evento. Nao aplique filtro de periodo: a data do evento que iniciou o estado precisa permanecer na consulta para o backend calcular a duracao. Isso vale para qualquer animal e estado reprodutivo suportado.",
     "Comparacoes, rankings, maior, menor, primeiro, ultimo ou top por entidade usam aggregations + groupBy na entidade + orderBy na metrica. Para producao por animal, agrupe por animal_ref, agregue litros com sum e ordene litros desc para maior ou asc para menor; use limit=1 quando a pergunta pedir somente qual animal e um limite maior quando pedir ranking/lista.",
@@ -484,6 +502,7 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Resumo, historico ou total de producao de um animal especifico deve manter filtro animal_ref e nunca virar total do rebanho. O valor de animal_ref pode conter a forma natural completa, como 'vaca 090'; o backend resolve nome ou brinco.",
     "Diferencie periodos de calendario: este mes/agora usa current_month; esta semana ou essa semana usa current_week; este ano usa current_year; mes passado ou mes anterior usa previous_month; ultimos N meses usa last_months com value=N; ultimos N dias usa last_days com value=N. previous_month, current_week e current_year nao recebem value.",
     "Em consulta, periodo citado pelo usuario precisa virar filtro em data. Em registro e o oposto: data ausente significa hoje, entao registre com data=hoje e nunca use clarify so porque a data nao foi dita.",
+    "Para um mes nomeado ou YYYY-MM, como fevereiro ou 2026-02, use op=between e value={month:'fevereiro'} ou {month:'2026-02'}. Nunca use since para um mes, pois since significa somente desde uma data.",
     "\"Ultimo mes\" e \"esse ultimo mes\" na fala do produtor significam o mes corrente, entao use current_month. Somente \"mes passado\" e \"mes anterior\" viram previous_month. A mesma leitura vale para ultima semana, que e a semana corrente.",
     "Dados de pessoas da equipe usam domain=funcionarios; presenca, entrada e saida usam domain=ponto_funcionario.",
     "Ao cadastrar funcionario com WhatsApp, papel_bot representa o perfil de acesso e so pode ser funcionario, veterinario, contador, gerente ou admin. Se o usuario informar o perfil, preserve-o; se nao informar, use funcionario, que tem menor privilegio.",

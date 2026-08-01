@@ -1438,8 +1438,8 @@ test("ActionPlan normaliza operadores comuns de filtro", () => {
   assert(result.value.filters?.[0]?.op === "eq", `equals deveria virar eq: ${JSON.stringify(result.value.filters)}`);
   assert(result.value.filters?.[1]?.op === "last_days", `today deveria virar last_days: ${JSON.stringify(result.value.filters)}`);
   assert(result.value.filters?.[1]?.value === 1, `today deveria virar valor 1: ${JSON.stringify(result.value.filters)}`);
-  assert(result.value.filters?.[2]?.op === "since", `month deveria virar since: ${JSON.stringify(result.value.filters)}`);
-  assert(result.value.filters?.[2]?.value === "junho", `month deveria preservar mes nomeado: ${JSON.stringify(result.value.filters)}`);
+  assert(result.value.filters?.[2]?.op === "between", `month deveria virar intervalo fechado: ${JSON.stringify(result.value.filters)}`);
+  assert(result.value.filters?.[2]?.value?.month === "junho", `month deveria preservar mes nomeado: ${JSON.stringify(result.value.filters)}`);
 });
 
 test("ActionPlan infere dominio de import_table pela estrutura da tabela", () => {
@@ -1623,6 +1623,20 @@ test("query normaliza operador alternativo de mes especifico", () => {
   const dateFilter = result.value.filters.find((filter) => filter.field === "data");
   assert(dateFilter?.op === "between", "in_month deveria virar between");
   assert(dateFilter?.value?.month === "2026-06", "mes explicito deveria ser preservado");
+});
+
+test("query fecha mes nomeado recebido como alias sem abrir o periodo", () => {
+  const result = assertValid("financeiro de fevereiro", {
+    action: "query",
+    domain: "financeiro",
+    confidence: 0.94,
+    filters: [{ field: "data", op: "mes", value: "fevereiro" }],
+    requiresConfirmation: false
+  });
+
+  const dateFilter = result.value.filters.find((filter) => filter.field === "data");
+  assert(dateFilter?.op === "between", "mes nomeado deveria virar intervalo fechado");
+  assert(dateFilter?.value?.month === "fevereiro", "mes nomeado deveria continuar no filtro");
 });
 
 test("create update e import_table normalizam confirmacao obrigatoria", () => {

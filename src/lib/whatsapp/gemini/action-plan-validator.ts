@@ -523,12 +523,12 @@ const FILTER_OPERATOR_ALIASES: Record<string, FilterPlan["op"]> = {
   before: "lte",
   antes_de: "lte",
   entre: "between",
-  mes: "since",
-  mês: "since",
-  month: "since",
-  month_name: "since",
-  mes_nome: "since",
-  mês_nome: "since",
+  mes: "between",
+  mês: "between",
+  month: "between",
+  month_name: "between",
+  mes_nome: "between",
+  mês_nome: "between",
   ultimos_dias: "last_days",
   últimos_dias: "last_days",
   last_days: "last_days",
@@ -569,6 +569,10 @@ function normalizeFilterOperator(rawOperator: unknown, field: string, domain: Do
   }
   const op = FILTER_OPERATOR_ALIASES[raw] || (FILTER_OPERATORS.includes(raw as FilterPlan["op"]) ? raw as FilterPlan["op"] : null);
   if (!op) return { op: rawOperator as FilterPlan["op"], value };
+  // A named month is a closed calendar interval, not an open-ended date.
+  if (op === "between" && domain.dateFields.includes(field) && !isPlainObject(value) && !Array.isArray(value)) {
+    return { op, value: { month: value } };
+  }
   if (op === "last_days" && (!hasValue(value) || ["hoje", "today", "dia_atual"].includes(normalizeLooseText(value)))) {
     return { op, value: 1 };
   }

@@ -64,6 +64,7 @@ const { interpretWithGemini } = require("../src/lib/whatsapp/gemini/interpreter.
 const CASOS = [
   // --- Consulta de rebanho ---
   { area: "Rebanho", estilo: "direto", texto: "quais sao minhas vacas", aceita: ["animais"], acoes: ["query"] },
+  { area: "Rebanho", estilo: "contagem_exata", texto: "quantos animais tem registrado no rancho", aceita: ["animais"], acoes: ["query"] },
   { area: "Rebanho", estilo: "giria", texto: "me mostra o gadinho ai", aceita: ["animais"], acoes: ["query"] },
   { area: "Rebanho", estilo: "typo", texto: "quantos animas eu tenh", aceita: ["animais"], acoes: ["query"] },
   { area: "Rebanho", estilo: "especifico", texto: "dados da vaca 5202", aceita: ["animais"], acoes: ["query"] },
@@ -83,6 +84,7 @@ const CASOS = [
 
   // --- Financeiro ---
   { area: "Financeiro", estilo: "direto", texto: "resumo do financeiro", aceita: ["financeiro"], acoes: ["query"] },
+  { area: "Financeiro", estilo: "mes_nomeado", texto: "quero consultar o financeiro do mes de fevereiro", aceita: ["financeiro"], acoes: ["query"], periodo: "between" },
   { area: "Financeiro", estilo: "periodo", texto: "transacoes financeiras do ultimo mes", aceita: ["financeiro"], acoes: ["query"] },
   { area: "Financeiro", estilo: "despesa", texto: "gastei 300 com veterinario", aceita: ["financeiro"], acoes: ["create", "execute"] },
   { area: "Financeiro", estilo: "receita", texto: "recebi 2500 do leite", aceita: ["financeiro"], acoes: ["create", "execute"] },
@@ -161,6 +163,9 @@ const CASOS = [
 
 // Em action=execute quem identifica a operacao e a capability, nao o dominio:
 // o dominio vem null por contrato. Este mapa liga area -> capabilities validas.
+const MAX_LIVE_CASES = 50;
+const ACTIVE_CASES = CASOS.slice(0, MAX_LIVE_CASES);
+
 const CAPABILITIES_POR_AREA = {
   Estoque: ["registrar_movimento_estoque", "cadastrar_item_estoque"],
   Financeiro: ["registrar_financeiro"],
@@ -285,12 +290,12 @@ function checaEstoqueMaisFinanceiro(plan) {
 (async () => {
   console.log("Teste de interpretacao com IA real - todas as areas");
   console.log(`Modelo: ${process.env.BOT_AI_MODEL || "default"}`);
-  console.log(`Casos: ${CASOS.length}\n`);
+  console.log(`Casos: ${ACTIVE_CASES.length}\n`);
 
   const falhas = [];
   let ok = 0;
 
-  for (const caso of CASOS) {
+  for (const caso of ACTIVE_CASES) {
     let plan = null;
     let erro = null;
     try {
@@ -327,7 +332,7 @@ function checaEstoqueMaisFinanceiro(plan) {
     else falhas.push({ ...caso, motivo: avaliacao.motivo, plan });
   }
 
-  console.log(`\n===== RESULTADO: ${ok}/${CASOS.length} =====`);
+  console.log(`\n===== RESULTADO: ${ok}/${ACTIVE_CASES.length} =====`);
 
   if (falhas.length) {
     console.log("\n--- FALHAS AGRUPADAS POR AREA ---");

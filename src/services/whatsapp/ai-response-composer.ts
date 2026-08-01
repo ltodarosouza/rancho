@@ -92,8 +92,12 @@ function hasProblemLanguage(value: string) {
   return /\b(?:nao encontrad|faltant|pendencia|cadastre|nao consegui|nao foi possivel|revise|tente novamente|nao foram processad|nao foi processad)\b/.test(normalized);
 }
 
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
 function compactValueForPrompt(value: unknown, depth = 0): unknown {
   if (value === null || value === undefined) return value;
+  // Identificador interno nao diz nada ao produtor e nao pode virar resposta.
+  if (typeof value === "string" && UUID_RE.test(value)) return undefined;
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
   if (depth >= 3) return undefined;
   if (Array.isArray(value)) {
@@ -303,6 +307,11 @@ export function validateComposedBotResponse(originalResponse: string, composed: 
   }
   if (TECHNICAL_TERMS.test(message) && !TECHNICAL_TERMS.test(original)) {
     return { response: original, usedAI: false, reason: "technical_term_leak" };
+  }
+  // Ultima barreira: se um identificador interno escapou ate aqui, a resposta
+  // composta e descartada em vez de mostrar UUID ao usuario.
+  if (UUID_RE.test(message)) {
+    return { response: original, usedAI: false, reason: "internal_id_leak" };
   }
   if (hasFinalSuccessLanguage(original) && !hasProblemLanguage(original) && hasProblemLanguage(message)) {
     return { response: original, usedAI: false, reason: "introduced_problem_language" };

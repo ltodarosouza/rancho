@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { ranchShiftForInstant } from "@/lib/dates/ranch-time";
 import { TABLES } from "@/lib/tables";
 import type { AnyRecord } from "@/lib/types";
 import { normalizeCatalogText } from "@/lib/whatsapp/catalog";
@@ -138,12 +139,15 @@ export async function saveProductionRecord(ctx: SaveRecordHandlerContext): Promi
   const animal = preparedAnimalRecord.animal;
 
     if (pending.tipo === "PRODUCAO_LEITE") {
+      const ordenhadoEm = isoFromReference(dados.data_referencia);
       const production = await insertRealRecord(supabase, owner, TABLES.ordenhas, {
         fazenda_id: owner.fazenda_id,
         animal_id: animal.id,
         litros: Number(dados.litros),
-        ordenhado_em: isoFromReference(dados.data_referencia),
-        turno: dados.turno || "manha",
+        ordenhado_em: ordenhadoEm,
+        // Sem turno informado, deduz do horario real. O padrao fixo "manha"
+        // gravava ordenha das 22h como manha e distorcia analise por turno.
+        turno: dados.turno || ranchShiftForInstant(ordenhadoEm),
         destino: dados.destino_leite || "tanque",
         origem: "whatsapp",
         registrado_por: owner.usuario_id || null,

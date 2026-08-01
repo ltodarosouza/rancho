@@ -105,12 +105,30 @@ export function resolveDefaultEventDate(inputDate?: unknown, referenceDate?: str
   return parseUserDateToRanchDate(inputDate, referenceDate) || normalizeReferenceDate(referenceDate);
 }
 
-export function ranchDateToInstant(dateInput?: unknown, time?: string) {
+export function ranchDateToInstant(dateInput?: unknown, time?: string, now = new Date()) {
   const date = resolveDefaultEventDate(dateInput);
   const match = String(time || "").trim().match(/^(\d{1,2})(?::(\d{1,2}))?/);
-  const hour = match ? Math.min(23, Math.max(0, Number(match[1] || 0))) : 12;
-  const minute = match ? Math.min(59, Math.max(0, Number(match[2] || 0))) : 0;
+  // Sem hora informada, vale a hora corrente do rancho: quem registra "agora"
+  // espera ver o horario de agora. O meio-dia fixo que existia aqui gravava
+  // 12:00 no rancho, que aparece como 15:00 em UTC e confunde o usuario.
+  const current = dateTimePartsInRanchTime(now);
+  const hour = match ? Math.min(23, Math.max(0, Number(match[1] || 0))) : current.hour;
+  const minute = match ? Math.min(59, Math.max(0, Number(match[2] || 0))) : current.minute;
   return new Date(`${date}T${pad(hour)}:${pad(minute)}:00.000${RANCH_OFFSET}`);
+}
+
+/**
+ * Turno da ordenha a partir do instante gravado, no fuso do rancho. Sem isso o
+ * backend assumia "manha" para tudo, e uma ordenha das 22h entrava como manha,
+ * distorcendo qualquer analise por turno.
+ */
+export function ranchShiftForInstant(value?: unknown): "manha" | "tarde" | "noite" {
+  const date = value ? new Date(String(value)) : new Date();
+  const reference = Number.isNaN(date.getTime()) ? new Date() : date;
+  const { hour } = dateTimePartsInRanchTime(reference);
+  if (hour < 12) return "manha";
+  if (hour < 18) return "tarde";
+  return "noite";
 }
 
 export function getRanchDayRange(dateInput?: unknown) {

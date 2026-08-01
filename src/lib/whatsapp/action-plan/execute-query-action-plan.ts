@@ -1,6 +1,6 @@
 import type { AnyRecord } from "@/lib/types";
 import { TABLES } from "@/lib/tables";
-import { addRanchDays, getRanchDayRange, getRanchTodayISO } from "@/lib/dates/ranch-time";
+import { addRanchDays, getRanchDayRange, getRanchTodayISO, RANCH_TIMEZONE } from "@/lib/dates/ranch-time";
 import type { QueryActionPlan, FilterPlan, AggregationPlan } from "@/lib/whatsapp/gemini/action-plan-types";
 import { validateActionPlan } from "@/lib/whatsapp/gemini/action-plan-validator";
 import { getDomainManifest, type DomainFieldDefinition, type DomainManifestEntry } from "@/lib/whatsapp/gemini/domain-manifest";
@@ -604,6 +604,53 @@ function shortDate(value: unknown) {
   if (!parsed) return "sem data";
   const [year, month, day] = dateOnly(parsed).split("-");
   return `${day}/${month}/${year}`;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Data e hora no fuso do rancho. O ISO cru mostra UTC e adianta o relogio. */
+function ranchDateTimeText(value: unknown) {
+  const date = new Date(String(value || ""));
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: RANCH_TIMEZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).format(date).replace(", ", " as ");
+}
+
+/**
+ * Nenhum identificador interno pode chegar ao usuario, em nenhum dominio.
+ * Cada *_id vira o nome/brinco correspondente; o que nao resolve e removido
+ * em vez de aparecer como UUID. Datas com hora saem no fuso do rancho, porque
+ * o ISO cru exibe UTC e mostra um horario que nao foi o do registro.
+ */
+function sanitizeRowForUser(row: AnyRecord, relations: AnyRecord): AnyRecord {
+  const output: AnyRecord = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (key === "id" || key === "fazenda_id") continue;
+    if (key.endsWith("_id")) {
+      const label = key === "funcionario_id"
+        ? relations.employeesById?.get(String(value || ""))?.nome
+        : key === "lote_id"
+          ? relations.lotsById?.get(String(value || ""))?.nome
+          : animalLabel(relations.animalsById?.get(String(value || "")));
+      const clean = String(label || "").trim();
+      if (clean && !UUID_RE.test(clean)) output[key.replace(/_id$/, "")] = clean;
+      continue;
+    }
+    if (typeof value === "string" && UUID_RE.test(value.trim())) continue;
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      output[key] = ranchDateTimeText(value) || value;
+      continue;
+    }
+    output[key] = value;
+  }
+  return output;
 }
 
 function daysSince(value: unknown, baseDate: Date) {
@@ -1373,7 +1420,7 @@ function querySample(domain: DomainManifestEntry, rows: AnyRecord[], relations: 
     return rows.slice(0, 12).map((row) => {
       const employee = relations.employeesById?.get(String(row.funcionario_id || ""));
       return {
-        funcionario: employee?.nome || row.funcionario_id || null,
+        funcionario: employee?.nome || null,
         tipo: row.tipo || null,
         registrado_em: row.registrado_em || null
       };
@@ -1387,7 +1434,9 @@ function querySample(domain: DomainManifestEntry, rows: AnyRecord[], relations: 
       data_nascimento: row.data_nascimento || null
     }));
   }
-  return rows.slice(0, 12);
+  // Dominio sem tratamento proprio: limpa a linha crua em vez de despejar
+  // UUID e ISO no que o usuario le.
+  return rows.slice(0, 12).map((row) => sanitizeRowForUser(row, relations));
 }
 
 function queryDetailLevel(plan: QueryActionPlan) {

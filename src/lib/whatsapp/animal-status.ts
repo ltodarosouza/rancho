@@ -23,6 +23,15 @@ export function isAnimalInactiveForBot(animal: AnyRecord | null | undefined) {
   return BLOCKED_STATUS_PREFIXES.some((prefix) => status.startsWith(prefix));
 }
 
+/**
+ * Um animal fora do rebanho não pode receber eventos operacionais, mas seu
+ * cadastro ainda precisa poder ser corrigido. A atualização continua passando
+ * pela confirmação normal antes de ser salva.
+ */
+export function canMaintainInactiveAnimal(intent: string, data: AnyRecord | null | undefined) {
+  return intent === "ATUALIZACAO_ANIMAL" && !data?.registro_evento_animal;
+}
+
 /** Status em texto para a frase, sem inventar rotulo que nao existe. */
 export function animalStatusLabel(animal: AnyRecord | null | undefined) {
   const status = animalStatusValue(animal);

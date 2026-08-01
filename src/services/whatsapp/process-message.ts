@@ -14,7 +14,7 @@ import {
   sanitizePayloadValue,
   SAFE_OPERATION_BLOCKED_MESSAGE
 } from "@/lib/security";
-import { animalBlockedMessage, animalDeathDate, animalStatusValue, isAnimalInactiveForBot } from "@/lib/whatsapp/animal-status";
+import { animalBlockedMessage, animalDeathDate, animalStatusValue, canMaintainInactiveAnimal, isAnimalInactiveForBot } from "@/lib/whatsapp/animal-status";
 import { normalizeCatalogText, resolveAnimalIdentifier, resolveStockItem } from "@/lib/whatsapp/catalog";
 import { resolveWhatsAppOwner, type WhatsAppOwner } from "@/services/whatsapp/identity";
 import { getSession, pendingFromSession, saveSession as persistSession, type BotSession } from "@/services/whatsapp/session-service";
@@ -475,6 +475,7 @@ function botAnimalCheckLog(owner: WhatsAppOwner, parsed: ParsedRanchoMessage, an
 function animalBlockFromParsed(parsed: ParsedRanchoMessage) {
   const animal = parsed.dados?.animal_resolvido as AnyRecord | undefined;
   if (!animal || !isAnimalInactiveForBot(animal)) return null;
+  if (canMaintainInactiveAnimal(parsed.tipo, parsed.dados)) return null;
   return animalBlockedMessage(animal, parsed.tipo);
 }
 

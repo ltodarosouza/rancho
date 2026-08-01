@@ -1172,6 +1172,10 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
   const subject = reproductionSubject(plan);
   const title = reproductionTitleForKinds(kinds, subject);
   const singleAnimal = specificAnimalFilter && matchingAnimals.length === 1 ? matchingAnimals[0] : undefined;
+  const pageSize = Math.max(1, input.pagination?.pageSize || 12);
+  const offset = Math.max(0, input.pagination?.offset || 0);
+  const pageRows = rows.slice(offset, offset + pageSize);
+  const nextOffset = offset + pageRows.length;
   const response = singleAnimal && rows.length === 1
     ? [
         specificReproductionResponse(rows[0], singleAnimal, kind, baseDate),
@@ -1181,8 +1185,8 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
       ? `Não encontrei o animal ${String(specificAnimalFilter.value || "informado")} no rebanho.`
     : rows.length
     ? [
-        `${title}:`,
-        ...rows.slice(0, 12).map((row, index) => {
+        offset ? `Mais registros de ${title.toLowerCase()}:` : `${title}:`,
+        ...pageRows.map((row, index) => {
           const animal = animalsById.get(String(row.animal_id || ""));
           const label = reproductiveEventLabel(row.kind).replace("Prenhez", "Prenha");
           const date = row.data_evento ? shortDate(row.data_evento) : "sem data";
@@ -1190,9 +1194,9 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
           const obs = row.descricao ? ` - ${row.descricao}` : "";
           const calves = birthDetailLines(row, calvesByMother, animalsById);
           const calfText = calves.length ? `\n   ${calves.join("\n   ")}` : "";
-          return `${index + 1}. ${animalLabel(animal)} - ${label} - ${date}${days !== null ? ` (${days} dias)` : ""}${obs}${calfText}`;
+          return `${offset + index + 1}. ${animalLabel(animal)} - ${label} - ${date}${days !== null ? ` (${days} dias)` : ""}${obs}${calfText}`;
         }),
-        rows.length > 12 ? `...e mais ${rows.length - 12} registro(s).` : ""
+        nextOffset < rows.length ? `...e mais ${rows.length - nextOffset} registro(s). Responda "mostrar mais" para continuar.` : offset ? "Fim da lista." : ""
       ].filter(Boolean).join("\n")
     : specificAnimalFilter && matchingAnimals.length === 1 && kind
       ? `${animalLabel(matchingAnimals[0])} não está em ${reproductiveEventLabel(kind as Parameters<typeof reproductiveEventLabel>[0]).toLowerCase()} no momento.`
@@ -1206,7 +1210,7 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
       tipo_reprodutivo: kinds.length > 1 ? kinds : kind || null,
       filters: plan.filters,
       // Dados da pagina para o compositor redigir sem depender do template.
-      linhas_pagina: rows.slice(0, 12).map((row) => {
+      linhas_pagina: pageRows.map((row) => {
         const animal = animalsById.get(String(row.animal_id || ""));
         const calves = calvesForBirthEvent(row, calvesByMother, animalsById);
         return {
@@ -1222,9 +1226,16 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
             pai: father ? animalLabel(father) : null
           }))
         };
-      })
+      }),
+      pagina: { offset, pageSize, total: rows.length }
     }
   }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
+
+  if (parsed.dados) {
+    parsed.dados.action_plan_pagination = singleAnimal
+      ? undefined
+      : nextQueryPagination(domain.domain, plan, input.currentDate, rows.length, offset, pageSize);
+  }
 
   return { ok: true, parsed, response, rows };
 }
@@ -1305,26 +1316,30 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
     const orderedMovements = plan.orderBy?.direction === "asc"
       ? [...filteredMovements].reverse()
       : filteredMovements;
-    const movementLimit = Math.min(plan.limit || 12, 12);
-    const shownMovements = orderedMovements.slice(0, movementLimit);
+    const movementLimit = Math.min(plan.limit || domain.maxLimit, domain.maxLimit);
+    const rows = orderedMovements.slice(0, movementLimit);
+    const pageSize = Math.max(1, input.pagination?.pageSize || 10);
+    const offset = Math.max(0, input.pagination?.offset || 0);
+    const shownMovements = rows.slice(offset, offset + pageSize);
+    const nextOffset = offset + shownMovements.length;
     const response = shownMovements.length
       ? [
           shownMovements.length === 1 ? "Última movimentação de estoque:" : "Movimentações de estoque:",
           ...shownMovements.map((movement, index) => {
             const item = itemById.get(String(movement.item_id || "")) || ((itemData || []) as AnyRecord[]).find((row) => String(row.id) === String(movement.item_id));
             const detail = movement.motivo ? ` - ${movement.motivo}` : "";
-            return `${index + 1}. ${shortDate(movement.created_at)} - ${item?.nome || "Item"} - ${movement.tipo || "movimento"} de ${stockAmount(movement.quantidade, item?.unidade_medida)}${detail}`;
+            return `${offset + index + 1}. ${shortDate(movement.created_at)} - ${item?.nome || "Item"} - ${movement.tipo || "movimento"} de ${stockAmount(movement.quantidade, item?.unidade_medida)}${detail}`;
           }),
-          orderedMovements.length > shownMovements.length
-            ? `...e mais ${orderedMovements.length - shownMovements.length} movimentação(ões).`
-            : ""
+          nextOffset < rows.length
+            ? `...e mais ${rows.length - nextOffset} movimentações. Responda "mostrar mais" para continuar.`
+            : offset ? "Fim da lista." : ""
         ].filter(Boolean).join("\n")
       : "Não encontrei movimentações de estoque para esse período.";
     const parsed = finalizeActionPlanParsed("CONSULTA_ESTOQUE_GERAL", {
       consulta: true,
       action_plan_response: response,
       resultado: {
-        registros: orderedMovements.length,
+        registros: rows.length,
         filters: plan.filters,
         linhas_pagina: shownMovements.map((movement) => {
           const item = itemById.get(String(movement.item_id || ""));
@@ -1335,30 +1350,43 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
             quantidade: stockAmount(movement.quantidade, item?.unidade_medida),
             motivo: movement.motivo || null
           };
-        })
+        }),
+        pagina: { offset, pageSize, total: rows.length }
       }
     }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
-    return { ok: true, parsed, response, rows: shownMovements };
+    if (parsed.dados) parsed.dados.action_plan_pagination = nextQueryPagination(domain.domain, plan, input.currentDate, rows.length, offset, pageSize);
+    return { ok: true, parsed, response, rows };
   }
 
   rows = rows.slice(0, Math.min(plan.limit || domain.maxLimit, domain.maxLimit));
-  const response = rows.length
+  const pageSize = Math.max(1, input.pagination?.pageSize || 10);
+  const offset = Math.max(0, input.pagination?.offset || 0);
+  const pageRows = rows.slice(offset, offset + pageSize);
+  const nextOffset = offset + pageRows.length;
+  const response = pageRows.length
     ? [
-        itemText ? `Estoque de ${rows[0]?.nome || itemFilter?.value}:` : "Estoque atual:",
-        ...rows.slice(0, 12).map((item, index) => {
+        itemText ? `Estoque de ${rows[0]?.nome || itemFilter?.value}:` : offset ? "Mais itens de estoque:" : "Estoque atual:",
+        ...pageRows.map((item, index) => {
           const latest = latestMovementByItem.get(String(item.id));
           const min = item.quantidade_minima !== undefined && item.quantidade_minima !== null ? `; mínimo ${stockAmount(item.quantidade_minima, item.unidade_medida)}` : "";
           const alert = Number(item.quantidade_minima || 0) > 0 && Number(item.quantidade_atual || 0) <= Number(item.quantidade_minima || 0) ? " Atenção: abaixo do mínimo." : "";
-          return `${index + 1}. ${item.nome}: ${stockAmount(item.quantidade_atual, item.unidade_medida)}${min}${latest ? `; última movimentação ${shortDate(latest.created_at)}` : ""}.${alert}`;
+          return `${offset + index + 1}. ${item.nome}: ${stockAmount(item.quantidade_atual, item.unidade_medida)}${min}${latest ? `; última movimentação ${shortDate(latest.created_at)}` : ""}.${alert}`;
         }),
-        rows.length > 12 ? `...e mais ${rows.length - 12} item(ns).` : ""
+        nextOffset < rows.length ? `...e mais ${rows.length - nextOffset} item(ns). Responda "mostrar mais" para continuar.` : offset ? "Fim da lista." : ""
       ].filter(Boolean).join("\n")
     : itemText ? `Não encontrei ${itemFilter?.value || "esse item"} no estoque deste rancho.` : "Não encontrei itens de estoque cadastrados.";
   const parsed = finalizeActionPlanParsed("CONSULTA_ESTOQUE_GERAL", {
     consulta: true,
     action_plan_response: response,
-    resultado: { registros: rows.length }
+    resultado: {
+      registros: rows.length,
+      filters: plan.filters,
+      linhas_pagina: pageRows.map((item) => sanitizeRowForUser(item, { itemsById: itemById })),
+      pagina: { offset, pageSize, total: rows.length }
+    }
   }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
+
+  if (parsed.dados) parsed.dados.action_plan_pagination = nextQueryPagination(domain.domain, plan, input.currentDate, rows.length, offset, pageSize);
 
   return { ok: true, parsed, response, rows };
 }
@@ -1466,7 +1494,13 @@ function pointTime(value: unknown) {
   return match ? `${match[1]}:${match[2]}` : shortDate(value);
 }
 
-function buildPointResponse(rows: AnyRecord[], plan: QueryActionPlan, relations: AnyRecord) {
+function buildPointResponse(
+  rows: AnyRecord[],
+  plan: QueryActionPlan,
+  relations: AnyRecord,
+  offset = 0,
+  pageSize = 10
+) {
   const period = periodText(plan) || "de hoje";
   const specificEmployee = plan.filters.some((filter) => filter.field === "funcionario_ref");
   if (!rows.length) return specificEmployee ? `Nao encontrei ponto registrado ${period} para esse funcionario.` : `Nao encontrei ponto registrado ${period}.`;
@@ -1479,7 +1513,7 @@ function buildPointResponse(rows: AnyRecord[], plan: QueryActionPlan, relations:
     grouped.set(key, [...(grouped.get(key) || []), row]);
   }
 
-  const employeeLines = Array.from(grouped.entries()).slice(0, 12).map(([employeeId, employeeRows], index) => {
+  const employeeLines = Array.from(grouped.entries()).map(([employeeId, employeeRows], index) => {
     const employee = relations.employeesById?.get(employeeId);
     const label = employee?.nome || employeeId || "Funcionario";
     const parts = employeeRows
@@ -1489,16 +1523,18 @@ function buildPointResponse(rows: AnyRecord[], plan: QueryActionPlan, relations:
       .join(", ");
     return `${index + 1}. ${label}: ${parts}`;
   });
+  const pageLines = employeeLines.slice(offset, offset + pageSize);
+  const nextOffset = offset + pageLines.length;
 
   return [
-    `Ponto ${period}:`,
+    offset ? `Mais registros de ponto ${period}:` : `Ponto ${period}:`,
     `Registros: ${rows.length}.`,
     `Entradas: ${entries}.`,
     `Saidas: ${exits}.`,
     "",
     specificEmployee ? "Registros:" : "Funcionarios com ponto:",
-    ...employeeLines,
-    grouped.size > employeeLines.length ? `...e mais ${grouped.size - employeeLines.length} funcionario(s).` : ""
+    ...pageLines,
+    nextOffset < employeeLines.length ? `...e mais ${employeeLines.length - nextOffset} funcionario(s). Responda "mostrar mais" para continuar.` : offset ? "Fim da lista." : ""
   ].filter(Boolean).join("\n");
 }
 
@@ -1838,7 +1874,7 @@ function buildResponse(
   }
 
   if (domain.domain === "ponto_funcionario") {
-    return buildPointResponse(rows, plan, relations);
+    return buildPointResponse(rows, plan, relations, pagination?.offset || 0, pagination?.pageSize || 10);
   }
 
   if (domain.domain === "genealogia") {
@@ -1852,17 +1888,21 @@ function buildResponse(
   // Ultimo recurso: em vez de anunciar apenas a contagem, lista o que achou.
   // "Registros encontrados: 3" nao responde o que o usuario perguntou.
   if (!rows.length) return `Não encontrei registros de ${domain.label.toLowerCase()} para essa consulta.`;
+  const offset = pagination?.offset || 0;
+  const pageSize = pagination?.pageSize || 10;
+  const pageRows = rows.slice(offset, offset + pageSize);
+  const nextOffset = offset + pageRows.length;
   return [
-    `Consulta de ${domain.label.toLowerCase()} (${rows.length}):`,
-    ...rows.slice(0, 12).map((row, index) => {
+    offset ? `Mais registros de ${domain.label.toLowerCase()}:` : `Consulta de ${domain.label.toLowerCase()} (${rows.length}):`,
+    ...pageRows.map((row, index) => {
       const clean = sanitizeRowForUser(row, relations);
       const parts = Object.entries(clean)
         .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "")
         .slice(0, 6)
         .map(([key, value]) => `${key.replace(/_/g, " ")}: ${String(value)}`);
-      return `${index + 1}. ${parts.join(", ")}`;
+      return `${offset + index + 1}. ${parts.join(", ")}`;
     }),
-    rows.length > 12 ? `...e mais ${rows.length - 12} registro(s).` : ""
+    nextOffset < rows.length ? `...e mais ${rows.length - nextOffset} registro(s). Responda "mostrar mais" para continuar.` : offset ? "Fim da lista." : ""
   ].filter(Boolean).join("\n");
 }
 
@@ -1948,10 +1988,41 @@ async function loadRelationContext(supabase: ActionPlanSupabaseLike | null | und
 
 function queryPaginationPageSize(domain: DomainManifestEntry, plan: QueryActionPlan) {
   if (domain.domain === "animais" && !hasSpecificAnimalRefFilter(plan)) return 10;
-  if (domain.domain === "financeiro" && wantsDetailedList(plan)) return 10;
+  if (wantsDetailedList(plan)) return 10;
   if (domain.domain === "funcionarios" && !plan.filters.some((filter) => filter.field === "funcionario_ref")) return 10;
   if (domain.domain === "genealogia" && !plan.filters.some((filter) => ["animal_ref", "filho_ref"].includes(filter.field))) return 10;
+  if (["observacoes", "saude_sanitario", "ponto_funcionario", "agenda_tarefas", "lotes"].includes(domain.domain)) return 10;
   return 0;
+}
+
+function paginationTotal(domain: DomainManifestEntry, rows: AnyRecord[]) {
+  // Ponto e exibido por funcionario, embora cada linha do banco seja uma
+  // marcacao. A pagina precisa avancar pela mesma unidade que a resposta.
+  if (domain.domain === "ponto_funcionario") {
+    return new Set(rows.map((row) => String(row.funcionario_id || "sem_funcionario"))).size;
+  }
+  return rows.length;
+}
+
+function nextQueryPagination(
+  domain: string,
+  plan: QueryActionPlan,
+  currentDate: string | undefined,
+  total: number,
+  offset: number,
+  pageSize: number
+): ActionPlanQueryPagination | undefined {
+  const nextOffset = Math.min(total, offset + pageSize);
+  if (nextOffset >= total) return undefined;
+  return {
+    tipo: "action_plan_query",
+    domain,
+    plan,
+    currentDate,
+    offset: nextOffset,
+    pageSize,
+    total
+  };
 }
 
 export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput): Promise<ExecuteQueryActionPlanResult> {
@@ -2065,7 +2136,8 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   const pageSize = Math.max(1, input.pagination?.pageSize || queryPaginationPageSize(domain, plan) || 10);
   const offset = Math.max(0, input.pagination?.offset || 0);
   const response = buildResponse(domain, rows, metrics, plan, relationContext, { offset, pageSize });
-  const nextOffset = Math.min(rows.length, offset + pageSize);
+  const displayTotal = paginationTotal(domain, rows);
+  const nextOffset = Math.min(displayTotal, offset + pageSize);
   const financeSummaryCanOpenDetails = domain.domain === "financeiro" && !wantsDetailedList(plan) && rows.length > 0;
   const pagination: ActionPlanQueryPagination | undefined = financeSummaryCanOpenDetails
     ? {
@@ -2075,9 +2147,9 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
         currentDate: input.currentDate,
         offset: 0,
         pageSize,
-        total: rows.length
+        total: displayTotal
       }
-    : queryPaginationPageSize(domain, plan) && nextOffset < rows.length
+    : queryPaginationPageSize(domain, plan) && nextOffset < displayTotal
       ? {
           tipo: "action_plan_query",
           domain: domain.domain,
@@ -2085,7 +2157,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
           currentDate: input.currentDate,
           offset: nextOffset,
           pageSize,
-          total: rows.length
+          total: displayTotal
         }
       : undefined;
   const parsed = finalizeActionPlanParsed(QUERY_INTENT_BY_DOMAIN[domain.domain] || "DESCONHECIDO", {
@@ -2104,7 +2176,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
       // Linhas exatamente da pagina respondida. Diferente de amostra, que
       // sempre parte da primeira linha e corrompe paginas seguintes.
       linhas_pagina: querySample(domain, rows.slice(offset, offset + pageSize), relationContext),
-      pagina: { offset, pageSize, total: rows.length }
+      pagina: { offset, pageSize, total: displayTotal }
     }
   }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
 

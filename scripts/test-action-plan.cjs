@@ -74,6 +74,7 @@ const {
 const { executeActionPlan } = require("../src/lib/whatsapp/action-plan/execute-action-plan.ts");
 const { executeQueryActionPlan } = require("../src/lib/whatsapp/action-plan/execute-query-action-plan.ts");
 const { resolveAnimalIdentifier } = require("../src/lib/whatsapp/catalog.ts");
+const { canMaintainInactiveAnimal } = require("../src/lib/whatsapp/animal-status.ts");
 const {
   executeImportTableActionPlan,
   parseStructuredTableForActionPlan,
@@ -5126,6 +5127,30 @@ test("ActionPlan update de animais vira ATUALIZACAO_ANIMAL", async () => {
   assert(result.parsed.dados.novo_valor === "Lactação", "valor Lactação ausente");
 });
 
+test("ActionPlan permite reativar cadastro sem liberar novos eventos para animal inativo", async () => {
+  const result = await executeActionPlan({
+    plan: {
+      action: "update",
+      domain: "animais",
+      confidence: 0.95,
+      operation: "reativar_animal",
+      requiresConfirmation: true,
+      data: { animal_ref: "090", status: "ativo" }
+    },
+    text: "reativar Mimosa",
+    owner: ADMIN_OWNER,
+    supabase: createActionPlanSupabase({})
+  });
+
+  assert(result.ok, `reativacao deveria executar: ${result.ok ? "" : result.reason}`);
+  assert(result.parsed.tipo === "ATUALIZACAO_ANIMAL", `reativacao deveria atualizar animal, recebeu ${result.parsed.tipo}`);
+  assert(result.parsed.dados.campo_alterado === "status", "reativacao deveria alterar status");
+  assert(result.parsed.dados.novo_valor === "ativo", "reativacao deveria restaurar status ativo");
+  assert(canMaintainInactiveAnimal(result.parsed.tipo, result.parsed.dados), "atualizacao cadastral deve passar pelo bloqueio de animal inativo");
+  assert(!canMaintainInactiveAnimal("PRODUCAO_LEITE", { animal_codigo: "090" }), "producao de animal inativo deve continuar bloqueada");
+  assert(!canMaintainInactiveAnimal("ATUALIZACAO_ANIMAL", { registro_evento_animal: true }), "evento disfarçado de atualizacao deve continuar bloqueado");
+});
+
 test("ActionPlan update aceita alvo em filtro e confidence ausente", async () => {
   const validation = validateInterpretedAction({
     action: "update",
@@ -5752,6 +5777,131 @@ test("ActionPlan financeiro mantem resumo curto e abre detalhes sob demanda", as
   assert(details.ok, `detalhes financeiros deveriam executar: ${details.reason}`);
   assert(details.response.includes("Movimento 1") && details.response.includes("mostrar mais"), "continuacao deveria abrir os primeiros registros financeiros");
   assert(details.parsed.dados?.action_plan_pagination?.offset === 10, "detalhes deveriam guardar a pagina seguinte");
+});
+
+test("ActionPlan reutiliza a pagina anterior mesmo com continuacao no operation principal", async () => {
+  const animals = Array.from({ length: 14 }, (_, index) => ({
+    id: `animal-page-${index + 1}`,
+    fazenda_id: ADMIN_OWNER.fazenda_id,
+    brinco: `P-${String(index + 1).padStart(3, "0")}`,
+    nome: `Animal pagina ${index + 1}`,
+    categoria: "vaca",
+    status: "ativo"
+  }));
+  const firstPlan = {
+    action: "query",
+    domain: "animais",
+    operation: "listar",
+    confidence: 0.94,
+    semantic: { intent: "listar_animais", scope: "rebanho", report: { type: "lista", detailLevel: "detalhado" } },
+    filters: [],
+    limit: 100,
+    requiresConfirmation: false
+  };
+  const supabase = createActionPlanSupabase({ [TABLES.animais]: animals });
+  const first = await executeQueryActionPlan({
+    plan: firstPlan,
+    originalText: "quais animais eu tenho",
+    owner: ADMIN_OWNER,
+    supabase
+  });
+  const pagination = first.parsed.dados?.action_plan_pagination;
+  assert(first.ok && pagination?.offset === 10, `primeira pagina deveria guardar continuidade: ${first.response}`);
+
+  const next = await executeActionPlan({
+    plan: {
+      action: "query",
+      domain: "animais",
+      operation: "continuar_consulta",
+      confidence: 0.94,
+      semantic: { intent: "continuar_lista", scope: "rebanho" },
+      filters: [],
+      requiresConfirmation: false
+    },
+    text: "mostra as que faltam",
+    owner: ADMIN_OWNER,
+    queryPagination: pagination,
+    supabase
+  });
+  assert(next.ok, `continuidade de animais deveria executar: ${next.reason}`);
+  assert(next.response.includes("P-011") && !next.response.includes("P-001"), `continuidade deveria partir da proxima pagina: ${next.response}`);
+  assert(next.response.includes("Fim da lista."), `ultima pagina deveria informar conclusao: ${next.response}`);
+});
+
+test("ActionPlan pagina consultas detalhadas de producao e estoque sem trocar o dominio", async () => {
+  const animals = [{ id: "animal-luna", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "B-010", nome: "Luna", categoria: "vaca" }];
+  const production = Array.from({ length: 12 }, (_, index) => ({
+    id: `milk-page-${index + 1}`,
+    fazenda_id: ADMIN_OWNER.fazenda_id,
+    animal_id: "animal-luna",
+    litros: index + 10,
+    ordenhado_em: `2026-07-${String(28 - index).padStart(2, "0")}T08:00:00Z`
+  }));
+  const productionPlan = {
+    action: "query",
+    domain: "producao_leite",
+    operation: "listar",
+    confidence: 0.94,
+    semantic: { intent: "listar_producao_leite", scope: "producao_leite", report: { type: "registros", detailLevel: "detalhado" } },
+    filters: [{ field: "data", op: "last_days", value: 30 }],
+    limit: 100,
+    requiresConfirmation: false
+  };
+  const productionSupabase = createActionPlanSupabase({ [TABLES.animais]: animals, [TABLES.ordenhas]: production });
+  const productionFirst = await executeQueryActionPlan({
+    plan: productionPlan,
+    originalText: "todas as producoes de leite dos ultimos 30 dias",
+    currentDate: "2026-07-29",
+    owner: ADMIN_OWNER,
+    supabase: productionSupabase
+  });
+  const productionNext = await executeActionPlan({
+    plan: {
+      action: "query",
+      domain: "producao_leite",
+      confidence: 0.94,
+      semantic: { operation: "continuar_consulta", intent: "continuar_lista", scope: "producao_leite" },
+      filters: [],
+      requiresConfirmation: false
+    },
+    text: "mostrar mais",
+    owner: ADMIN_OWNER,
+    currentDate: "2026-07-29",
+    queryPagination: productionFirst.parsed.dados?.action_plan_pagination,
+    supabase: productionSupabase
+  });
+  assert(productionFirst.ok && productionFirst.response.includes("...e mais 2 registro(s)"), `producao deveria oferecer pagina seguinte: ${productionFirst.response}`);
+  assert(productionNext.ok && productionNext.response.includes("11. ") && productionNext.response.includes("Fim da lista."), `producao deveria listar somente a pagina seguinte: ${productionNext.response}`);
+
+  const stockItems = Array.from({ length: 12 }, (_, index) => ({
+    id: `item-page-${index + 1}`,
+    fazenda_id: ADMIN_OWNER.fazenda_id,
+    nome: `Item pagina ${index + 1}`,
+    unidade_medida: "saco",
+    quantidade_atual: index + 1,
+    ativo: true
+  }));
+  const stockPlan = {
+    action: "query",
+    domain: "estoque",
+    operation: "listar",
+    confidence: 0.94,
+    semantic: { intent: "listar_estoque", scope: "estoque", report: { type: "itens", detailLevel: "detalhado" } },
+    filters: [],
+    limit: 100,
+    requiresConfirmation: false
+  };
+  const stockSupabase = createActionPlanSupabase({ [TABLES.estoqueItens]: stockItems, [TABLES.estoqueMovimentacoes]: [] });
+  const stockFirst = await executeQueryActionPlan({ plan: stockPlan, originalText: "lista todos os itens de estoque", owner: ADMIN_OWNER, supabase: stockSupabase });
+  const stockNext = await executeActionPlan({
+    plan: { action: "query", domain: "estoque", confidence: 0.94, semantic: { operation: "continuar_consulta", scope: "estoque" }, filters: [], requiresConfirmation: false },
+    text: "mostra os restantes",
+    owner: ADMIN_OWNER,
+    queryPagination: stockFirst.parsed.dados?.action_plan_pagination,
+    supabase: stockSupabase
+  });
+  assert(stockFirst.ok && stockFirst.response.includes("...e mais 2 item(ns)"), `estoque deveria oferecer pagina seguinte: ${stockFirst.response}`);
+  assert(stockNext.ok && stockNext.response.includes("11. Item pagina 11") && !stockNext.response.includes("\n1. Item pagina 1"), `estoque deveria preservar dominio e pagina: ${stockNext.response}`);
 });
 
 test("ActionPlan genealogia encontra crias e nunca exibe UUID", async () => {

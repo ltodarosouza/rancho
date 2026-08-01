@@ -57,8 +57,19 @@ function actionPlanMetadata(plan: ActionPlan) {
 
 function isQueryContinuation(plan: ActionPlan) {
   if (!("semantic" in plan)) return false;
-  const operation = normalizeRanchoText(String(plan.semantic?.operation || "").replace(/_/g, " "));
-  return ["continuar", "continuar consulta", "mostrar mais", "proxima pagina", "paginar"].includes(operation);
+  // A IA pode representar a mesma intencao no campo operation do plano ou
+  // dentro de semantic. Aceitamos as formas equivalentes do contrato para
+  // reutilizar a consulta ja validada, sem inferir continuidade pelo texto.
+  const operations = [plan.operation, plan.semantic?.operation, plan.semantic?.intent]
+    .map((value) => normalizeRanchoText(String(value || "").replace(/_/g, " ")));
+  return operations.some((operation) => [
+    "continuar",
+    "continuar consulta",
+    "continuar lista",
+    "mostrar mais",
+    "proxima pagina",
+    "paginar"
+  ].includes(operation));
 }
 
 type PhysicalStockTrade = {

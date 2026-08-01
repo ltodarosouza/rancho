@@ -455,6 +455,9 @@ function reproductionTableParsed(plan: ImportTableActionPlan, rows: AnyRecord[],
     return {
       lineNumber: row.lineNumber,
       rawText: row.rawText,
+      // Preserva o que a IA mapeou, como medicamento, dose e custo, que a
+      // lista fixa abaixo nao cobre.
+      ...(row.parsedValues || {}),
       animal_codigo_original: animalRef,
       animal_codigo: animalRef,
       status_original: eventOriginal,
@@ -515,6 +518,8 @@ function reproductionTableParsed(plan: ImportTableActionPlan, rows: AnyRecord[],
 
 function productionBatchParsed(plan: ImportTableActionPlan, rows: AnyRecord[], preview: string): ParsedRanchoMessage {
   const registros = rows.map((row) => finalizeActionPlanParsed("PRODUCAO_LEITE", {
+    // Turno, destino e observacoes vinham na tabela e eram descartados aqui.
+    ...(row.parsedValues || {}),
     animal_codigo: row.parsedValues.animal_ref || row.values.animal_ref,
     litros: row.parsedValues.litros,
     data_referencia: row.parsedValues.data || row.values.data
@@ -666,6 +671,8 @@ function stockImportParsed(plan: ImportTableActionPlan, rows: AnyRecord[], previ
     return {
       lineNumber: row.lineNumber,
       rawText: row.rawText,
+      // Preserva o que a IA mapeou antes de sobrescrever o que e normalizado.
+      ...values,
       tipo_linha_estoque: isItemRegistration ? "cadastro_item" : "movimentacao",
       item_original: item,
       item_nome: item,

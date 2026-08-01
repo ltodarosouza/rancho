@@ -94,6 +94,32 @@ function hasProblemLanguage(value: string) {
 
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
+/** Ruido interno que nao ajuda o modelo a escrever e ainda vaza implementacao. */
+const TECHNICAL_DATA_KEYS = new Set([
+  "route",
+  "structuredDetection",
+  "origem_parser",
+  "interpreter_final_usado",
+  "action_plan",
+  "action_plan_used",
+  "action_plan_response",
+  "action_plan_pagination",
+  "consulta",
+  "consulta_paginacao",
+  "resultado",
+  "linhas",
+  "linhas_validadas",
+  "linhas_prontas",
+  "linhas_invalidas",
+  "linhas_parse_invalidas",
+  "amostra",
+  "pending",
+  "debug",
+  "tabela_destino",
+  "column_mapping",
+  "instrucoes_confirmacao"
+]);
+
 function compactValueForPrompt(value: unknown, depth = 0): unknown {
   if (value === null || value === undefined) return value;
   // Identificador interno nao diz nada ao produtor e nao pode virar resposta.
@@ -149,26 +175,18 @@ function compactDataForPrompt(parsed?: ParsedRanchoMessage | null, options: { ev
   if (options.eventConfirmed) return null;
   if (!parsed?.dados) return null;
   const dados = parsed.dados as AnyRecord;
-  const keys = [
-    "animal_codigo",
-    "cria_codigo",
-    "cria_sexo",
-    "item_nome",
-    "quantidade",
-    "unidade",
-    "valor",
-    "data_referencia",
-    "lote_nome",
-    "funcionario_nome",
-    "total_linhas",
-    "resumo_partos",
-    "resumo_validacao",
-    "action_plan_domain",
-    "action_plan_capability",
-    "consulta_executada"
-  ];
   const compact: AnyRecord = {};
-  for (const key of keys) {
+  // Antes daqui saia uma lista fixa de 16 chaves, entao turno, peso, raca, mae
+  // e qualquer campo novo nunca chegavam a quem escreve a resposta, mesmo tendo
+  // sido interpretados corretamente. Agora o corte e pelo que e ruido tecnico,
+  // nao pelo que alguem lembrou de listar.
+  for (const [key, value] of Object.entries(dados)) {
+    if (TECHNICAL_DATA_KEYS.has(key)) continue;
+    if (value === undefined || value === null || value === "") continue;
+    if (typeof value === "object") continue;
+    compact[key] = value;
+  }
+  for (const key of ["resumo_partos", "resumo_validacao"]) {
     if (dados[key] !== undefined && dados[key] !== null && dados[key] !== "") compact[key] = dados[key];
   }
   const result = compactValueForPrompt(dados.resultado);

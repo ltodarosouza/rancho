@@ -1645,7 +1645,55 @@ function buildGenealogyResponse(rows: AnyRecord[], plan: QueryActionPlan, relati
   ].filter(Boolean).join("\n");
 }
 
-function buildProductionResponse(rows: AnyRecord[], metrics: AnyRecord, plan: QueryActionPlan) {
+function productionTotal(rows: AnyRecord[]) {
+  return rows.reduce((sum, row) => sum + Number(row.litros || 0), 0);
+}
+
+function productionLine(row: AnyRecord, index: number, relations: AnyRecord) {
+  const animal = relations.animalsById?.get(String(row.animal_id || ""));
+  const details = [
+    `${index}. ${shortDate(row.ordenhado_em || row.created_at)} - ${animal ? animalLabel(animal) : "Animal não identificado"}`,
+    `${numberText(Number(row.litros || 0))} litros`,
+    row.turno ? `turno ${row.turno}` : "",
+    row.destino ? `destino ${row.destino}` : ""
+  ].filter(Boolean);
+  return details.join(" - ");
+}
+
+function buildProductionDetailedResponse(
+  rows: AnyRecord[],
+  plan: QueryActionPlan,
+  relations: AnyRecord,
+  offset = 0,
+  pageSize = 10
+) {
+  const period = periodText(plan);
+  const pageRows = rows.slice(offset, offset + pageSize);
+  if (!pageRows.length) return "Não há mais registros de produção de leite para mostrar.";
+
+  const nextOffset = offset + pageRows.length;
+  const title = offset
+    ? `Mais registros de produção de leite${period ? ` ${period}` : ""}:`
+    : `Registros de produção de leite${period ? ` ${period}` : ""}:`;
+  const total = productionTotal(rows);
+
+  return [
+    title,
+    ...pageRows.map((row, index) => productionLine(row, offset + index + 1, relations)),
+    "",
+    `Registros no período: ${rows.length}.`,
+    `Total no período: ${numberText(total)} litros.`,
+    nextOffset < rows.length ? `...e mais ${rows.length - nextOffset} registro(s). Responda "mostrar mais" para continuar.` : "Fim da lista."
+  ].join("\n");
+}
+
+function buildProductionResponse(
+  rows: AnyRecord[],
+  metrics: AnyRecord,
+  plan: QueryActionPlan,
+  relations: AnyRecord,
+  pagination?: { offset: number; pageSize: number }
+) {
   const period = periodText(plan);
   const groups = Array.isArray(metrics.groups) ? [...metrics.groups] as AnyRecord[] : [];
   if (plan.groupBy?.includes("animal_ref")) {
@@ -1674,7 +1722,14 @@ function buildProductionResponse(rows: AnyRecord[], metrics: AnyRecord, plan: Qu
     ].filter(Boolean).join("\n");
   }
 
-  const total = Number(metrics.totals?.total_litros || metrics.totals?.sum_litros || 0);
+  if (wantsDetailedList(plan) || pagination?.offset) {
+    return buildProductionDetailedResponse(rows, plan, relations, pagination?.offset || 0, pagination?.pageSize || 10);
+  }
+
+  // O total de uma consulta de produção é uma propriedade das linhas já
+  // filtradas. A agregação do plano só complementa a consulta, nunca deve
+  // decidir se a soma exibida existe ou não.
+  const total = productionTotal(rows);
   const average = rows.length ? total / rows.length : 0;
   const animal = plan.filters.find((filter) => filter.field === "animal_ref")?.value;
   return [
@@ -1752,7 +1807,7 @@ function buildResponse(
   }
 
   if (domain.domain === "producao_leite") {
-    return buildProductionResponse(rows, metrics, plan);
+    return buildProductionResponse(rows, metrics, plan, relations, pagination);
   }
 
   if (domain.domain === "animais") {

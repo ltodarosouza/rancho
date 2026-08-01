@@ -37,3 +37,18 @@ treated as new operational requests when no pending action existed.
 Keep ActionPlan as the intent and semantic-query source. The backend should only
 canonicalize contract aliases, authorize, validate, execute, and retain safe
 conversation state; do not reintroduce keyword intent routing for these cases.
+
+## Detailed Production Queries
+
+- A detailed production request is now expressed generically by the ActionPlan
+  through `semantic.report.detailLevel=detalhado` and `operation=listar`. The
+  same semantic contract applies to every query domain, not only finance.
+- The production response now lists each authorized, filtered milking with its
+  date, animal, liters, and available shift/destination. Long lists remain
+  paginated through the existing ActionPlan pagination state.
+- Production totals and averages are derived from the filtered result rows.
+  They no longer become zero when the model correctly requests the records but
+  omits a redundant `sum(litros)` aggregation.
+- Offline regression coverage includes a 30-day detailed production query with
+  two animals, a nonmatching row outside the period, no explicit aggregation,
+  and assertions for the listed records, total, and end-of-list state.

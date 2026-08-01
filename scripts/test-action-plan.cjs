@@ -1859,6 +1859,46 @@ test("executor query producao hoje soma registros mesmo com data principal ausen
   assert(result.response.includes("Total: 32 litros."), `resposta deveria mostrar 32 litros, recebeu: ${result.response}`);
 });
 
+test("executor query producao detalhada lista registros e soma sem agregacao explicita", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "producao_leite",
+      confidence: 0.94,
+      semantic: {
+        intent: "listar_producao_leite",
+        scope: "producao_leite",
+        report: { type: "registros", detailLevel: "detalhado" }
+      },
+      operation: "listar",
+      filters: [{ field: "data", op: "last_days", value: 30 }],
+      requiresConfirmation: false,
+      limit: 100,
+      userQuestion: "me diz todas as producoes de leite registradas nos ultimos 30 dias"
+    },
+    owner: ADMIN_OWNER,
+    currentDate: "2026-07-31",
+    supabase: createActionPlanSupabase({
+      [TABLES.animais]: [
+        { id: "animal-luna", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "B-010", nome: "Luna", categoria: "vaca" },
+        { id: "animal-mimosa", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "B-020", nome: "Mimosa", categoria: "vaca" }
+      ],
+      [TABLES.ordenhas]: [
+        { id: "ord-1", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-luna", litros: 18, ordenhado_em: "2026-07-08T08:00:00Z", turno: "manha" },
+        { id: "ord-2", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-mimosa", litros: 22.5, ordenhado_em: "2026-07-18T16:00:00Z", turno: "tarde" },
+        { id: "ord-fora", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-luna", litros: 99, ordenhado_em: "2026-06-20T08:00:00Z" }
+      ]
+    })
+  });
+
+  assert(result.ok, `lista detalhada de producao deveria executar: ${result.reason}`);
+  assert(result.rows.length === 2, `deveria listar duas ordenhas do periodo, recebeu ${result.rows.length}`);
+  assert(result.response.includes("Luna (B-010)"), `lista deveria identificar Luna: ${result.response}`);
+  assert(result.response.includes("Mimosa (B-020)"), `lista deveria identificar Mimosa: ${result.response}`);
+  assert(result.response.includes("Total no período: 40,5 litros."), `lista deveria somar litros mesmo sem agregacao: ${result.response}`);
+  assert(result.response.includes("Fim da lista."), `lista completa deveria informar fim: ${result.response}`);
+});
+
 test("executor query producao cria ranking agregado por animal no periodo", async () => {
   const result = await executeQueryActionPlan({
     plan: {

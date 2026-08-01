@@ -76,6 +76,7 @@ const CASOS = [
   { area: "Producao", estilo: "giria", texto: "lanca ai 30l da kelly", aceita: ["producao_leite"], acoes: ["create", "execute"] },
   { area: "Producao", estilo: "incompleto", texto: "a mimosa deu leite", aceita: ["producao_leite"], acoes: ["clarify", "create", "execute"] },
   { area: "Producao", estilo: "consulta", texto: "quanto de leite tirei essa semana", aceita: ["producao_leite"], acoes: ["query"] },
+  { area: "Producao", estilo: "lista_detalhada", texto: "me mostra todas as producoes de leite dos ultimos 30 dias", aceita: ["producao_leite"], acoes: ["query"], periodo: "last_days", detailLevel: "detalhado" },
 
   // --- Estoque ---
   { area: "Estoque", estilo: "direto", texto: "mostra meu estoque", aceita: ["estoque"], acoes: ["query"] },
@@ -261,6 +262,9 @@ function avaliar(caso, plan) {
   }
   if (caso.semanticIntent && plan.semantic?.intent !== caso.semanticIntent) {
     return { ok: false, motivo: `semantic.intent ${plan.semantic?.intent || "ausente"}, esperava ${caso.semanticIntent}` };
+  }
+  if (caso.detailLevel && plan.semantic?.report?.detailLevel !== caso.detailLevel) {
+    return { ok: false, motivo: `semantic.report.detailLevel ${plan.semantic?.report?.detailLevel || "ausente"}, esperava ${caso.detailLevel}` };
   }
   if (caso.aggregation) {
     const aggregation = (plan.aggregations || []).find((item) => item?.field === caso.aggregation.field && item?.op === caso.aggregation.op);

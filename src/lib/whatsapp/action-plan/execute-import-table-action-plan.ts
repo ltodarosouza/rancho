@@ -574,6 +574,11 @@ function animalImportParsed(plan: ImportTableActionPlan, rows: AnyRecord[], prev
     return {
       lineNumber: row.lineNumber,
       rawText: row.rawText,
+      // Tudo que a IA conseguiu mapear sobrevive. Antes esta linha era montada
+      // campo a campo, entao qualquer coluna fora da lista era descartada aqui,
+      // mesmo com o manifest aceitando o campo e o salvamento sabendo grava-lo.
+      // Foi assim que "Brinco da mae" sumia entre a IA e o banco.
+      ...values,
       animal_codigo_original: code,
       animal_codigo: code,
       nome: values.nome || null,

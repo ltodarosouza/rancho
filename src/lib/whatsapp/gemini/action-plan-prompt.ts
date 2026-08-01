@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v16";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v17";
 
 const EXAMPLES = [
   {
@@ -93,6 +93,16 @@ const EXAMPLES = [
       filters: [{ field: "data", op: "last_months", value: 6 }],
       aggregations: [{ field: "valor", op: "sum", as: "total" }],
       groupBy: ["month"], limit: 100, requiresConfirmation: false
+    }
+  },
+  {
+    // "ultimo mes" na fala do produtor e o mes corrente, nao o anterior.
+    user: "transacoes financeiras do ultimo mes",
+    plan: {
+      action: "query", domain: "financeiro", confidence: 0.94,
+      semantic: { intent: "consultar_financeiro", scope: "financeiro", period: "mes_atual", report: { type: "transacoes", detailLevel: "detalhado" } },
+      filters: [{ field: "data", op: "current_month" }],
+      limit: 100, requiresConfirmation: false
     }
   },
   {
@@ -281,7 +291,7 @@ const EXAMPLES = [
     }
   },
   {
-    user: "qual vaca produziu mais leite no ultimo mes?",
+    user: "qual vaca produziu mais leite no mes passado?",
     plan: {
       action: "query", domain: "producao_leite", confidence: 0.94,
       semantic: {

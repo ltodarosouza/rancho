@@ -626,7 +626,8 @@ function normalizedRelationSubqueryFilter(
 function semanticRequestsPreviousMonth(plan: QueryActionPlan) {
   if (!isPlainObject(plan.semantic)) return false;
   const period = normalizeLooseText(plan.semantic.period || plan.semantic.date || "").replace(/_/g, " ");
-  return /\b(?:mes passado|mes anterior|ultimo mes|previous month|last month)\b/.test(period);
+  // "ultimo mes" fica de fora: na fala do produtor e o mes corrente.
+  return /\b(?:mes passado|mes anterior|previous month|last month)\b/.test(period);
 }
 
 function normalizeColumnMappingForDomain(domainName: string, columnMapping: unknown): Record<string, string | number> {

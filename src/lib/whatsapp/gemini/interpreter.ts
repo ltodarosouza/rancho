@@ -52,7 +52,7 @@ function isRepairableActionPlanContractError(reason: unknown) {
   const text = String(reason || "");
   if (!text) return false;
   if (/\b(?:delete|sql|perigoso|segredo|senha|token|api|escopo|massa|bloqueado|blocked)\b/i.test(text)) return false;
-  return /\b(?:invalid_json|invalid_schema|schema|contract|contrato|intent|intencao|action|acao|steps|sequence|requiresConfirmation|domain|dominio|manifest|field|campo|filter|filtro|operator|operador|op|table|tabela|column|coluna|columnMapping|import_table|semantic\.domains|semantic\.effects)\b/i.test(text);
+  return /\b(?:invalid_json|invalid_schema|schema|contract|contrato|intent|intencao|action|acao|steps|sequence|requiresConfirmation|domain|dominio|manifest|field|campo|filter|filtro|operator|operador|op|table|tabela|column|coluna|columnMapping|import_table|semantic\.domains|semantic\.effects|clarify|esclarecimento|reavaliar)\b/i.test(text);
 }
 
 function buildActionPlanRepairPrompt(input: GeminiInterpreterInput, originalJson: unknown, reason: string) {
@@ -65,6 +65,7 @@ function buildActionPlanRepairPrompt(input: GeminiInterpreterInput, originalJson
     "Reconstrua o plano completo, nao apenas o minimo para passar no schema. Comparacoes e rankings precisam preservar filters, aggregations, groupBy, orderBy e limit.",
     "Em ranking de producao por animal, use sum de litros, groupBy animal_ref e orderBy litros. Categoria do animal usa animal_categoria; nunca use subquery ou filtros aninhados.",
     "Periodos de calendario: este mes e tambem \"ultimo mes\" usam current_month; somente mes passado ou mes anterior usa previous_month; ultimos N meses usa last_months.",
+    "Se o plano anterior usou clarify sem campos obrigatorios faltantes, reavalie a mensagem. Uma pergunta sobre dados de um dominio do Rancho deve virar query mesmo curta, incluindo contagem, total, lista, resumo, historico, ranking, estado ou periodo. Preserve clarify somente para conversa social, assunto fora do sistema ou dado realmente indispensavel a uma mutacao.",
     "",
     `Mensagem do usuario: ${JSON.stringify(input.text)}`,
     `Erro de validacao: ${reason}`,
@@ -75,6 +76,17 @@ function buildActionPlanRepairPrompt(input: GeminiInterpreterInput, originalJson
     "JSON original a corrigir:",
     JSON.stringify(originalJson)
   ].join("\n");
+}
+
+function clarifyWithoutMissingData(plan: unknown) {
+  if (!plan || typeof plan !== "object" || (plan as { action?: unknown }).action !== "clarify") return false;
+  const candidate = plan as {
+    missingFields?: unknown;
+    semantic?: { missingFields?: unknown } | null;
+  };
+  const direct = Array.isArray(candidate.missingFields) ? candidate.missingFields : [];
+  const semantic = Array.isArray(candidate.semantic?.missingFields) ? candidate.semantic?.missingFields : [];
+  return direct.length === 0 && semantic.length === 0;
 }
 
 async function tryRepairActionPlanContract(
@@ -280,6 +292,26 @@ export async function callGeminiInterpreter(input: GeminiInterpreterInput): Prom
         rawText = repair.rawText;
         provider = repair.provider;
         model = repair.model;
+      }
+    }
+
+    // A clarificacao sem nenhum dado pendente costuma ser uma desistência do
+    // modelo, não uma necessidade real do fluxo. Pedimos uma segunda leitura
+    // sem inferir domínio localmente; a IA mantém a decisão semântica e o
+    // backend apenas impede que uma consulta clara vire erro genérico.
+    if (validation.ok && clarifyWithoutMissingData(validation.value.action_plan)) {
+      const repair = await tryRepairActionPlanContract(input, parsed, "clarify_sem_campos_pendentes_reavaliar_semantica");
+      if (repair) {
+        validation = repair.validation;
+        rawText = repair.rawText;
+        provider = repair.provider;
+        model = repair.model;
+        geminiInterpreterLog("action_plan_clarify_reconsidered", {
+          provider,
+          model,
+          action: validation.value.action_plan?.action || null,
+          domain: validation.value.action_plan && "domain" in validation.value.action_plan ? validation.value.action_plan.domain : null
+        });
       }
     }
 

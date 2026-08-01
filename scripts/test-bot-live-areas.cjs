@@ -64,7 +64,8 @@ const { interpretWithGemini } = require("../src/lib/whatsapp/gemini/interpreter.
 const CASOS = [
   // --- Consulta de rebanho ---
   { area: "Rebanho", estilo: "direto", texto: "quais sao minhas vacas", aceita: ["animais"], acoes: ["query"] },
-  { area: "Rebanho", estilo: "contagem_exata", texto: "quantos animais tem registrado no rancho", aceita: ["animais"], acoes: ["query"] },
+  { area: "Rebanho", estilo: "contagem_exata", texto: "quantos animais tem registrado no rancho", aceita: ["animais"], acoes: ["query"], semanticIntent: "contar_animais", aggregation: { field: "id", op: "count" } },
+  { area: "Rebanho", estilo: "contagem_curta", texto: "quantos animais tem?", aceita: ["animais"], acoes: ["query"], semanticIntent: "contar_animais", aggregation: { field: "id", op: "count" } },
   { area: "Rebanho", estilo: "giria", texto: "me mostra o gadinho ai", aceita: ["animais"], acoes: ["query"] },
   { area: "Rebanho", estilo: "typo", texto: "quantos animas eu tenh", aceita: ["animais"], acoes: ["query"] },
   { area: "Rebanho", estilo: "especifico", texto: "dados da vaca 5202", aceita: ["animais"], acoes: ["query"] },
@@ -164,7 +165,11 @@ const CASOS = [
 // Em action=execute quem identifica a operacao e a capability, nao o dominio:
 // o dominio vem null por contrato. Este mapa liga area -> capabilities validas.
 const MAX_LIVE_CASES = 50;
-const ACTIVE_CASES = CASOS.slice(0, MAX_LIVE_CASES);
+const liveCaseFilter = String(process.env.BOT_LIVE_CASE_FILTER || "").trim().toLowerCase();
+const ACTIVE_CASES = (liveCaseFilter
+  ? CASOS.filter((caso) => `${caso.area}:${caso.estilo}`.toLowerCase().includes(liveCaseFilter))
+  : CASOS
+).slice(0, MAX_LIVE_CASES);
 
 const CAPABILITIES_POR_AREA = {
   Estoque: ["registrar_movimento_estoque", "cadastrar_item_estoque"],
@@ -253,6 +258,13 @@ function avaliar(caso, plan) {
     if (filtroData.op !== caso.periodo) {
       return { ok: false, motivo: `periodo ${filtroData.op}, esperava ${caso.periodo}` };
     }
+  }
+  if (caso.semanticIntent && plan.semantic?.intent !== caso.semanticIntent) {
+    return { ok: false, motivo: `semantic.intent ${plan.semantic?.intent || "ausente"}, esperava ${caso.semanticIntent}` };
+  }
+  if (caso.aggregation) {
+    const aggregation = (plan.aggregations || []).find((item) => item?.field === caso.aggregation.field && item?.op === caso.aggregation.op);
+    if (!aggregation) return { ok: false, motivo: `agregacao ${caso.aggregation.op} em ${caso.aggregation.field} ausente` };
   }
   if (!caso.acoes.includes(acao)) {
     return { ok: false, motivo: `acao ${acao}, esperava ${caso.acoes.join("/")}` };

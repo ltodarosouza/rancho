@@ -1221,7 +1221,21 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
   }
 
   const itemFilter = plan.filters.find((filter) => ["item", "nome"].includes(filter.field));
-  const movementFilter = plan.filters.some((filter) => ["data", "tipo_movimento", "tipo"].includes(filter.field));
+  /**
+   * "Quando foi a ultima movimentacao" nao tem filtro nenhum: o pedido vem em
+   * orderBy por data e em operation=consultar_historico_estoque. Olhar so os
+   * filtros mandava a pergunta para a lista de itens, que era cortada pelo
+   * limit e devolvia o primeiro item da ordem do banco, justamente o mais
+   * antigo. Ordenacao por data e operacao de historico tambem sao pedido de
+   * movimentacao.
+   */
+  const ordersByDate = Boolean(plan.orderBy && domain.dateFields.includes(plan.orderBy.field));
+  const historyOperation = /\b(?:historico|movimenta|ultima|ultimo)\b/.test(
+    normalizedText([plan.operation, plan.semantic?.operation, plan.semantic?.intent].filter(Boolean).join(" "))
+  );
+  const movementFilter = plan.filters.some((filter) => ["data", "tipo_movimento", "tipo"].includes(filter.field))
+    || ordersByDate
+    || historyOperation;
   const itemText = itemFilter ? normalizedText(itemFilter.value) : "";
   const [{ data: itemData, error: itemError }, { data: movementData, error: movementError }] = await Promise.all([
     input.supabase
@@ -1266,21 +1280,46 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
         return true;
       });
     });
-    const response = filteredMovements.length
+    // A consulta ja vem ordenada da mais recente para a mais antiga. Se o plano
+    // pedir ascendente, invertemos; e o limit do usuario passa a valer, para
+    // "a ultima movimentacao" devolver uma, e a certa.
+    const orderedMovements = plan.orderBy?.direction === "asc"
+      ? [...filteredMovements].reverse()
+      : filteredMovements;
+    const movementLimit = Math.min(plan.limit || 12, 12);
+    const shownMovements = orderedMovements.slice(0, movementLimit);
+    const response = shownMovements.length
       ? [
-          "Movimentações de estoque:",
-          ...filteredMovements.slice(0, 12).map((movement, index) => {
+          shownMovements.length === 1 ? "Última movimentação de estoque:" : "Movimentações de estoque:",
+          ...shownMovements.map((movement, index) => {
             const item = itemById.get(String(movement.item_id || "")) || ((itemData || []) as AnyRecord[]).find((row) => String(row.id) === String(movement.item_id));
-            return `${index + 1}. ${shortDate(movement.created_at)} - ${item?.nome || "Item"} - ${movement.tipo || "movimento"} de ${stockAmount(movement.quantidade, item?.unidade_medida)}`;
-          })
-        ].join("\n")
+            const detail = movement.motivo ? ` - ${movement.motivo}` : "";
+            return `${index + 1}. ${shortDate(movement.created_at)} - ${item?.nome || "Item"} - ${movement.tipo || "movimento"} de ${stockAmount(movement.quantidade, item?.unidade_medida)}${detail}`;
+          }),
+          orderedMovements.length > shownMovements.length
+            ? `...e mais ${orderedMovements.length - shownMovements.length} movimentação(ões).`
+            : ""
+        ].filter(Boolean).join("\n")
       : "Não encontrei movimentações de estoque para esse período.";
     const parsed = finalizeActionPlanParsed("CONSULTA_ESTOQUE_GERAL", {
       consulta: true,
       action_plan_response: response,
-      resultado: { registros: filteredMovements.length }
+      resultado: {
+        registros: orderedMovements.length,
+        filters: plan.filters,
+        linhas_pagina: shownMovements.map((movement) => {
+          const item = itemById.get(String(movement.item_id || ""));
+          return {
+            data: shortDate(movement.created_at),
+            item: item?.nome || null,
+            tipo: movement.tipo || null,
+            quantidade: stockAmount(movement.quantidade, item?.unidade_medida),
+            motivo: movement.motivo || null
+          };
+        })
+      }
     }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
-    return { ok: true, parsed, response, rows: filteredMovements };
+    return { ok: true, parsed, response, rows: shownMovements };
   }
 
   rows = rows.slice(0, Math.min(plan.limit || domain.maxLimit, domain.maxLimit));

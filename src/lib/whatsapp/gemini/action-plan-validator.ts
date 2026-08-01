@@ -1292,7 +1292,41 @@ function validateConfirmation(action: string, requiresConfirmation: unknown, err
   }
 }
 
+/**
+ * Papeis opostos na mesma linha. Um animal nao pode ser ancestral e
+ * descendente de si mesmo, e como filtros sao combinados com E, o plano
+ * retorna vazio para sempre e o usuario recebe "nao encontrei" sobre um dado
+ * que existe. O texto do erro cita "filtro" de proposito: e o que faz o
+ * interpretador acionar o reparo e pedir ao modelo que escolha um papel so.
+ */
+const OPPOSITE_RELATION_ROLES: Record<string, { ancestor: readonly string[]; descendant: readonly string[] }> = {
+  genealogia: {
+    ancestor: ["pai_ref", "mae_ref"],
+    descendant: ["animal_ref", "filho_ref"]
+  }
+};
+
+function relationFilterValues(filters: unknown[], fields: readonly string[]) {
+  return filters
+    .filter((filter): filter is AnyRecord => isPlainObject(filter) && fields.includes(String(filter.field || "")))
+    .flatMap((filter) => (Array.isArray(filter.value) ? filter.value : [filter.value]))
+    .map((value) => normalizeLooseText(value))
+    .filter(Boolean);
+}
+
+function validateOppositeRelationRoles(domain: DomainManifestEntry, filters: unknown, errors: string[]) {
+  const roles = OPPOSITE_RELATION_ROLES[domain.domain];
+  if (!roles || !Array.isArray(filters)) return;
+  const ancestors = new Set(relationFilterValues(filters, roles.ancestor));
+  if (!ancestors.size) return;
+  const conflict = relationFilterValues(filters, roles.descendant).find((value) => ancestors.has(value));
+  if (conflict) {
+    errors.push(`em ${domain.domain} a mesma entidade aparece como ancestral e descendente; mantenha apenas um filtro de relacao`);
+  }
+}
+
 function validateQueryPlan(plan: QueryActionPlan, domain: DomainManifestEntry, errors: string[], warnings: string[]) {
+  validateOppositeRelationRoles(domain, plan.filters, errors);
   validateConfirmation("query", plan.requiresConfirmation, errors);
   validateFilters(domain, plan.filters, errors, "filters", warnings);
 

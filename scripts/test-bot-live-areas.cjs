@@ -141,6 +141,28 @@ const CAPABILITIES_POR_AREA = {
   ForaEscopo: ["registrar_ordem_servico", "registrar_evento_animal"]
 };
 
+const PAPEIS_OPOSTOS = {
+  genealogia: { ancestral: ["pai_ref", "mae_ref"], descendente: ["animal_ref", "filho_ref"] }
+};
+
+/**
+ * Filtros sao combinados com E. A mesma entidade em papeis opostos gera
+ * consulta impossivel, que volta vazia e parece "nao encontrei". Checar so
+ * dominio e acao deixa esse erro passar, foi o que aconteceu com a Mimosa.
+ */
+function filtrosContraditorios(plan) {
+  const papeis = PAPEIS_OPOSTOS[plan.domain];
+  if (!papeis || !Array.isArray(plan.filters)) return null;
+  const valores = (campos) => plan.filters
+    .filter((filtro) => campos.includes(filtro?.field))
+    .flatMap((filtro) => (Array.isArray(filtro.value) ? filtro.value : [filtro.value]))
+    .map((valor) => String(valor || "").trim().toLowerCase())
+    .filter(Boolean);
+  const ancestrais = new Set(valores(papeis.ancestral));
+  const conflito = valores(papeis.descendente).find((valor) => ancestrais.has(valor));
+  return conflito ? `"${conflito}" filtrado como ancestral E descendente ao mesmo tempo` : null;
+}
+
 function avaliar(caso, plan) {
   if (!plan) return { ok: false, motivo: "sem ActionPlan" };
   const acao = plan.action;
@@ -148,6 +170,8 @@ function avaliar(caso, plan) {
   const capability = plan.capability || null;
 
   if (acao === "block") return { ok: false, motivo: "bloqueou pedido legitimo" };
+  const contradicao = filtrosContraditorios(plan);
+  if (contradicao) return { ok: false, motivo: `consulta impossivel: ${contradicao}` };
   if (!caso.acoes.includes(acao)) {
     return { ok: false, motivo: `acao ${acao}, esperava ${caso.acoes.join("/")}` };
   }

@@ -183,7 +183,36 @@ const PAPEIS_OPOSTOS = {
  * consulta impossivel, que volta vazia e parece "nao encontrei". Checar so
  * dominio e acao deixa esse erro passar, foi o que aconteceu com a Mimosa.
  */
+// *_ref resolve por codigo OU nome. Repetir o mesmo valor no campo especifico
+// exige que codigo e nome sejam iguais, e a busca nunca acha nada.
+const REF_ABRANGE = {
+  animal_ref: ["brinco", "nome", "animal_codigo"],
+  filho_ref: ["brinco", "nome"],
+  mae_ref: ["brinco", "nome"],
+  pai_ref: ["brinco", "nome"],
+  funcionario_ref: ["nome"],
+  item_ref: ["item", "nome"],
+  lote_ref: ["lote_nome", "nome"]
+};
+
+function referenciaRepetida(plan) {
+  if (!Array.isArray(plan.filters)) return null;
+  const norm = (v) => String(v ?? "").trim().toLowerCase();
+  for (const filtro of plan.filters) {
+    const cobre = REF_ABRANGE[filtro?.field];
+    if (!cobre) continue;
+    const duplicado = plan.filters.find((outro) =>
+      cobre.includes(outro?.field) && norm(outro.value) === norm(filtro.value) && norm(filtro.value));
+    if (duplicado) {
+      return `"${filtro.value}" filtrado em ${filtro.field} E em ${duplicado.field} ao mesmo tempo`;
+    }
+  }
+  return null;
+}
+
 function filtrosContraditorios(plan) {
+  const repetida = referenciaRepetida(plan);
+  if (repetida) return repetida;
   const papeis = PAPEIS_OPOSTOS[plan.domain];
   if (!papeis || !Array.isArray(plan.filters)) return null;
   const valores = (campos) => plan.filters

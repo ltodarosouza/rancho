@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v19";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v20";
 
 const EXAMPLES = [
   {
@@ -459,6 +459,7 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "O backend executa o ActionPlan validado sem reler a frase para inventar, remover ou trocar filtros. Portanto, coloque no proprio plano toda entidade, periodo, categoria, status, ordenacao, agrupamento e nivel de detalhe pedidos pelo usuario.",
     "Em query, filtros explicitos pertencem a filters. O bloco semantic pode complementar campos canonicos, mas nao substitui filters quando a restricao muda o resultado. Nao use userQuestion como lugar unico para guardar uma restricao.",
     "Nao coloque referencias coletivas como 'minhas vacas', 'todos os animais', 'estoque' ou 'funcionarios' em campos *_ref. Referencias *_ref sao somente para uma entidade especifica identificada por nome, codigo ou brinco.",
+    "Campos *_ref ja resolvem por codigo ou nome. Nunca repita o mesmo valor em *_ref e no campo especifico, como animal_ref='Mimosa' junto de brinco='Mimosa': filtros sao combinados com E e a busca passa a exigir que o brinco seja o proprio nome, o que nunca acontece. Use somente o *_ref.",
     "Filtros sao combinados com E, entao nunca repita a mesma entidade em papeis opostos: um animal nao pode ser ao mesmo tempo ancestral e descendente na mesma linha. Em genealogia, pai_ref e mae_ref identificam quem gerou; animal_ref e filho_ref identificam quem foi gerado. Escolha somente o papel que a pergunta indica: crias/filhos de X filtram mae_ref ou pai_ref com X; pais/mae/ascendencia de X filtram animal_ref ou filho_ref com X. Na duvida, use um filtro so, nunca os dois.",
     "Use action=sequence quando o usuario pedir duas ou mais acoes/consultas independentes na mesma mensagem. steps deve manter a ordem pedida e conter apenas query, create, update, execute ou import_table.",
     "Em sequence, cada step segue as mesmas regras de confirmacao. O requiresConfirmation do plano principal deve ser true se qualquer step for mutacao; se todos forem consulta, false.",

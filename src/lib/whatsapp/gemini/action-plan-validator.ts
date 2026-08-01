@@ -1328,7 +1328,54 @@ function validateOppositeRelationRoles(domain: DomainManifestEntry, filters: unk
   }
 }
 
+/**
+ * Um campo *_ref ja resolve contra codigo e nome da entidade. Quando o modelo
+ * hesita, ele manda o mesmo valor tambem no campo especifico, por exemplo
+ * animal_ref="Mimosa" junto de brinco="Mimosa". Como filtros sao combinados
+ * com E, isso exige que o brinco seja literalmente "Mimosa" e a busca nunca
+ * acha o animal. O filtro mais restrito e redundante e sai; o *_ref sozinho
+ * preserva exatamente a intencao.
+ */
+const REFERENCE_SUBSUMES: Record<string, readonly string[]> = {
+  animal_ref: ["brinco", "nome", "animal_codigo"],
+  filho_ref: ["brinco", "nome"],
+  mae_ref: ["brinco", "nome"],
+  pai_ref: ["brinco", "nome"],
+  funcionario_ref: ["nome", "funcionario_nome"],
+  item_ref: ["item", "nome"],
+  lote_ref: ["lote_nome", "nome"]
+};
+
+function dropRedundantReferenceFilters(plan: QueryActionPlan, warnings: string[]) {
+  if (!Array.isArray(plan.filters) || plan.filters.length < 2) return;
+  const referenceValues = new Map<string, Set<string>>();
+  for (const filter of plan.filters) {
+    if (!isPlainObject(filter)) continue;
+    const covered = REFERENCE_SUBSUMES[String(filter.field || "")];
+    if (!covered || !hasValue(filter.value)) continue;
+    const value = normalizeLooseText(filter.value);
+    if (!value) continue;
+    for (const field of covered) {
+      const current = referenceValues.get(field) || new Set<string>();
+      current.add(value);
+      referenceValues.set(field, current);
+    }
+  }
+  if (!referenceValues.size) return;
+
+  plan.filters = plan.filters.filter((filter) => {
+    if (!isPlainObject(filter)) return true;
+    const field = String(filter.field || "");
+    const values = referenceValues.get(field);
+    if (!values || !hasValue(filter.value)) return true;
+    if (!values.has(normalizeLooseText(filter.value))) return true;
+    warnings.push(`filtro ${field} removido por repetir o valor ja coberto pela referencia`);
+    return false;
+  });
+}
+
 function validateQueryPlan(plan: QueryActionPlan, domain: DomainManifestEntry, errors: string[], warnings: string[]) {
+  dropRedundantReferenceFilters(plan, warnings);
   validateOppositeRelationRoles(domain, plan.filters, errors);
   validateConfirmation("query", plan.requiresConfirmation, errors);
   validateFilters(domain, plan.filters, errors, "filters", warnings);

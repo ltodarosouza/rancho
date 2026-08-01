@@ -1900,6 +1900,90 @@ test("executor query producao detalhada lista registros e soma sem agregacao exp
   assert(result.response.includes("Fim da lista."), `lista completa deveria informar fim: ${result.response}`);
 });
 
+test("executor query lista historico completo de inseminacoes de um animal", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "reproducao",
+      operation: "listar",
+      confidence: 0.94,
+      semantic: {
+        intent: "listar_eventos_reprodutivos",
+        scope: "animal",
+        report: { type: "registros", detailLevel: "detalhado" }
+      },
+      filters: [
+        { field: "animal_ref", op: "eq", value: "396" },
+        { field: "evento", op: "eq", value: "inseminacao" }
+      ],
+      requiresConfirmation: false,
+      limit: 500,
+      userQuestion: "Me mostra todas as inseminações da 396."
+    },
+    owner: ADMIN_OWNER,
+    currentDate: "2026-08-01",
+    supabase: createActionPlanSupabase({
+      [TABLES.animais]: [
+        { id: "animal-396", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "396", nome: "Vaca 396", categoria: "vaca" }
+      ],
+      [TABLES.eventosAnimal]: [
+        { id: "ins-1", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-396", tipo: "INSEMINACAO", data_evento: "2026-03-10", descricao: "IATF" },
+        { id: "parto-1", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-396", tipo: "PARTO", data_evento: "2026-05-01" },
+        { id: "ins-2", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-396", tipo: "INSEMINACAO", data_evento: "2026-07-12", descricao: "Repasse" }
+      ]
+    })
+  });
+
+  assert(result.ok, `historico de inseminacoes deveria executar: ${result.reason}`);
+  assert(result.rows.length === 2, `deveria retornar as duas inseminacoes, recebeu ${result.rows.length}`);
+  assert(result.rows.every((row) => row.kind === "inseminacao"), "historico nao pode misturar outros eventos reprodutivos");
+  assert(result.response.includes("10/03/2026") && result.response.includes("12/07/2026"), `resposta deveria detalhar ambas inseminacoes: ${result.response}`);
+});
+
+test("executor query produz total e detalhes desde o ultimo parto do mesmo animal", async () => {
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "producao_leite",
+      operation: "listar",
+      confidence: 0.94,
+      semantic: {
+        intent: "consultar_producao_relativa_a_evento",
+        scope: "animal",
+        temporalAnchor: { sourceDomain: "reproducao", event: "parto", occurrence: "latest", direction: "after" },
+        report: { type: "registros", detailLevel: "detalhado" }
+      },
+      filters: [{ field: "animal_ref", op: "eq", value: "090" }],
+      aggregations: [{ field: "litros", op: "sum", as: "total_litros" }],
+      requiresConfirmation: false,
+      limit: 500,
+      userQuestion: "quanto a 090 produziu depois do parto?"
+    },
+    owner: ADMIN_OWNER,
+    currentDate: "2026-08-01",
+    supabase: createActionPlanSupabase({
+      [TABLES.animais]: [
+        { id: "animal-090", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "090", nome: "Mimosa", categoria: "vaca" }
+      ],
+      [TABLES.eventosAnimal]: [
+        { id: "parto-antigo", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-090", tipo: "PARTO", data_evento: "2026-02-01" },
+        { id: "parto-mais-recente", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-090", tipo: "PARTO", data_evento: "2026-07-10" }
+      ],
+      [TABLES.ordenhas]: [
+        { id: "ord-antes", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-090", litros: 70, ordenhado_em: "2026-07-09T08:00:00Z" },
+        { id: "ord-1", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-090", litros: 22, ordenhado_em: "2026-07-10T16:00:00Z" },
+        { id: "ord-2", fazenda_id: ADMIN_OWNER.fazenda_id, animal_id: "animal-090", litros: 28, ordenhado_em: "2026-07-15T08:00:00Z" }
+      ]
+    })
+  });
+
+  assert(result.ok, `producao apos parto deveria executar: ${result.reason}`);
+  assert(result.rows.length === 2, `deveria retornar apenas ordenhas apos o ultimo parto, recebeu ${result.rows.length}`);
+  assert(result.response.includes("Total no período: 50 litros."), `resposta deveria somar a producao apos o parto: ${result.response}`);
+  assert(result.response.includes("10/07/2026") && result.response.includes("15/07/2026"), `resposta deveria detalhar cada ordenha apos o parto: ${result.response}`);
+  assert(!result.response.includes("70 litros"), `resposta nao pode incluir producao anterior ao parto: ${result.response}`);
+});
+
 test("executor query producao cria ranking agregado por animal no periodo", async () => {
   const result = await executeQueryActionPlan({
     plan: {

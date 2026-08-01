@@ -111,6 +111,17 @@ const CASOS = [
   { area: "Reproducao", estilo: "consulta", texto: "quais vacas tao prenhas?", aceita: ["reproducao", "animais"], acoes: ["query"] },
   { area: "Reproducao", estilo: "inseminacao", texto: "inseminei a 205 ontem", aceita: ["reproducao"], acoes: ["create", "execute"] },
 
+  // --- Consulta relacional: um dado depende de outro evento do mesmo animal ---
+  { area: "RelacaoEvento", estilo: "inseminacoes_historico", texto: "Me mostra todas as inseminações da 396.", aceita: ["reproducao"], acoes: ["query"], animalRef: "396", eventKind: "inseminacao", detailLevel: "detalhado" },
+  { area: "RelacaoEvento", estilo: "producao_apos_parto", texto: "quanto a 090 produziu depois do parto?", aceita: ["producao_leite"], acoes: ["query"], animalRef: "090", detailLevel: "detalhado", temporalAnchor: { sourceDomain: "reproducao", event: "parto", occurrence: "latest", direction: "after" } },
+
+  // --- Regressões de consulta relacional já observadas no WhatsApp ---
+  { area: "ConsultaRegressao", estilo: "historico_antes_venda", texto: "vou vender a vaca 080 amanhã. Me dá todo o histórico dela pra eu passar pro comprador", aceita: [null], acoes: ["sequence"], sequenceFirstQuery: true },
+  { area: "ConsultaRegressao", estilo: "lote_animal", texto: "qual o lote da vaca 396", aceita: ["animais"], acoes: ["query"], animalRef: "396", selectField: "lote_ref" },
+  { area: "ConsultaRegressao", estilo: "nascimento_animal", texto: "qual é a data de nascimento da 396", aceita: ["animais"], acoes: ["query"], animalRef: "396", selectField: "data_nascimento" },
+  { area: "ConsultaRegressao", estilo: "contagem_touros", texto: "quantos touros ativos eu tenho", aceita: ["animais"], acoes: ["query"], category: "touro", aggregation: { field: "id", op: "count" } },
+  { area: "ConsultaRegressao", estilo: "partos_ano", texto: "quais vacas pariram esse ano", aceita: ["reproducao"], acoes: ["query"], eventKind: "parto", periodo: "current_year", detailLevel: "detalhado" },
+
   // --- Genealogia ---
   { area: "Genealogia", estilo: "direto", texto: "qual a cria da mimosa?", aceita: ["genealogia", "reproducao", "animais"], acoes: ["query"] },
   { area: "Genealogia", estilo: "ascendencia", texto: "quem e a mae da vaca 090", aceita: ["genealogia", "animais"], acoes: ["query"] },
@@ -270,6 +281,34 @@ function avaliar(caso, plan) {
     const aggregation = (plan.aggregations || []).find((item) => item?.field === caso.aggregation.field && item?.op === caso.aggregation.op);
     if (!aggregation) return { ok: false, motivo: `agregacao ${caso.aggregation.op} em ${caso.aggregation.field} ausente` };
   }
+  if (caso.animalRef) {
+    const filter = (plan.filters || []).find((item) => item?.field === "animal_ref" && String(item.value || "").trim().toLowerCase() === caso.animalRef.toLowerCase());
+    if (!filter) return { ok: false, motivo: `filtro animal_ref=${caso.animalRef} ausente` };
+  }
+  if (caso.eventKind) {
+    const filter = (plan.filters || []).find((item) => item?.field === "evento" && String(item.value || "").trim().toLowerCase() === caso.eventKind.toLowerCase());
+    if (!filter) return { ok: false, motivo: `filtro evento=${caso.eventKind} ausente` };
+  }
+  if (caso.category) {
+    const filter = (plan.filters || []).find((item) => item?.field === "categoria" && String(item.value || "").trim().toLowerCase() === caso.category.toLowerCase());
+    if (!filter) return { ok: false, motivo: `filtro categoria=${caso.category} ausente` };
+  }
+  if (caso.selectField && !(plan.select || []).includes(caso.selectField)) {
+    return { ok: false, motivo: `select ${caso.selectField} ausente` };
+  }
+  if (caso.sequenceFirstQuery) {
+    if (plan.action !== "sequence" || plan.steps?.[0]?.action !== "query") {
+      return { ok: false, motivo: "a consulta de historico deve ser o primeiro passo antes da mudanca planejada" };
+    }
+  }
+  if (caso.temporalAnchor) {
+    const anchor = plan.semantic?.temporalAnchor || {};
+    for (const [field, expected] of Object.entries(caso.temporalAnchor)) {
+      if (String(anchor[field] || "").toLowerCase() !== String(expected).toLowerCase()) {
+        return { ok: false, motivo: `semantic.temporalAnchor.${field}=${anchor[field] || "ausente"}, esperava ${expected}` };
+      }
+    }
+  }
   if (!caso.acoes.includes(acao)) {
     return { ok: false, motivo: `acao ${acao}, esperava ${caso.acoes.join("/")}` };
   }
@@ -372,5 +411,12 @@ function checaEstoqueMaisFinanceiro(plan) {
         }
       }
     }
+  }
+
+  // Em alguns ambientes de terminal o socket keep-alive do provedor externo
+  // permanece aberto apos a resposta. Esta chave e exclusiva da bateria live
+  // e permite encerrar o processo depois que o resultado ja foi impresso.
+  if (process.env.BOT_LIVE_FORCE_EXIT === "true") {
+    process.exit(falhas.length ? 1 : 0);
   }
 })();

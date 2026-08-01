@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v22";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v23";
 
 const EXAMPLES = [
   {
@@ -44,6 +44,37 @@ const EXAMPLES = [
         { field: "status_reprodutivo", op: "eq", value: "pre_parto" }
       ],
       limit: 20, requiresConfirmation: false
+    }
+  },
+  {
+    user: "me mostra todas as inseminacoes da 396",
+    plan: {
+      action: "query", domain: "reproducao", operation: "listar", confidence: 0.94,
+      semantic: {
+        intent: "listar_eventos_reprodutivos",
+        scope: "animal",
+        report: { type: "registros", detailLevel: "detalhado" }
+      },
+      filters: [
+        { field: "animal_ref", op: "eq", value: "396" },
+        { field: "evento", op: "eq", value: "inseminacao" }
+      ],
+      limit: 500, requiresConfirmation: false
+    }
+  },
+  {
+    user: "quanto a 090 produziu depois do parto?",
+    plan: {
+      action: "query", domain: "producao_leite", operation: "listar", confidence: 0.94,
+      semantic: {
+        intent: "consultar_producao_relativa_a_evento",
+        scope: "animal",
+        temporalAnchor: { sourceDomain: "reproducao", event: "parto", occurrence: "latest", direction: "after" },
+        report: { type: "registros", detailLevel: "detalhado" }
+      },
+      filters: [{ field: "animal_ref", op: "eq", value: "090" }],
+      aggregations: [{ field: "litros", op: "sum", as: "total_litros" }],
+      limit: 500, requiresConfirmation: false
     }
   },
   {
@@ -481,7 +512,7 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Filtros sao combinados com E, entao nunca repita a mesma entidade em papeis opostos: um animal nao pode ser ao mesmo tempo ancestral e descendente na mesma linha. Em genealogia, pai_ref e mae_ref identificam quem gerou; animal_ref e filho_ref identificam quem foi gerado. Escolha somente o papel que a pergunta indica: crias/filhos de X filtram mae_ref ou pai_ref com X; pais/mae/ascendencia de X filtram animal_ref ou filho_ref com X. Na duvida, use um filtro so, nunca os dois.",
     "Use action=sequence quando o usuario pedir duas ou mais acoes/consultas independentes na mesma mensagem. steps deve manter a ordem pedida e conter apenas query, create, update, execute ou import_table.",
     "Em sequence, cada step segue as mesmas regras de confirmacao. O requiresConfirmation do plano principal deve ser true se qualquer step for mutacao; se todos forem consulta, false.",
-    "Quando uma mensagem combinar consulta de ficha, historico ou estado atual com uma mudanca futura, planejada ou condicional, coloque a query antes da mutacao. A resposta deve mostrar o contexto primeiro e deixar a mudanca apenas como acao pendente de confirmacao. So deixe uma query depois da mutacao quando o usuario pedir expressamente o resultado apos confirmar.",
+    "Quando uma mensagem combinar consulta de ficha, historico ou estado atual com uma mudanca futura, planejada ou condicional, coloque obrigatoriamente a query como PRIMEIRO step e a mutacao como passo seguinte. A resposta mostra o contexto primeiro e deixa a mudanca apenas pendente de confirmacao; nunca altere status antes de entregar a informacao que o usuario pediu para decidir. A regra vale para venda, baixa, transferencia, descarte, reativacao, troca de lote ou qualquer outro status, em qualquer dominio. So deixe uma query depois da mutacao quando o usuario pedir expressamente o resultado apos confirmar.",
     "Se algum passo de uma sequence estiver inseguro ou com dado obrigatorio faltando, nao coloque clarify/block dentro de steps; use clarify ou block no plano principal.",
     "Nao invente IDs, valores, sexo da cria, pai, codigo, data, resultado financeiro, tabela ou coluna Supabase.",
     "query exige requiresConfirmation=false. create, update, execute mutacional e import_table exigem requiresConfirmation=true.",
@@ -499,6 +530,8 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Consultas de um animal especifico com brinco/codigo/nome claro, como dados da vaca B-001, ficha da Mimosa ou historico do animal 120, usam action=query domain=animais com filtro animal_ref. Nao transforme isso em consulta coletiva. Se a pergunta pedir um campo da ficha, preserve esse campo em select, por exemplo lote_ref, data_nascimento, peso, fase ou status; a referencia identifica o animal e select define a informacao a responder.",
     "Perguntas sobre ha quanto tempo, desde quando ou quantos dias um animal esta em um estado reprodutivo usam action=query domain=reproducao com animal_ref e status_reprodutivo/evento. Nao aplique filtro de periodo: a data do evento que iniciou o estado precisa permanecer na consulta para o backend calcular a duracao. Isso vale para qualquer animal e estado reprodutivo suportado.",
     "Para listar eventos reprodutivos ocorridos em um periodo, use domain=reproducao, filtro evento/tipo e filtro data do periodo. Isso consulta cada evento ocorrido, nao o estado atual dos animais. Estados atuais, como vacas paridas ou em protocolo agora, podem usar status_reprodutivo sem filtro de periodo.",
+    "Quando o usuario pedir todas, historico, lista ou registros de um evento reprodutivo de um animal, use domain=reproducao, filtro animal_ref e filtro evento (nunca somente status_reprodutivo), operation=listar e semantic.report.detailLevel=detalhado. Isso representa ocorrencias historicas, inclusive inseminacoes, partos, protocolos, retestes e cio.",
+    "Quando uma consulta depender de um marco anterior do mesmo animal, como producao depois do ultimo parto, use o dominio do dado pedido, mantenha animal_ref e declare semantic.temporalAnchor={sourceDomain, event, occurrence:'latest' ou 'first', direction:'after', 'since' ou 'before'}. O backend encontra a data real desse evento e aplica o periodo com seguranca. Para pedir total e cada registro, use operation=listar, report.detailLevel=detalhado e uma agregacao adequada.",
     "Comparacoes, rankings, maior, menor, primeiro, ultimo ou top por entidade usam aggregations + groupBy na entidade + orderBy na metrica. Para producao por animal, agrupe por animal_ref, agregue litros com sum e ordene litros desc para maior ou asc para menor; use limit=1 quando a pergunta pedir somente qual animal e um limite maior quando pedir ranking/lista.",
     "Em consultas de producao por categoria, como vaca, novilha ou outro tipo de animal, use animal_categoria. animal_ref e somente para nome, brinco ou codigo de um animal especifico. Nao gere subquery ou filtro aninhado.",
     "Resumo, historico ou total de producao de um animal especifico deve manter filtro animal_ref e nunca virar total do rebanho. O valor de animal_ref pode conter a forma natural completa, como 'vaca 090'; o backend resolve nome ou brinco.",

@@ -1679,6 +1679,20 @@ function validateSemanticBlock(semantic: unknown, manifest: DomainManifest, erro
       validateDomainList(semantic.report.excludeDomains, manifest, errors, "semantic.report.excludeDomains");
     }
   }
+  if (semantic.temporalAnchor !== undefined) {
+    if (!isPlainObject(semantic.temporalAnchor)) {
+      errors.push("semantic.temporalAnchor deve ser objeto");
+    } else {
+      const sourceDomain = normalizeDomainAlias(semantic.temporalAnchor.sourceDomain, manifest);
+      const event = String(semantic.temporalAnchor.event || "").trim();
+      const occurrence = String(semantic.temporalAnchor.occurrence || "latest").trim().toLowerCase();
+      const direction = String(semantic.temporalAnchor.direction || "after").trim().toLowerCase();
+      if (!sourceDomain || !manifest[sourceDomain]) errors.push("semantic.temporalAnchor.sourceDomain deve ser dominio valido do manifest");
+      if (!event) errors.push("semantic.temporalAnchor.event obrigatorio");
+      if (!['latest', 'first'].includes(occurrence)) errors.push("semantic.temporalAnchor.occurrence deve ser latest ou first");
+      if (!['after', 'since', 'before'].includes(direction)) errors.push("semantic.temporalAnchor.direction deve ser after, since ou before");
+    }
+  }
   if (semantic.effects !== undefined) {
     if (!Array.isArray(semantic.effects)) {
       errors.push("semantic.effects deve ser array");

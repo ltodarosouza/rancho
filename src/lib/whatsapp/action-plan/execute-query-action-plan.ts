@@ -934,6 +934,114 @@ function targetReproductionKinds(plan: QueryActionPlan) {
   return order.filter((kind) => kinds.has(kind));
 }
 
+function temporalAnchorEventMatches(event: AnyRecord, sourceDomain: string, expectedEvent: string) {
+  const expected = normalizedText(expectedEvent);
+  if (!expected) return false;
+
+  if (sourceDomain === "reproducao") {
+    return queryEventKind(event) === expected;
+  }
+
+  return normalizedText([event.tipo, event.medicamento, event.descricao].filter(Boolean).join(" ")).includes(expected);
+}
+
+function temporalAnchorLabel(event: string) {
+  const kind = normalizedText(event);
+  if (["parto", "inseminacao", "protocolo", "reteste", "pre_parto", "prenhez", "cio", "aborto"].includes(kind)) {
+    return reproductiveEventLabel(kind as Parameters<typeof reproductiveEventLabel>[0]).toLowerCase();
+  }
+  return String(event || "evento").trim().toLowerCase();
+}
+
+async function resolveTemporalAnchorPlan(
+  input: ExecuteQueryActionPlanInput,
+  plan: QueryActionPlan,
+  domain: DomainManifestEntry
+): Promise<{ ok: true; plan: QueryActionPlan } | { ok: false; reason: string; message: string }> {
+  const anchor = plan.semantic?.temporalAnchor;
+  if (!anchor || !input.supabase || !input.owner.fazenda_id) return { ok: true, plan };
+
+  const sourceDomain = getDomainManifest(anchor.sourceDomain)?.domain;
+  const expectedEvent = String(anchor.event || "").trim();
+  const direction = String(anchor.direction || "after").trim().toLowerCase();
+  const occurrence = String(anchor.occurrence || "latest").trim().toLowerCase();
+  const animalFilter = plan.filters.find((filter) => filter.field === "animal_ref" && !isCollectiveAnimalRef(filter.value));
+
+  if (!sourceDomain || !expectedEvent || !animalFilter) {
+    return {
+      ok: false,
+      reason: "temporal_anchor_missing_scope",
+      message: "Preciso saber qual animal deve ser usado como referencia para essa consulta."
+    };
+  }
+
+  const [{ data: animalData, error: animalError }, { data: eventData, error: eventError }] = await Promise.all([
+    input.supabase
+      .from(TABLES.animais)
+      .select("id,brinco,nome")
+      .eq("fazenda_id", input.owner.fazenda_id)
+      .limit(3000),
+    input.supabase
+      .from(TABLES.eventosAnimal)
+      .select("id,animal_id,tipo,data_evento,descricao,medicamento,created_at")
+      .eq("fazenda_id", input.owner.fazenda_id)
+      .order("data_evento", { ascending: false })
+      .limit(3000)
+  ]);
+  if (animalError) throw new Error(animalError.message);
+  if (eventError) throw new Error(eventError.message);
+
+  const animals = (animalData || []) as AnyRecord[];
+  const matchingAnimals = animals.filter((animal) => referenceMatches([animal.brinco, animal.nome, animal.id].filter(Boolean), animalFilter.value));
+  if (!matchingAnimals.length) {
+    return {
+      ok: false,
+      reason: "temporal_anchor_animal_not_found",
+      message: `Nao encontrei o animal ${String(animalFilter.value)} no rebanho.`
+    };
+  }
+
+  const animalIds = new Set(matchingAnimals.map((animal) => String(animal.id)));
+  const anchors = ((eventData || []) as AnyRecord[])
+    .filter((event) => animalIds.has(String(event.animal_id || "")))
+    .filter((event) => temporalAnchorEventMatches(event, sourceDomain, expectedEvent))
+    .filter((event) => Boolean(parseDate(event.data_evento || event.created_at)))
+    .sort((left, right) => String(right.data_evento || right.created_at || "").localeCompare(String(left.data_evento || left.created_at || "")));
+  const selected = occurrence === "first" ? anchors[anchors.length - 1] : anchors[0];
+  if (!selected) {
+    return {
+      ok: false,
+      reason: "temporal_anchor_event_not_found",
+      message: `Nao encontrei ${temporalAnchorLabel(expectedEvent)} registrada para ${animalLabel(matchingAnimals[0])}.`
+    };
+  }
+
+  const anchorDate = parseDate(selected.data_evento || selected.created_at);
+  if (!anchorDate) {
+    return {
+      ok: false,
+      reason: "temporal_anchor_date_not_found",
+      message: `O registro de ${temporalAnchorLabel(expectedEvent)} de ${animalLabel(matchingAnimals[0])} nao tem data para usar como referencia.`
+    };
+  }
+
+  const dateField = domain.dateFields.includes("data") ? "data" : domain.dateFields[0];
+  if (!dateField) return { ok: true, plan };
+  const filter: FilterPlan = {
+    field: dateField,
+    op: direction === "before" ? "lte" : "gte",
+    value: dateOnly(anchorDate)
+  };
+
+  return {
+    ok: true,
+    plan: {
+      ...plan,
+      filters: [...plan.filters, filter]
+    }
+  };
+}
+
 function reproductionSubject(plan: QueryActionPlan) {
   const category = plan.filters.find((filter) => filter.field === "categoria")?.value;
   return animalCategoryFromQueryText(category) === "vaca" ? "Vacas" : "Animais";
@@ -1119,7 +1227,9 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
   const kinds = targetReproductionKinds(plan);
   const kind = kinds.length === 1 ? kinds[0] : undefined;
   const eventHistory = reproductionEventHistoryRequested(plan, domain);
-  const limit = Math.min(plan.limit || domain.maxLimit, domain.maxLimit);
+  const limit = eventHistory || wantsDetailedList(plan)
+    ? domain.maxLimit
+    : Math.min(plan.limit || domain.maxLimit, domain.maxLimit);
 
   let query = input.supabase
     .from(TABLES.eventosAnimal)
@@ -1433,7 +1543,7 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
 }
 
 function periodText(plan: QueryActionPlan) {
-  const filter = plan.filters.find((item) => ["last_months", "last_days", "previous_month", "current_month", "current_week", "current_year", "since", "between"].includes(item.op));
+  const filter = plan.filters.find((item) => ["last_months", "last_days", "previous_month", "current_month", "current_week", "current_year", "since", "between", "gte", "lte"].includes(item.op));
   if (!filter) return "";
   if (filter.op === "last_months") return `dos últimos ${filter.value} meses`;
   if (filter.op === "last_days") return `dos últimos ${filter.value} dias`;
@@ -1452,6 +1562,8 @@ function periodText(plan: QueryActionPlan) {
     if (monthName) return `em ${monthName}`;
     return "do período informado";
   }
+  if (filter.op === "gte") return `desde ${shortDate(filter.value)}`;
+  if (filter.op === "lte") return `ate ${shortDate(filter.value)}`;
   return "";
 }
 
@@ -2120,7 +2232,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
     };
   }
 
-  const plan = validation.value as QueryActionPlan;
+  let plan = validation.value as QueryActionPlan;
   if (!canQueryBotDomain(input.owner.papel_bot, plan.domain)) {
     return {
       ok: false,
@@ -2133,6 +2245,19 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
     return executeGeneralEventReportQuery(input, plan);
   }
   const domain = getDomainManifest(plan.domain);
+
+  if (domain) {
+    const temporalAnchor = await resolveTemporalAnchorPlan(input, plan, domain);
+    if (!temporalAnchor.ok) {
+      return {
+        ok: false,
+        status: "clarify",
+        reason: temporalAnchor.reason,
+        message: temporalAnchor.message
+      };
+    }
+    plan = temporalAnchor.plan;
+  }
 
   if (domain?.domain === "reproducao") {
     return executeReproductionQuery(input, plan, domain);
@@ -2173,17 +2298,18 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
     };
   }
 
-  const limit = Math.min(plan.limit || domain.maxLimit, domain.maxLimit);
+  const detailedList = wantsDetailedList(plan);
+  const limit = detailedList ? domain.maxLimit : Math.min(plan.limit || domain.maxLimit, domain.maxLimit);
   // Somente filtros de data viram condicao SQL; o resto e avaliado em memoria
   // depois da consulta. Se o banco ja vier cortado no limite do usuario, uma
   // entidade fora dessa janela desaparece antes de ser comparada e o bot
   // responde "nao encontrei" sobre um registro que existe.
   const filtersEvaluatedInMemory = plan.filters.some((filter) => !domain.dateFields.includes(filter.field));
-  const needsFullScan = Boolean(plan.groupBy?.length || plan.aggregations?.length || filtersEvaluatedInMemory);
+  const needsFullScan = Boolean(detailedList || plan.groupBy?.length || plan.aggregations?.length || filtersEvaluatedInMemory);
   const sourceLimit = needsFullScan ? domain.maxLimit : limit;
   // Agregacao e agrupamento resumem tudo que passou no filtro; consulta comum
   // devolve no maximo o que o usuario pediu.
-  const resultLimit = plan.groupBy?.length || plan.aggregations?.length ? domain.maxLimit : limit;
+  const resultLimit = detailedList || plan.groupBy?.length || plan.aggregations?.length ? domain.maxLimit : limit;
   const fieldDefinitions = Object.values(domain.fields) as DomainFieldDefinition[];
   const selectFields = SAFE_SELECT_FIELDS[domain.domain] || [
     "id",

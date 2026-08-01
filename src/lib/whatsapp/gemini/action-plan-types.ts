@@ -50,6 +50,13 @@ export type SemanticActionPlanEffect = {
   value?: unknown;
 };
 
+export type SemanticTemporalAnchor = {
+  sourceDomain: string;
+  event: string;
+  occurrence?: "latest" | "first" | null;
+  direction?: "after" | "since" | "before" | null;
+};
+
 export type SemanticActionPlanBlock = {
   intent?: string | null;
   scope?: string | null;
@@ -61,6 +68,7 @@ export type SemanticActionPlanBlock = {
   money?: { value?: unknown; type?: string | null; category?: string | null; method?: string | null } | number | string;
   date?: unknown;
   period?: unknown;
+  temporalAnchor?: SemanticTemporalAnchor;
   effects?: SemanticActionPlanEffect[];
   report?: {
     type?: string | null;

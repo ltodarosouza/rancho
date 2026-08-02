@@ -64,7 +64,7 @@ function StructuredData({ page }: { page?: MarketingPageContent }) {
 
 function Nav() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--border)] bg-[var(--surface)]/95 shadow-[0_1px_2px_rgba(0,0,0,0.06)] backdrop-blur-sm">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
       <div className="marketing-scroll-progress" aria-hidden="true" />
       <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5 text-[var(--text)]" aria-label="Rancho">
@@ -74,12 +74,12 @@ function Nav() {
           <span className="text-lg font-semibold tracking-tight">Rancho</span>
         </Link>
         <div className="flex items-center gap-2">
-          <Link href="/login" className="hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-[var(--text-2)] transition hover:text-[var(--text)] sm:inline-flex">
+          <Link href="/login" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[var(--bg)]">
+            <LogIn className="h-3.5 w-3.5" />
             Entrar
           </Link>
-          <a href={CONTACT_HREF} className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-600">
-            <span className="hidden sm:inline">Solicitar demonstração</span>
-            <span className="sm:hidden">Demo</span>
+          <a href={CONTACT_HREF} className="hidden h-9 items-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-600 sm:inline-flex">
+            Solicitar demonstração
             <ArrowRight className="h-3.5 w-3.5" />
           </a>
         </div>
@@ -98,7 +98,7 @@ function NavLight({ currentSlug }: { currentSlug?: string }) {
   ];
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--border)] bg-[var(--surface)]/95 shadow-[0_1px_2px_rgba(0,0,0,0.06)] backdrop-blur-sm">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
       <div className="marketing-scroll-progress" aria-hidden="true" />
       <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5 text-[var(--text)]" aria-label="Rancho">
@@ -118,10 +118,10 @@ function NavLight({ currentSlug }: { currentSlug?: string }) {
               {item.label}
             </Link>
           ))}
-          <a href={CONTACT_HREF} className="ml-2 inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-600">
-            Demo
-            <ArrowRight className="h-3.5 w-3.5" />
-          </a>
+          <Link href="/login" className="ml-2 inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 text-sm font-medium text-[var(--text)] transition hover:bg-[var(--bg)]">
+            <LogIn className="h-3.5 w-3.5" />
+            Entrar
+          </Link>
         </div>
       </nav>
     </header>
@@ -281,20 +281,7 @@ export function MarketingHomePage() {
               </div>
             </div>
 
-            {/* Dashboard preview */}
-            <div className="relative mx-auto mt-10 max-w-4xl sm:mt-14">
-              <div className="overflow-hidden rounded-xl border border-white/10 shadow-2xl shadow-black/40">
-                <Image
-                  src="/landing/screenshots/dashboard.png"
-                  alt="Painel do Rancho com indicadores da fazenda"
-                  width={2160}
-                  height={1350}
-                  unoptimized
-                  priority
-                  className="h-auto w-full"
-                />
-              </div>
-            </div>
+            <div className="pb-10 sm:pb-14" />
           </div>
         </section>
 

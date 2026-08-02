@@ -2,6 +2,7 @@
 
 import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, PackageOpen, Pencil, Plus, RefreshCw, Scale, Trash2, X } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui/Badge";
 import { ModuleForm } from "@/components/modules/ModuleForm";
 import { StatCard } from "@/components/ui/StatCard";
@@ -184,10 +185,9 @@ function StockActionModal({
     return () => { document.body.style.overflow = ""; };
   }, []);
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40" onClick={onClose}>
-      <div className="flex min-h-full items-center justify-center p-4">
-      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-lg">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-lg" style={{ maxHeight: "90vh", overflowY: "auto" }}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
             <div className="rounded-lg bg-[var(--bg)] p-3">
@@ -235,9 +235,10 @@ function StockActionModal({
           {busy ? "Salvando..." : copy.button}
         </button>
       </form>
-      </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 export function StockScreen({ config }: { config: ModuleConfig }) {

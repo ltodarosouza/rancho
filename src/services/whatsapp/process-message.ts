@@ -62,6 +62,7 @@ import {
 import { calfCategoryForSex, hasBirthChildData, normalizeCalfSex } from "@/lib/whatsapp/nlp-core/birth-child";
 import { finalize } from "@/lib/whatsapp/nlp-core/result";
 import { domainFromUserChoice, manualDomainChoiceOptionsText, tabularDomainLabel } from "@/lib/whatsapp/nlp-core/tabular-domain-router";
+import { looksLikeCollapsedStructuredInput } from "@/lib/whatsapp/nlp-core/tabular-events";
 import { detectStructuredInput, parseRanchoMessage, parseTabularAnimalEventsMessageAs } from "@/services/whatsapp/local-parser-gate";
 import { polishBotResponse, userFacingCodeLabel } from "@/lib/whatsapp/user-facing-text";
 import { dateFromReference, dateOnlyFromReference, isoFromReference } from "@/services/whatsapp/date-utils";
@@ -567,6 +568,10 @@ function normalizedReproductiveEventKind(dados: AnyRecord, description: string):
   return undefined;
 }
 function tabularTableExamplesText(text: string) {
+  // A table may legitimately mention "tabela", "formato" or "exemplo" in a data cell.
+  // In that case it must keep flowing to the structured import path instead of returning a model.
+  if (detectStructuredInput(text).isStructured || looksLikeCollapsedStructuredInput(text)) return "";
+
   const command = normalizeRanchoText(text);
   const asksTableModel = /\b(?:modelo|exemplo|formato|tabela)\b/.test(command)
     && /\b(?:tabela|planilha|colunas|importar|cadastro|eventos?|animais?|reproducao)\b/.test(command);

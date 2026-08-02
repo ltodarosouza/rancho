@@ -31,6 +31,34 @@ module.exports = function loadBotTestSection(context) {
         ]
       },
       {
+        name: "tabela de partos com referencia a genealogia nao vira pedido de modelo",
+        phone: BOT_TEST_ADMIN_PHONE,
+        expectNoBusinessWrites: true,
+        messages: [
+          {
+            text: [
+              "Animal;Evento;Data;Observacoes",
+              "B-002;parto;2025-07-01;Parto registrado, cria C-002 vinculada na tabela de genealogia",
+              "B-003;parto;2025-07-02;Parto registrado, cria C-003 vinculada na tabela de genealogia"
+            ].join("\n"),
+            expected: {
+              intent: "IMPORTACAO_EVENTOS_TABELA",
+              estadoNovo: "aguardando_confirmacao",
+              responseIncludes: "tabela",
+              responseNotIncludes: "Cadastro de animais"
+            }
+          },
+          {
+            text: "cancelar",
+            expected: {
+              estadoAnterior: "aguardando_confirmacao",
+              estadoNovo: "livre",
+              responseIncludes: "Nada foi salvo"
+            }
+          }
+        ]
+      },
+      {
         name: "producao com dado faltante, sessao e confirmacao em dry-run",
         phone: BOT_TEST_ADMIN_PHONE,
         expectNoBusinessWrites: true,

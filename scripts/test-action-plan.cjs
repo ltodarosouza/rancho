@@ -3728,6 +3728,30 @@ test("ActionPlan import_table reproducao aceita variacoes de complemento de cria
   assert(patched.dados?.resumo_partos?.partos_sem_cria_cadastrada === 1, "deveria contar 1 parto sem cria");
 });
 
+test("ActionPlan import_table direciona complemento historico pela cria ja identificada", () => {
+  const pending = {
+    tipo: "IMPORTACAO_EVENTOS_TABELA",
+    confianca: 0.94,
+    resumo: "",
+    perguntas_faltantes: [],
+    dados: {
+      linhas: [
+        { lineNumber: 1, animal_codigo: "080", evento_tipo: "parto", cria_codigo: "101", child_status: "missing_child_sex", avisos: ["cria_sexo_ausente"] },
+        { lineNumber: 2, animal_codigo: "080", evento_tipo: "parto", cria_codigo: "111", child_status: "missing_child_sex", avisos: ["cria_sexo_ausente"] },
+        { lineNumber: 3, animal_codigo: "080", evento_tipo: "parto", cria_codigo: "313", child_status: "missing_child_sex", avisos: ["cria_sexo_ausente"] }
+      ]
+    }
+  };
+
+  const patched = applyReproductionImportChildComplement(pending, "080;101;macho\n080;111;femea\n080;313;femea");
+  assert(patched, "complemento historico deveria aplicar patch");
+  const rows = patched.dados?.linhas || [];
+  assert(rows.find((row) => row.cria_codigo === "101")?.cria_sexo === "macho", "cria 101 deveria receber somente seu sexo");
+  assert(rows.find((row) => row.cria_codigo === "111")?.cria_sexo === "femea", "cria 111 deveria receber somente seu sexo");
+  assert(rows.find((row) => row.cria_codigo === "313")?.cria_sexo === "femea", "cria 313 deveria receber somente seu sexo");
+  assert(rows.every((row) => row.child_status === "complete"), "cada parto historico deveria ficar completo sem reutilizar cria");
+});
+
 test("PendingActionInterpreter remove linha de importacao de estoque por nome", () => {
   const pending = {
     tipo: "IMPORTACAO_ESTOQUE_TABELA",

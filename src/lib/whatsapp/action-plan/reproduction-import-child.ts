@@ -212,11 +212,30 @@ function parseComplementLines(text: string): Array<NonNullable<ReturnType<typeof
   return parsed;
 }
 
-function applyPatchToRows(rows: AnyRecord[], patches: Map<string, AnyRecord>) {
+function patchForBirthRow(row: AnyRecord, patches: AnyRecord[]) {
+  const sameMother = patches.filter(
+    (patch) => codeKey(patch.animalRef) === codeKey(row.animal_codigo || row.animal_codigo_original)
+  );
+  if (!sameMother.length) return null;
+
+  const registeredChildCode = codeKey(row.cria_codigo);
+  if (registeredChildCode) {
+    const sameChild = sameMother.filter(
+      (patch) => !patch.semCria && codeKey(patch.cria_codigo) === registeredChildCode
+    );
+    return sameChild.length === 1 ? sameChild[0] : null;
+  }
+
+  // Without an existing child code, a mother with several births cannot be
+  // safely matched to one complement line.
+  return sameMother.length === 1 ? sameMother[0] : null;
+}
+
+function applyPatchToRows(rows: AnyRecord[], patches: AnyRecord[]) {
   let changed = false;
   const patchedRows = rows.map((row) => {
     if (String(row.evento_tipo || "").toLowerCase() !== "parto") return row;
-    const patch = patches.get(codeKey(row.animal_codigo || row.animal_codigo_original));
+    const patch = patchForBirthRow(row, patches);
     if (!patch) return row;
     changed = true;
     if (patch.semCria) {
@@ -248,12 +267,8 @@ function applyPatchToRows(rows: AnyRecord[], patches: Map<string, AnyRecord>) {
 
 export function applyReproductionImportChildComplement(parsed: ParsedRanchoMessage, text: string) {
   if (parsed.tipo !== "IMPORTACAO_EVENTOS_TABELA") return null;
-  const patches = new Map<string, AnyRecord>();
-  for (const patch of parseComplementLines(text)) {
-    const key = codeKey(patch.animalRef);
-    if (key) patches.set(key, patch);
-  }
-  if (!patches.size) return null;
+  const patches = parseComplementLines(text).filter((patch) => codeKey(patch.animalRef));
+  if (!patches.length) return null;
 
   const dados = { ...(parsed.dados || {}) };
   const base = applyPatchToRows(Array.isArray(dados.linhas) ? dados.linhas as AnyRecord[] : [], patches);

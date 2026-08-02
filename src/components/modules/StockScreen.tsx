@@ -185,8 +185,9 @@ function StockActionModal({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-3">
-      <form onSubmit={submit} className="my-auto w-full max-w-lg animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-lg">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40" onClick={onClose}>
+      <div className="flex min-h-full items-center justify-center p-4">
+      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-lg">
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
             <div className="rounded-lg bg-[var(--bg)] p-3">
@@ -234,6 +235,7 @@ function StockActionModal({
           {busy ? "Salvando..." : copy.button}
         </button>
       </form>
+      </div>
     </div>
   );
 }

@@ -64,20 +64,20 @@ function StructuredData({ page }: { page?: MarketingPageContent }) {
 
 function Nav() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--border)] bg-[var(--surface)]/95 shadow-[0_1px_2px_rgba(0,0,0,0.06)] backdrop-blur-sm">
       <div className="marketing-scroll-progress" aria-hidden="true" />
       <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
-        <Link href="/" className="flex items-center gap-2.5 text-white" aria-label="Rancho">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600">
+        <Link href="/" className="flex items-center gap-2.5 text-[var(--text)]" aria-label="Rancho">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white">
             <Leaf className="h-4.5 w-4.5" />
           </span>
           <span className="text-lg font-semibold tracking-tight">Rancho</span>
         </Link>
         <div className="flex items-center gap-2">
-          <Link href="/login" className="hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/80 transition hover:text-white sm:inline-flex">
+          <Link href="/login" className="hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-[var(--text-2)] transition hover:text-[var(--text)] sm:inline-flex">
             Entrar
           </Link>
-          <a href={CONTACT_HREF} className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-gray-900 transition hover:bg-emerald-50">
+          <a href={CONTACT_HREF} className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-600">
             <span className="hidden sm:inline">Solicitar demonstração</span>
             <span className="sm:hidden">Demo</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -98,11 +98,11 @@ function NavLight({ currentSlug }: { currentSlug?: string }) {
   ];
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--border)] bg-[var(--surface)]/95 shadow-[0_1px_2px_rgba(0,0,0,0.06)] backdrop-blur-sm">
       <div className="marketing-scroll-progress" aria-hidden="true" />
       <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
-        <Link href="/" className="flex items-center gap-2.5 text-white" aria-label="Rancho">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600">
+        <Link href="/" className="flex items-center gap-2.5 text-[var(--text)]" aria-label="Rancho">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white">
             <Leaf className="h-4.5 w-4.5" />
           </span>
           <span className="text-lg font-semibold tracking-tight">Rancho</span>
@@ -112,13 +112,13 @@ function NavLight({ currentSlug }: { currentSlug?: string }) {
             <Link
               key={item.slug}
               href={item.href}
-              className={`marketing-nav-link hidden rounded-md px-2.5 py-1.5 text-sm font-medium transition sm:inline-block ${currentSlug === item.slug ? "marketing-nav-link-active text-white" : "text-white/65 hover:text-white"}`}
+              className={`marketing-nav-link hidden rounded-md px-2.5 py-1.5 text-sm font-medium transition sm:inline-block ${currentSlug === item.slug ? "marketing-nav-link-active text-emerald-700 dark:text-emerald-400" : "text-[var(--text-2)] hover:text-[var(--text)]"}`}
               aria-current={currentSlug === item.slug ? "page" : undefined}
             >
               {item.label}
             </Link>
           ))}
-          <a href={CONTACT_HREF} className="ml-2 inline-flex h-9 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-gray-900 transition hover:bg-emerald-50">
+          <a href={CONTACT_HREF} className="ml-2 inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-600">
             Demo
             <ArrowRight className="h-3.5 w-3.5" />
           </a>
@@ -262,12 +262,12 @@ export function MarketingHomePage() {
                 Software com bot de WhatsApp integrado
               </div>
               <h1 className="text-3xl font-semibold leading-[1.15] tracking-tight sm:text-5xl lg:text-6xl">
-                Manda no WhatsApp.
+                Gestão da fazenda
                 <br />
-                <span className="text-emerald-400">Aparece no painel.</span>
+                <span className="text-emerald-400">do rebanho ao financeiro.</span>
               </h1>
               <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-gray-300 sm:text-lg">
-                A equipe registra a rotina da fazenda por mensagem. O Rancho organiza rebanho, produção, estoque e financeiro em um painel que você acompanha de qualquer lugar.
+                Rebanho, produção de leite, estoque, financeiro e equipe em um sistema feito pra rotina da fazenda — com registro pelo WhatsApp pra quem está no campo.
               </p>
               <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <a href={CONTACT_HREF} className="inline-flex h-12 items-center gap-2 rounded-lg bg-emerald-600 px-6 text-base font-semibold text-white transition hover:bg-emerald-500">
@@ -281,9 +281,9 @@ export function MarketingHomePage() {
               </div>
             </div>
 
-            {/* Dashboard screenshot bleeding into next section */}
-            <div className="relative mt-12 sm:mt-16">
-              <div className="overflow-hidden rounded-t-xl border border-b-0 border-white/10 shadow-2xl shadow-black/40">
+            {/* Dashboard preview */}
+            <div className="relative mx-auto mt-10 max-w-4xl sm:mt-14">
+              <div className="overflow-hidden rounded-xl border border-white/10 shadow-2xl shadow-black/40">
                 <Image
                   src="/landing/screenshots/dashboard.png"
                   alt="Painel do Rancho com indicadores da fazenda"
@@ -299,23 +299,10 @@ export function MarketingHomePage() {
         </section>
 
         {/* ── Trust strip ── */}
-        <section className="border-b border-[var(--border)] bg-[var(--surface)] px-5 py-4 sm:px-8">
-          <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-x-8 gap-y-2 text-sm text-[var(--text-2)] sm:flex-row">
-            <span className="flex items-center gap-1.5 font-medium">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              Feito por {founders.join(" e ")}
-            </span>
-            <span className="hidden text-[var(--border)] sm:inline">|</span>
-            <span className="flex items-center gap-1.5 font-medium">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              João Pessoa, Paraíba
-            </span>
-            <span className="hidden text-[var(--border)] sm:inline">|</span>
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="flex items-center gap-1.5 font-medium text-emerald-700 transition hover:text-emerald-800 dark:text-emerald-400">
-              <Mail className="h-4 w-4" />
-              {SUPPORT_EMAIL}
-            </a>
-          </div>
+        <section className="border-b border-[var(--border)] bg-[var(--surface)] px-5 py-3 sm:px-8">
+          <p className="mx-auto max-w-6xl text-center text-xs text-[var(--text-3)]">
+            Feito por {founders.join(" e ")} · João Pessoa, Paraíba · <a href={`mailto:${SUPPORT_EMAIL}`} className="text-emerald-700 hover:underline dark:text-emerald-400">{SUPPORT_EMAIL}</a>
+          </p>
         </section>
 
         {/* ── O problema → solução ── */}

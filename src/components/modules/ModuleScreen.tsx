@@ -180,6 +180,7 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
   const userId = dataContext.usuarioId;
   const queryContext = useMemo(() => ({ fazendaId: farmId, usuarioId: userId }), [farmId, userId]);
   const [rows, setRows] = useState<AnyRecord[]>([]);
+  const [allRows, setAllRows] = useState<AnyRecord[]>([]);
   const [relationOptions, setRelationOptions] = useState<Record<string, RelationOption[]>>({});
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<AnyRecord | null>(null);
@@ -213,20 +214,43 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
     setError("");
     try {
       const relationFields = config.fields.filter((field) => field.type === "relation" && field.relation);
-      const [data, relationPairs] = await withAsyncTimeout(Promise.all([
-        listRecords(config.tableName, {
-          orderBy: config.orderBy,
-          fazendaId: queryContext.fazendaId,
-          usuarioId: queryContext.usuarioId,
-          select: selectColumns,
-          limit: visibleLimit,
-          cache: true,
-          forceRefresh
-        }),
+      const listOptions = {
+        orderBy: config.orderBy,
+        fazendaId: queryContext.fazendaId,
+        usuarioId: queryContext.usuarioId,
+        select: selectColumns,
+        cache: true,
+        forceRefresh
+      };
+      const pageDataPromise = listRecords(config.tableName, {
+        ...listOptions,
+        limit: visibleLimit
+      });
+      const completeDataPromise = pageSize
+        ? (async () => {
+          const completeRows: AnyRecord[] = [];
+          const chunkSize = 1000;
+          let offset = 0;
+          while (true) {
+            const chunk = await listRecords(config.tableName, {
+              ...listOptions,
+              limit: chunkSize,
+              offset
+            });
+            completeRows.push(...chunk);
+            if (chunk.length < chunkSize) return completeRows;
+            offset += chunk.length;
+          }
+        })()
+        : pageDataPromise;
+      const [data, completeData, relationPairs] = await withAsyncTimeout(Promise.all([
+        pageDataPromise,
+        completeDataPromise,
         Promise.all(relationFields.map(async (field) => [field.name, await loadRelationOptions(field, queryContext)] as const))
       ]), `A tela de ${config.title} demorou para carregar. Tente novamente.`);
       if (loadRequestRef.current !== requestId) return;
       setRows(data);
+      setAllRows(completeData);
       setHasMoreRows(Boolean(pageSize && visibleLimit && data.length >= visibleLimit));
       setSelectedAnimal((current) => current ? data.find((row) => String(row.id) === String(current.id)) || current : current);
       setRelationOptions(Object.fromEntries(relationPairs));
@@ -254,8 +278,8 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
   }, [config.tableName]);
 
   const searchableRows = useMemo(
-    () => rows.map((row) => ({ row, text: JSON.stringify(row).toLowerCase() })),
-    [rows]
+    () => allRows.map((row) => ({ row, text: JSON.stringify(row).toLowerCase() })),
+    [allRows]
   );
 
   const filteredRows = useMemo(() => {
@@ -263,6 +287,8 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
     if (!term) return rows;
     return searchableRows.filter((item) => item.text.includes(term)).map((item) => item.row);
   }, [deferredSearch, rows, searchableRows]);
+
+  const statRows = deferredSearch.trim() ? filteredRows : allRows;
 
   const denyManage = useCallback(() => setError(PERMISSION_DENIED_MESSAGE), []);
   const exportFilteredRows = useCallback(() => exportCsv(config.key, filteredRows, config.fields), [config.fields, config.key, filteredRows]);
@@ -508,7 +534,7 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {(config.quickStats || []).map((stat, index) => (
-          <StatCard key={stat.label} title={stat.label} value={initialError ? "-" : calcStat(rows, stat)} icon={index % 2 ? Activity : Icon} tone={index % 2 ? "blue" : "green"} loading={showPlaceholders} />
+          <StatCard key={stat.label} title={stat.label} value={initialError ? "-" : calcStat(statRows, stat)} icon={index % 2 ? Activity : Icon} tone={index % 2 ? "blue" : "green"} loading={showPlaceholders} />
         ))}
       </div>
 
@@ -526,7 +552,7 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
           <div className="flex items-center justify-between">
             <h2 className="text-[15px] font-semibold">{config.key === "rebanho" ? "Animais do rebanho" : "Registros"}</h2>
             <span className="text-xs font-medium text-[var(--text-2)]">
-              {showPlaceholders ? <Skeleton className="h-4 w-20" /> : initialError ? "-" : config.key === "rebanho" ? `${rows.length} animais` : `${filteredRows.length} itens`}
+              {showPlaceholders ? <Skeleton className="h-4 w-20" /> : initialError ? "-" : config.key === "rebanho" ? `${allRows.length} animais` : `${deferredSearch.trim() ? filteredRows.length : allRows.length} itens`}
             </span>
           </div>
           {config.key === "rebanho" ? (
@@ -557,7 +583,7 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
               emptyMessage={emptyMessage}
             />
           )}
-          {pageSize && hasMoreRows ? (
+          {pageSize && hasMoreRows && !deferredSearch.trim() ? (
             <div className="flex justify-center">
               <button
                 className="btn btn-secondary"

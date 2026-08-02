@@ -13,11 +13,9 @@ import {
   Leaf,
   LogIn,
   Mail,
-  MapPin,
   MessageCircle,
   PawPrint,
   ShieldCheck,
-  Sparkles,
   UsersRound,
   Wallet,
   ZoomIn,
@@ -25,16 +23,13 @@ import {
 } from "lucide-react";
 import {
   CONTACT_HREF,
-  companyLocation,
   founders,
   homeExamples,
   homeFaq,
-  homeFeatures,
   marketingStructuredData,
   showcaseItems,
   solutionPages,
   SUPPORT_EMAIL,
-  trustSignals,
   type MarketingFeature,
   type MarketingIcon,
   type MarketingPageContent,
@@ -57,109 +52,463 @@ const iconMap: Record<MarketingIcon, LucideIcon> = {
   wallet: Wallet
 };
 
-const homeScreenshots = [
-  showcaseItems[0],
-  showcaseItems[1],
-  showcaseItems[3],
-  showcaseItems[4],
-  showcaseItems[5],
-  showcaseItems[7]
-];
-
-const managementAreas = [
-  "Controle de rebanho bovino",
-  "Gestão de gado leiteiro",
-  "Produção de leite e ordenha",
-  "Controle de estoque rural",
-  "Financeiro rural e fluxo de caixa",
-  "Reprodução, partos e genealogia",
-  "Vacinas, tratamentos e eventos",
-  "Funcionários, ponto e folha"
-];
-
-const marketingNavItems = [
-  { label: "Software", href: "/software-para-fazenda", slug: "software-para-fazenda" },
-  { label: "Rebanho", href: "/controle-de-rebanho", slug: "controle-de-rebanho" },
-  { label: "Produção", href: "/controle-leiteiro", slug: "controle-leiteiro" },
-  { label: "WhatsApp", href: "/bot-whatsapp-fazenda", slug: "bot-whatsapp-fazenda" },
-  { label: "Financeiro", href: "/financeiro-rural", slug: "financeiro-rural" }
-];
-
-function SectionLabel({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
-  return (
-    <p className={`mb-3 inline-flex items-center gap-2 rounded-md border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${dark ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200" : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"}`}>
-      <Leaf className="h-3.5 w-3.5" />
-      {children}
-    </p>
-  );
-}
-
-function MarketingHeader({ currentSlug }: { currentSlug?: string }) {
-  return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--border)] bg-[var(--surface)]/95 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <div className="marketing-scroll-progress" aria-hidden="true" />
-      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 pt-3 sm:px-6 lg:px-8">
-        <Link href="/" className="flex min-w-0 items-center gap-3 font-semibold text-[var(--text)]" aria-label="Rancho">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-800 text-white sm:h-10 sm:w-10">
-            <Leaf className="h-4 w-4 sm:h-5 sm:w-5" />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-lg leading-tight">Rancho</span>
-            <span className="block truncate text-xs font-medium text-[var(--text-2)]">Gestão agropecuária</span>
-          </span>
-        </Link>
-        <div className="flex shrink-0 items-center gap-2">
-          <Link href="/login" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--text-3)]">
-            <LogIn className="h-4 w-4" />
-            <span className="hidden sm:inline">Entrar</span>
-          </Link>
-          <a href={CONTACT_HREF} className="hidden h-10 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 text-sm font-semibold text-white transition hover:bg-emerald-800 sm:inline-flex sm:px-4">
-            <span className="hidden sm:inline">Solicitar demonstração</span>
-            <span className="sm:hidden">Demo</span>
-            <ArrowRight className="h-4 w-4" />
-          </a>
-        </div>
-      </nav>
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-2 pb-2 pt-2 sm:px-6 sm:pt-3 lg:px-8">
-        <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--bg)] p-1 text-sm font-semibold text-[var(--text-2)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2 lg:inline-flex lg:flex-none">
-          {marketingNavItems.map((item) => {
-            const active = currentSlug === item.slug;
-            return (
-              <Link
-                key={item.slug}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={`marketing-nav-link whitespace-nowrap rounded-md px-2.5 py-1.5 transition sm:px-3 sm:py-2 ${active ? "marketing-nav-link-active bg-emerald-700 text-white shadow-sm" : "hover:bg-[var(--surface)] hover:text-emerald-700 dark:hover:text-emerald-400"}`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-        <div className="marketing-section-indicator hidden shrink-0 items-center gap-2 rounded-lg border border-emerald-200 bg-[var(--surface)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-700 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-emerald-800 dark:text-emerald-300 xl:inline-flex">
-          <Sparkles className="h-3.5 w-3.5" />
-          <span data-section-indicator>Início</span>
-        </div>
-      </div>
-    </header>
-  );
-}
-
 function StructuredData({ page }: { page?: MarketingPageContent }) {
   return (
     <>
       {marketingStructuredData(page).map((item, index) => (
-        <script
-          key={index}
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(item) }}
-        />
+        <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(item) }} />
       ))}
     </>
   );
 }
 
-function Hero({
+function Nav() {
+  return (
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10">
+      <div className="marketing-scroll-progress" aria-hidden="true" />
+      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
+        <Link href="/" className="flex items-center gap-2.5 text-white" aria-label="Rancho">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600">
+            <Leaf className="h-4.5 w-4.5" />
+          </span>
+          <span className="text-lg font-semibold tracking-tight">Rancho</span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/login" className="hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/80 transition hover:text-white sm:inline-flex">
+            Entrar
+          </Link>
+          <a href={CONTACT_HREF} className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-gray-900 transition hover:bg-emerald-50">
+            <span className="hidden sm:inline">Solicitar demonstração</span>
+            <span className="sm:hidden">Demo</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      </nav>
+    </header>
+  );
+}
+
+function NavLight({ currentSlug }: { currentSlug?: string }) {
+  const navItems = [
+    { label: "Software", href: "/software-para-fazenda", slug: "software-para-fazenda" },
+    { label: "Rebanho", href: "/controle-de-rebanho", slug: "controle-de-rebanho" },
+    { label: "Produção", href: "/controle-leiteiro", slug: "controle-leiteiro" },
+    { label: "WhatsApp", href: "/bot-whatsapp-fazenda", slug: "bot-whatsapp-fazenda" },
+    { label: "Financeiro", href: "/financeiro-rural", slug: "financeiro-rural" }
+  ];
+
+  return (
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10">
+      <div className="marketing-scroll-progress" aria-hidden="true" />
+      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
+        <Link href="/" className="flex items-center gap-2.5 text-white" aria-label="Rancho">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600">
+            <Leaf className="h-4.5 w-4.5" />
+          </span>
+          <span className="text-lg font-semibold tracking-tight">Rancho</span>
+        </Link>
+        <div className="flex items-center gap-1">
+          {navItems.map((item) => (
+            <Link
+              key={item.slug}
+              href={item.href}
+              className={`marketing-nav-link hidden rounded-md px-2.5 py-1.5 text-sm font-medium transition sm:inline-block ${currentSlug === item.slug ? "marketing-nav-link-active text-white" : "text-white/65 hover:text-white"}`}
+              aria-current={currentSlug === item.slug ? "page" : undefined}
+            >
+              {item.label}
+            </Link>
+          ))}
+          <a href={CONTACT_HREF} className="ml-2 inline-flex h-9 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-gray-900 transition hover:bg-emerald-50">
+            Demo
+            <ArrowRight className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      </nav>
+    </header>
+  );
+}
+
+function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; large?: boolean }) {
+  return (
+    <article className={`marketing-spotlight reveal-on-scroll group overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:border-[var(--text-3)] ${large ? "lg:col-span-2" : ""}`}>
+      <div className="relative overflow-x-auto bg-[var(--surface)] [scrollbar-width:thin]">
+        <Image
+          src={item.image}
+          alt={`Tela do Rancho: ${item.name}`}
+          width={2160}
+          height={1350}
+          unoptimized
+          loading={large ? "eager" : "lazy"}
+          decoding="async"
+          sizes={large ? "(min-width: 1024px) 100vw, 100vw" : "(min-width: 1024px) 50vw, 100vw"}
+          className="h-auto w-[760px] max-w-none object-top sm:w-full"
+        />
+        {item.mask === "settings" ? (
+          <>
+            <div className="absolute left-[60%] top-[32%] h-[15%] w-[31%] rounded-lg border border-[var(--border)] bg-[var(--surface)]/85" />
+            <div className="absolute left-[60%] top-[64%] h-[19%] w-[31%] rounded-lg border border-[var(--border)] bg-[var(--surface)]/85" />
+          </>
+        ) : null}
+        <button
+          type="button"
+          data-screenshot-open
+          data-screenshot-src={item.image}
+          data-screenshot-title={item.name}
+          data-screenshot-detail={item.detail}
+          className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)]/90 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 transition hover:bg-[var(--surface)] dark:text-emerald-400 sm:hidden"
+        >
+          <ZoomIn className="h-3.5 w-3.5" />
+          Ampliar
+        </button>
+      </div>
+      <div className="border-t border-[var(--border)] px-4 py-3">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-3)]">{item.detail}</p>
+        <h3 className="mt-0.5 font-semibold text-[var(--text)]">{item.name}</h3>
+      </div>
+    </article>
+  );
+}
+
+function FeatureCard({ item }: { item: MarketingFeature }) {
+  const Icon = iconMap[item.icon];
+  return (
+    <article className="marketing-spotlight reveal-on-scroll group rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:border-[var(--text-3)]">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 transition group-hover:bg-emerald-700 group-hover:text-white dark:bg-emerald-950/40 dark:text-emerald-400 dark:group-hover:bg-emerald-700 dark:group-hover:text-white">
+        <Icon className="h-5 w-5" />
+      </div>
+      <h3 className="font-semibold text-[var(--text)]">{item.title}</h3>
+      <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-2)]">{item.description}</p>
+    </article>
+  );
+}
+
+function FaqBlock({ faq }: { faq: { question: string; answer: string }[] }) {
+  return (
+    <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+      {faq.map((item) => (
+        <article key={item.question} className="reveal-on-scroll p-5">
+          <h3 className="font-semibold text-[var(--text)]">{item.question}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--text-2)]">{item.answer}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-[var(--border)] bg-[var(--surface)] px-5 py-10 sm:px-8">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <Link href="/" className="inline-flex items-center gap-2.5 font-semibold text-[var(--text)]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-800 text-white">
+              <Leaf className="h-4 w-4" />
+            </span>
+            Rancho
+          </Link>
+          <p className="mt-3 max-w-xs text-sm leading-relaxed text-[var(--text-2)]">
+            Gestão agropecuária feita em João Pessoa/PB por {founders.join(" e ")}.
+          </p>
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="mt-2 inline-block text-sm font-medium text-emerald-700 dark:text-emerald-400">{SUPPORT_EMAIL}</a>
+        </div>
+        <div className="grid gap-x-10 gap-y-3 text-sm sm:grid-cols-2">
+          {solutionPages.map((page) => (
+            <Link key={page.slug} href={`/${page.slug}`} className="font-medium text-[var(--text-2)] transition hover:text-emerald-700 dark:hover:text-emerald-400">
+              {page.heroLabel}
+            </Link>
+          ))}
+          <Link href="/login" className="font-medium text-[var(--text-2)] transition hover:text-emerald-700 dark:hover:text-emerald-400">
+            Entrar no sistema
+          </Link>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+/* ─── HOME PAGE ─── */
+
+const whatsappExamples = [
+  { msg: "B-002 deu 32 litros hoje", tag: "Produção" },
+  { msg: "vendi 4 sacos de milho por 320 reais", tag: "Financeiro" },
+  { msg: "a vaca B-5 pariu uma bezerra hoje", tag: "Reprodução" },
+  { msg: "apliquei vacina clostridial na B-001", tag: "Saúde" },
+];
+
+const modules = [
+  { icon: "paw" as MarketingIcon, name: "Rebanho", desc: "Animais, lotes, fases e ficha individual" },
+  { icon: "droplets" as MarketingIcon, name: "Produção", desc: "Ordenhas, litros e destino do leite" },
+  { icon: "boxes" as MarketingIcon, name: "Estoque", desc: "Entradas, baixas e saldo de insumos" },
+  { icon: "wallet" as MarketingIcon, name: "Financeiro", desc: "Receitas, despesas e fluxo de caixa" },
+  { icon: "git-fork" as MarketingIcon, name: "Genealogia", desc: "Partos, crias e árvore familiar" },
+  { icon: "users" as MarketingIcon, name: "Equipe", desc: "Funcionários, ponto e acessos" },
+];
+
+export function MarketingHomePage() {
+  return (
+    <>
+      <StructuredData />
+      <main className="min-h-screen text-[var(--text)]">
+        <MarketingEffects />
+        <Nav />
+
+        {/* ── Hero ── */}
+        <section className="relative overflow-hidden bg-[#0f1a14] pb-0 pt-24 text-white sm:pt-28" data-marketing-section="inicio" data-section-label="Início">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(16,185,129,0.15),transparent)]" />
+          <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
+            <div className="mx-auto max-w-3xl text-center">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-1.5 text-sm font-medium text-emerald-300">
+                <Bot className="h-4 w-4" />
+                Software com bot de WhatsApp integrado
+              </div>
+              <h1 className="text-3xl font-semibold leading-[1.15] tracking-tight sm:text-5xl lg:text-6xl">
+                Manda no WhatsApp.
+                <br />
+                <span className="text-emerald-400">Aparece no painel.</span>
+              </h1>
+              <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-gray-300 sm:text-lg">
+                A equipe registra a rotina da fazenda por mensagem. O Rancho organiza rebanho, produção, estoque e financeiro em um painel que você acompanha de qualquer lugar.
+              </p>
+              <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <a href={CONTACT_HREF} className="inline-flex h-12 items-center gap-2 rounded-lg bg-emerald-600 px-6 text-base font-semibold text-white transition hover:bg-emerald-500">
+                  Solicitar demonstração
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+                <Link href="/login" className="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-6 text-base font-medium text-white/90 transition hover:bg-white/5">
+                  <LogIn className="h-4 w-4" />
+                  Entrar no sistema
+                </Link>
+              </div>
+            </div>
+
+            {/* Dashboard screenshot bleeding into next section */}
+            <div className="relative mt-12 sm:mt-16">
+              <div className="overflow-hidden rounded-t-xl border border-b-0 border-white/10 shadow-2xl shadow-black/40">
+                <Image
+                  src="/landing/screenshots/dashboard.png"
+                  alt="Painel do Rancho com indicadores da fazenda"
+                  width={2160}
+                  height={1350}
+                  unoptimized
+                  priority
+                  className="h-auto w-full"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Trust strip ── */}
+        <section className="border-b border-[var(--border)] bg-[var(--surface)] px-5 py-4 sm:px-8">
+          <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-x-8 gap-y-2 text-sm text-[var(--text-2)] sm:flex-row">
+            <span className="flex items-center gap-1.5 font-medium">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              Feito por {founders.join(" e ")}
+            </span>
+            <span className="hidden text-[var(--border)] sm:inline">|</span>
+            <span className="flex items-center gap-1.5 font-medium">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              João Pessoa, Paraíba
+            </span>
+            <span className="hidden text-[var(--border)] sm:inline">|</span>
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="flex items-center gap-1.5 font-medium text-emerald-700 transition hover:text-emerald-800 dark:text-emerald-400">
+              <Mail className="h-4 w-4" />
+              {SUPPORT_EMAIL}
+            </a>
+          </div>
+        </section>
+
+        {/* ── O problema → solução ── */}
+        <section className="bg-[var(--bg)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="problema" data-section-label="Por que existe">
+          <div className="reveal-on-scroll mx-auto max-w-6xl">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="text-2xl font-semibold sm:text-3xl">
+                Caderno perde. Planilha atrasa.
+                <br className="hidden sm:block" />
+                {" "}Conversa no WhatsApp some.
+              </h2>
+              <p className="mt-4 text-base leading-relaxed text-[var(--text-2)]">
+                A informação da fazenda fica espalhada e o gestor só descobre o que aconteceu quando já é tarde. O Rancho resolve isso conectando o registro do campo ao painel da gestão.
+              </p>
+            </div>
+            <div className="mt-12 grid gap-4 sm:grid-cols-3">
+              {[
+                { num: "1", title: "A equipe manda mensagem", desc: "Pelo WhatsApp, como já faz hoje. Sem app novo, sem treinamento." },
+                { num: "2", title: "O Rancho organiza", desc: "O bot entende a mensagem, confirma com o funcionário e registra no módulo certo." },
+                { num: "3", title: "Você acompanha", desc: "Rebanho, produção, estoque e financeiro atualizados no painel, de qualquer lugar." },
+              ].map((step) => (
+                <div key={step.num} className="reveal-on-scroll rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                  <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-700 text-sm font-semibold text-white">{step.num}</div>
+                  <h3 className="font-semibold">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--text-2)]">{step.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── WhatsApp: o diferencial ── */}
+        <section className="bg-[#0f1a14] px-5 py-16 text-white sm:px-8 sm:py-20" data-marketing-section="whatsapp" data-section-label="WhatsApp">
+          <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center">
+            <div className="reveal-on-scroll">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-300">
+                <MessageCircle className="h-3.5 w-3.5" />
+                Diferencial
+              </div>
+              <h2 className="text-2xl font-semibold sm:text-3xl">A equipe registra como já conversa.</h2>
+              <p className="mt-4 text-base leading-relaxed text-gray-300">
+                Ninguém precisa aprender um sistema novo. O funcionário manda uma mensagem simples no WhatsApp e o Rancho transforma em registro organizado — produção, estoque, financeiro, tudo no lugar certo.
+              </p>
+              <div className="mt-8 space-y-3">
+                {whatsappExamples.map((ex) => (
+                  <div key={ex.msg} className="reveal-on-scroll flex items-start gap-3 rounded-lg border border-white/8 bg-white/5 p-3">
+                    <span className="mt-0.5 shrink-0 rounded bg-emerald-600/30 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-300">{ex.tag}</span>
+                    <p className="text-sm text-gray-200">&ldquo;{ex.msg}&rdquo;</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="reveal-on-scroll">
+              <div className="overflow-hidden rounded-xl border border-white/10 shadow-2xl shadow-black/30">
+                <Image
+                  src="/landing/screenshots/whatsapp.png"
+                  alt="Bot de WhatsApp do Rancho para registro da fazenda"
+                  width={2160}
+                  height={1350}
+                  unoptimized
+                  loading="lazy"
+                  className="h-auto w-full"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Módulos ── */}
+        <section className="bg-[var(--bg)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="modulos" data-section-label="Módulos">
+          <div className="mx-auto max-w-6xl">
+            <div className="reveal-on-scroll mx-auto max-w-2xl text-center">
+              <h2 className="text-2xl font-semibold sm:text-3xl">Tudo que a fazenda precisa, conectado.</h2>
+              <p className="mt-3 text-base text-[var(--text-2)]">
+                Cada módulo conversa com os outros. Uma venda atualiza o estoque e o financeiro. Um parto cria a cria e atualiza a genealogia.
+              </p>
+            </div>
+            <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {modules.map((m) => {
+                const Icon = iconMap[m.icon];
+                return (
+                  <div key={m.name} className="marketing-spotlight reveal-on-scroll flex items-start gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:border-[var(--text-3)]">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{m.name}</h3>
+                      <p className="mt-1 text-sm text-[var(--text-2)]">{m.desc}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Telas do sistema ── */}
+        <section className="bg-[var(--surface)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="produto" data-section-label="Produto">
+          <div className="mx-auto max-w-6xl">
+            <div className="reveal-on-scroll flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+              <div>
+                <h2 className="text-2xl font-semibold sm:text-3xl">Veja o sistema por dentro.</h2>
+                <p className="mt-2 max-w-lg text-base text-[var(--text-2)]">Telas reais com dados protegidos.</p>
+              </div>
+              <Link href="/login" className="btn btn-secondary shrink-0">
+                Acessar o sistema
+                <LogIn className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="mt-10 grid gap-5 sm:grid-cols-2">
+              {[showcaseItems[1], showcaseItems[3], showcaseItems[4], showcaseItems[5]].map((item) => (
+                <ScreenshotCard key={item.name} item={item} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Exemplos ── */}
+        <section className="bg-[var(--bg)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="exemplos" data-section-label="Exemplos">
+          <div className="mx-auto max-w-6xl">
+            <div className="reveal-on-scroll mx-auto mb-10 max-w-2xl text-center">
+              <h2 className="text-2xl font-semibold sm:text-3xl">Mensagem simples, registro completo.</h2>
+              <p className="mt-3 text-base text-[var(--text-2)]">
+                O funcionário escreve como fala. O Rancho entende, confirma e salva no módulo certo.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {homeExamples.slice(0, 4).map((ex) => (
+                <div key={ex.text} className="marketing-spotlight reveal-on-scroll rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{ex.area}</span>
+                  <p className="mt-3 rounded-lg bg-gray-900 px-3 py-2.5 text-sm font-medium text-white dark:bg-gray-800">&ldquo;{ex.text}&rdquo;</p>
+                  <p className="mt-3 text-sm leading-relaxed text-[var(--text-2)]">{ex.result}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Soluções ── */}
+        <section className="bg-[var(--surface)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="solucoes" data-section-label="Soluções">
+          <div className="mx-auto max-w-6xl">
+            <h2 className="reveal-on-scroll text-center text-2xl font-semibold sm:text-3xl">Explore por área</h2>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {solutionPages.slice(0, 6).map((page) => (
+                <Link key={page.slug} href={`/${page.slug}`} className="marketing-spotlight reveal-on-scroll group rounded-xl border border-[var(--border)] bg-[var(--bg)] p-5 transition hover:border-[var(--text-3)]">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{page.heroLabel}</span>
+                  <h3 className="mt-2 font-semibold text-[var(--text)]">{page.heroTitle}</h3>
+                  <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                    Ver página <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── FAQ ── */}
+        <section className="bg-[var(--bg)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="faq" data-section-label="FAQ">
+          <div className="mx-auto max-w-3xl">
+            <h2 className="reveal-on-scroll mb-8 text-center text-2xl font-semibold sm:text-3xl">Perguntas frequentes</h2>
+            <FaqBlock faq={homeFaq} />
+          </div>
+        </section>
+
+        {/* ── CTA final ── */}
+        <section className="px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="contato" data-section-label="Contato">
+          <div className="reveal-on-scroll mx-auto max-w-3xl rounded-2xl bg-[#0f1a14] p-8 text-center text-white sm:p-12">
+            <h2 className="text-2xl font-semibold sm:text-3xl">Quer ver o Rancho na sua fazenda?</h2>
+            <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-gray-300">
+              Agende uma demonstração e veja como a rotina da fazenda fica mais simples de registrar e acompanhar.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a href={CONTACT_HREF} className="inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 font-semibold text-gray-900 transition hover:bg-emerald-50">
+                Solicitar demonstração
+                <ArrowRight className="h-4 w-4" />
+              </a>
+              <Link href="/login" className="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-6 font-medium text-white/90 transition hover:bg-white/5">
+                Entrar no sistema
+              </Link>
+            </div>
+            <p className="mt-5 text-sm text-gray-400">{SUPPORT_EMAIL}</p>
+          </div>
+        </section>
+
+        <Footer />
+      </main>
+    </>
+  );
+}
+
+/* ─── SOLUTION PAGE ─── */
+
+function SolutionHero({
   label,
   title,
   text,
@@ -177,370 +526,45 @@ function Hero({
   proof: string[];
 }) {
   return (
-    <section className="relative isolate overflow-hidden bg-gray-950 text-white" data-marketing-section="inicio" data-section-label="Início">
-      <div className="absolute inset-0 z-0 bg-gray-950" />
+    <section className="relative isolate overflow-hidden bg-[#0f1a14] text-white" data-marketing-section="inicio" data-section-label="Início">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(16,185,129,0.12),transparent)]" />
       <div
         aria-label={imageAlt}
         role="img"
-        className="marketing-hero-visual absolute inset-y-0 right-0 z-0 w-full bg-cover bg-top opacity-20 lg:w-[72%] lg:opacity-95"
+        className="marketing-hero-visual absolute inset-y-0 right-0 z-0 w-full bg-cover bg-top opacity-15 lg:w-[72%] lg:opacity-90"
         style={{ backgroundImage: `url(${image})` }}
       />
-      <div className="absolute inset-0 z-0 bg-[linear-gradient(90deg,#0a0c10_0%,#0a0c10_68%,rgba(10,12,16,0.82)_100%)] lg:bg-[linear-gradient(90deg,#0a0c10_0%,#0a0c10_45%,rgba(10,12,16,0.86)_58%,rgba(10,12,16,0.32)_78%,rgba(10,12,16,0.08)_100%)]" />
-      <div className="absolute inset-x-0 bottom-0 z-0 h-48 bg-gradient-to-t from-gray-950 via-gray-950/70 to-transparent" />
-      <div className="relative z-10 mx-auto flex min-h-[68svh] max-w-7xl items-end px-4 pb-12 pt-32 sm:px-6 sm:pb-16 sm:pt-36 lg:px-8">
-        <div className="w-full min-w-0 max-w-3xl animate-fade-in lg:max-w-[690px]">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-md border border-emerald-400/25 bg-white/8 px-3 py-1 text-sm font-semibold text-emerald-200">
+      <div className="absolute inset-0 z-0 bg-[linear-gradient(90deg,#0f1a14_0%,#0f1a14_68%,rgba(15,26,20,0.82)_100%)] lg:bg-[linear-gradient(90deg,#0f1a14_0%,#0f1a14_42%,rgba(15,26,20,0.88)_56%,rgba(15,26,20,0.35)_78%,rgba(15,26,20,0.08)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 z-0 h-48 bg-gradient-to-t from-[#0f1a14] via-[#0f1a14]/70 to-transparent" />
+      <div className="relative z-10 mx-auto flex min-h-[60svh] max-w-6xl items-end px-5 pb-12 pt-24 sm:px-8 sm:pb-16 sm:pt-32">
+        <div className="w-full max-w-2xl animate-fade-in">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-sm font-medium text-emerald-300">
             <ShieldCheck className="h-4 w-4" />
             {label}
           </div>
-          <h1 className="max-w-full break-words text-2xl font-semibold leading-tight tracking-tight sm:max-w-4xl sm:text-5xl lg:text-6xl">
-            {title}
-          </h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-gray-200 sm:mt-6 sm:text-lg sm:leading-8">
-            {text}
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a href={CONTACT_HREF} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 text-base font-semibold text-white shadow-lg transition hover:bg-emerald-500">
+          <h1 className="text-2xl font-semibold leading-tight tracking-tight sm:text-4xl lg:text-5xl">{title}</h1>
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-gray-300 sm:text-lg">{text}</p>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <a href={CONTACT_HREF} className="inline-flex h-12 items-center gap-2 rounded-lg bg-emerald-600 px-6 font-semibold text-white transition hover:bg-emerald-500">
               {primaryCta}
-              <ArrowRight className="h-5 w-5" />
+              <ArrowRight className="h-4 w-4" />
             </a>
-            <Link href="/login" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/8 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/15">
-              Entrar no sistema
-              <LogIn className="h-5 w-5" />
+            <Link href="/login" className="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-6 font-medium text-white/90 transition hover:bg-white/5">
+              <LogIn className="h-4 w-4" />
+              Entrar
             </Link>
           </div>
-          <div className="mt-8 grid max-w-2xl gap-3 text-sm font-medium text-gray-200 sm:grid-cols-3">
+          <div className="mt-6 flex flex-wrap gap-3 text-sm font-medium text-gray-300">
             {proof.map((item) => (
-              <div key={item} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/8 px-3 py-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              <span key={item} className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
                 {item}
-              </div>
+              </span>
             ))}
           </div>
         </div>
       </div>
     </section>
-  );
-}
-
-function TrustStrip() {
-  return (
-    <section className="border-y border-[var(--border)] bg-[var(--surface)]">
-      <div className="mx-auto grid max-w-7xl gap-3 px-4 py-4 text-sm font-medium text-[var(--text-2)] sm:px-6 md:grid-cols-3 lg:px-8">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          {companyLocation}
-        </div>
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          Feito por {founders.join(" e ")}
-        </div>
-        <a href={CONTACT_HREF} className="flex items-center gap-2 text-emerald-700 transition hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300">
-          <Mail className="h-4 w-4" />
-          {SUPPORT_EMAIL}
-        </a>
-      </div>
-    </section>
-  );
-}
-
-function FeatureCard({ item }: { item: MarketingFeature }) {
-  const Icon = iconMap[item.icon];
-  return (
-    <article className="marketing-spotlight reveal-on-scroll group rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition duration-200 hover:border-[var(--text-3)]">
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 transition group-hover:bg-emerald-700 group-hover:text-white dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-800 dark:group-hover:bg-emerald-700 dark:group-hover:text-white">
-        <Icon className="h-5 w-5" />
-      </div>
-      <h3 className="text-lg font-semibold text-[var(--text)]">{item.title}</h3>
-      <p className="mt-2 text-sm leading-6 text-[var(--text-2)]">{item.description}</p>
-    </article>
-  );
-}
-
-function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; large?: boolean }) {
-  return (
-    <article className={`marketing-spotlight reveal-on-scroll group overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition duration-200 hover:border-[var(--text-3)] ${large ? "lg:col-span-2" : ""}`}>
-      <div className="relative overflow-x-auto bg-[var(--surface)] [scrollbar-width:thin]">
-        <Image
-          src={item.image}
-          alt={`Tela do Rancho: ${item.name}`}
-          width={2160}
-          height={1350}
-          unoptimized
-          loading={large ? "eager" : "lazy"}
-          decoding="async"
-          sizes={large ? "(min-width: 1024px) 100vw, 100vw" : "(min-width: 1024px) 50vw, 100vw"}
-          className="h-auto w-[760px] max-w-none object-top sm:w-full"
-        />
-        <div className="absolute right-[2.5%] top-[2.8%] flex min-h-8 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)]/85 px-3 text-center text-[10px] font-semibold uppercase tracking-wide text-[var(--text-2)]">
-          Demo protegida
-        </div>
-        {item.mask === "settings" ? (
-          <>
-            <div className="absolute left-[60%] top-[32%] h-[15%] w-[31%] rounded-lg border border-[var(--border)] bg-[var(--surface)]/85" />
-            <div className="absolute left-[60%] top-[64%] h-[19%] w-[31%] rounded-lg border border-[var(--border)] bg-[var(--surface)]/85" />
-          </>
-        ) : null}
-        <button
-          type="button"
-          data-screenshot-open
-          data-screenshot-src={item.image}
-          data-screenshot-title={item.name}
-          data-screenshot-detail={item.detail}
-          className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)]/90 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm transition hover:bg-[var(--surface)] dark:text-emerald-400 sm:hidden"
-        >
-          <ZoomIn className="h-3.5 w-3.5" />
-          Ampliar
-        </button>
-      </div>
-      <div className="border-t border-[var(--border)] p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{item.detail}</p>
-        <h3 className="mt-1 text-xl font-semibold text-[var(--text)]">{item.name}</h3>
-      </div>
-    </article>
-  );
-}
-
-function ExamplesGrid({ examples }: { examples: { area: string; text: string; result: string }[] }) {
-  return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {examples.map((example) => (
-        <article key={`${example.area}-${example.text}`} className="marketing-spotlight reveal-on-scroll rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{example.area}</p>
-          <p className="mt-3 rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium leading-6 text-white dark:bg-gray-800">&ldquo;{example.text}&rdquo;</p>
-          <p className="mt-3 text-sm leading-6 text-[var(--text-2)]">{example.result}</p>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function FaqBlock({ faq }: { faq: { question: string; answer: string }[] }) {
-  return (
-    <div className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      {faq.map((item) => (
-        <article key={item.question} className="reveal-on-scroll p-5">
-          <h3 className="text-lg font-semibold text-[var(--text)]">{item.question}</h3>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-2)]">{item.answer}</p>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1fr_1.2fr_1fr]">
-        <div>
-          <Link href="/" className="inline-flex items-center gap-3 font-semibold text-[var(--text)]">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-800 text-white">
-              <Leaf className="h-5 w-5" />
-            </span>
-            <span>Rancho</span>
-          </Link>
-          <p className="mt-3 max-w-sm text-sm leading-6 text-[var(--text-2)]">
-            Plataforma para organizar rebanho, produção, estoque, financeiro e registros pelo WhatsApp.
-          </p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-3)]">Soluções</p>
-          <div className="mt-4 grid gap-3 text-sm font-medium text-[var(--text-2)] sm:grid-cols-2">
-            {solutionPages.map((page) => (
-              <Link key={page.slug} href={`/${page.slug}`} className="transition hover:text-emerald-700 dark:hover:text-emerald-400">
-                {page.heroLabel}
-              </Link>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-3)]">Confiança</p>
-          <div className="mt-4 space-y-2 text-sm leading-6 text-[var(--text-2)]">
-            {trustSignals.map((item) => <p key={item}>{item}</p>)}
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
-function CtaBand({ title = "Quer ver o Rancho funcionando na sua fazenda?", text = "Agende uma demonstração e veja como o Rancho ajuda a organizar rebanho, produção, estoque, financeiro e WhatsApp em uma rotina mais simples de acompanhar." }) {
-  return (
-    <section id="contato" className="px-4 py-16 sm:px-6 lg:px-8" data-marketing-section="contato" data-section-label="Contato">
-      <div className="marketing-spotlight reveal-on-scroll mx-auto max-w-5xl overflow-hidden rounded-lg bg-gray-900 p-8 text-center text-white shadow-lg dark:bg-gray-800 sm:p-12">
-        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-lg bg-emerald-400/15 text-emerald-300">
-          <Leaf className="h-7 w-7" />
-        </div>
-        <h2 className="text-2xl font-semibold sm:text-4xl">{title}</h2>
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-8 text-gray-200">{text}</p>
-        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-          <a href={CONTACT_HREF} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-6 py-3 text-base font-semibold text-emerald-800 transition hover:bg-emerald-50">
-            Solicitar demonstração
-            <ArrowRight className="h-5 w-5" />
-          </a>
-          <Link href="/login" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-white/20 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10">
-            Entrar no sistema
-            <LogIn className="h-5 w-5" />
-          </Link>
-        </div>
-        <p className="mt-5 text-sm font-medium text-gray-300">E-mail: {SUPPORT_EMAIL}</p>
-      </div>
-    </section>
-  );
-}
-
-export function MarketingHomePage() {
-  return (
-    <>
-      <StructuredData />
-      <main className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-        <MarketingHeader />
-        <MarketingEffects />
-        <Hero
-          label="Software para fazenda"
-          title="Rancho: a fazenda no controle, do rebanho ao financeiro."
-          text="Acompanhe produção, animais, estoque, equipe, financeiro e registros pelo WhatsApp em um sistema feito para a rotina de fazenda."
-          image="/landing/screenshots/dashboard.png"
-          imageAlt="Dashboard do Rancho para gestão agropecuária"
-          primaryCta="Quero conhecer"
-          proof={["Software para fazenda", "Bot de WhatsApp integrado", "Login para acessar o sistema"]}
-        />
-        <TrustStrip />
-
-        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8" data-marketing-section="visao-geral" data-section-label="Visão geral">
-          <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
-            <div>
-              <SectionLabel>Por que existe</SectionLabel>
-              <h2 className="text-2xl font-semibold text-[var(--text)] sm:text-4xl">A fazenda trabalha melhor quando a informação não se perde.</h2>
-              <p className="mt-4 text-base leading-8 text-[var(--text-2)]">
-                O Rancho foi pensado para tirar a gestão da mistura entre caderno, planilha e conversa solta. A equipe registra a rotina e o gestor acompanha tudo com mais clareza.
-              </p>
-              <div className="mt-6 grid gap-3 text-sm font-medium text-[var(--text-2)] sm:grid-cols-2">
-                {["Menos erro de anotação", "Histórico confiável do rebanho", "Controle financeiro mais claro", "Uso simples para a equipe"].map((item) => (
-                  <div key={item} className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <ScreenshotCard item={showcaseItems[0]} large />
-          </div>
-        </section>
-
-        <section id="funcionalidades" className="bg-[var(--surface)] py-14" data-marketing-section="funcionalidades" data-section-label="Funcionalidades">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-3xl text-center">
-              <SectionLabel>Funcionalidades</SectionLabel>
-              <h2 className="text-2xl font-semibold text-[var(--text)] sm:text-4xl">Tudo que a fazenda precisa acompanhar, em um só lugar.</h2>
-              <p className="mt-4 text-base leading-7 text-[var(--text-2)]">Módulos conectados para deixar a rotina da fazenda mais fácil de registrar, conferir e acompanhar.</p>
-            </div>
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {homeFeatures.slice(0, 6).map((feature) => <FeatureCard key={feature.title} item={feature} />)}
-            </div>
-          </div>
-        </section>
-
-        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8" data-marketing-section="areas" data-section-label="Áreas">
-          <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div>
-              <SectionLabel>Áreas cobertas</SectionLabel>
-              <h2 className="text-2xl font-semibold text-[var(--text)] sm:text-4xl">Controle para fazenda de leite, pecuária e operação rural.</h2>
-              <p className="mt-4 text-base leading-8 text-[var(--text-2)]">
-                Cada área conversa com as outras para o produtor enxergar melhor o que acontece na fazenda, sem depender de informação espalhada.
-              </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {managementAreas.slice(0, 6).map((area) => (
-                  <div key={area} className="marketing-spotlight reveal-on-scroll flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-sm font-semibold text-[var(--text)] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-                    <ClipboardCheck className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    {area}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {solutionPages.slice(0, 4).map((page) => (
-                <Link key={page.slug} href={`/${page.slug}`} className="marketing-spotlight reveal-on-scroll group rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:border-[var(--text-3)]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{page.heroLabel}</p>
-                  <h3 className="mt-3 text-xl font-semibold text-[var(--text)]">{page.heroTitle}</h3>
-                  <p className="mt-3 text-sm leading-6 text-[var(--text-2)]">{page.description}</p>
-                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                    Ver página
-                    <ChevronRight className="h-4 w-4 transition group-hover:translate-x-1" />
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="whatsapp" className="bg-gray-900 py-14 text-white dark:bg-gray-800" data-marketing-section="whatsapp" data-section-label="WhatsApp">
-          <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[0.82fr_1.18fr] lg:px-8">
-            <div>
-              <SectionLabel dark>WhatsApp integrado</SectionLabel>
-              <h2 className="text-2xl font-semibold sm:text-4xl">Registre a rotina da fazenda direto pelo WhatsApp.</h2>
-              <p className="mt-5 text-base leading-8 text-gray-300">
-                A equipe manda uma mensagem simples e o Rancho organiza o registro para aparecer no painel certo, sem transformar tudo em planilha.
-              </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {["Bot de WhatsApp integrado", "Registro rápido da rotina", "Consultas e tabelas por mensagem", "Dados direto no painel"].map((item) => (
-                  <div key={item} className="flex items-center gap-2 text-sm font-medium text-gray-200">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <ScreenshotCard item={showcaseItems[7]} large />
-          </div>
-        </section>
-
-        <section id="exemplos" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8" data-marketing-section="exemplos" data-section-label="Exemplos">
-          <div className="mx-auto max-w-3xl text-center">
-            <SectionLabel>Exemplos reais</SectionLabel>
-            <h2 className="text-2xl font-semibold text-[var(--text)] sm:text-4xl">Mensagens simples viram controle da fazenda.</h2>
-            <p className="mt-4 text-base leading-7 text-[var(--text-2)]">
-              A mensagem continua simples para quem está no campo, e o Rancho organiza tudo para virar controle dentro do sistema.
-            </p>
-          </div>
-          <div className="mt-10">
-            <ExamplesGrid examples={homeExamples.slice(0, 4)} />
-          </div>
-        </section>
-
-        <section id="prints" className="bg-[var(--surface)] py-14" data-marketing-section="produto" data-section-label="Produto">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-              <div className="max-w-3xl">
-                <SectionLabel>Prévia do sistema</SectionLabel>
-                <h2 className="text-2xl font-semibold text-[var(--text)] sm:text-4xl">Telas reais para entender como o Rancho funciona.</h2>
-                <p className="mt-4 text-base leading-7 text-[var(--text-2)]">
-                  Selecionamos telas do sistema para mostrar a rotina com clareza, sem encher a página de informação repetida.
-                </p>
-              </div>
-              <Link href="/login" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-5 py-3 text-sm font-semibold text-[var(--text)] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:border-[var(--text-3)]">
-                Ir para o login
-                <LogIn className="h-4 w-4" />
-              </Link>
-            </div>
-            <div className="mt-10 grid gap-6 lg:grid-cols-2">
-              {homeScreenshots.map((item) => <ScreenshotCard key={item.name} item={item} />)}
-            </div>
-          </div>
-        </section>
-
-        <section id="faq" className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8" data-marketing-section="faq" data-section-label="FAQ">
-          <SectionLabel>Perguntas frequentes</SectionLabel>
-          <h2 className="max-w-3xl text-2xl font-semibold text-[var(--text)] sm:text-4xl">Dúvidas comuns sobre o Rancho.</h2>
-          <div className="mt-8">
-            <FaqBlock faq={homeFaq} />
-          </div>
-        </section>
-
-        <CtaBand />
-        <Footer />
-      </main>
-    </>
   );
 }
 
@@ -555,10 +579,10 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
   return (
     <>
       <StructuredData page={page} />
-      <main className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-        <MarketingHeader currentSlug={page.slug} />
+      <main className="min-h-screen text-[var(--text)]">
+        <NavLight currentSlug={page.slug} />
         <MarketingEffects />
-        <Hero
+        <SolutionHero
           label={page.heroLabel}
           title={page.heroTitle}
           text={page.heroText}
@@ -567,74 +591,86 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
           primaryCta={page.primaryCta}
           proof={page.proof}
         />
-        <TrustStrip />
 
-        <section className="reveal-on-scroll mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8" data-marketing-section="visao-geral" data-section-label="Visão geral">
-          <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
+        {/* Intro + benefits */}
+        <section className="bg-[var(--bg)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="visao-geral" data-section-label="Visão geral">
+          <div className="reveal-on-scroll mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
             <div>
-              <SectionLabel>Visão geral</SectionLabel>
-              <h2 className="text-2xl font-semibold text-[var(--text)] sm:text-4xl">{page.introTitle}</h2>
-              <p className="mt-5 text-base leading-8 text-[var(--text-2)]">{page.introText}</p>
+              <h2 className="text-2xl font-semibold sm:text-3xl">{page.introTitle}</h2>
+              <p className="mt-4 text-base leading-relaxed text-[var(--text-2)]">{page.introText}</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
-              {page.benefits.map((benefit) => <FeatureCard key={benefit.title} item={benefit} />)}
+              {page.benefits.map((b) => <FeatureCard key={b.title} item={b} />)}
             </div>
           </div>
         </section>
 
-        <section className="bg-[var(--surface)] py-14" data-marketing-section="pratica" data-section-label="Na prática">
-          <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
-            <div>
-              <SectionLabel>Na prática</SectionLabel>
-              <h2 className="text-2xl font-semibold text-[var(--text)] sm:text-4xl">{page.workflowTitle}</h2>
-              <p className="mt-4 text-base leading-8 text-[var(--text-2)]">
-                O fluxo foi pensado para a equipe registrar sem complicação e para a gestão acompanhar com confiança.
-              </p>
+        {/* Workflow */}
+        <section className="bg-[var(--surface)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="pratica" data-section-label="Na prática">
+          <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+            <div className="reveal-on-scroll">
+              <h2 className="text-2xl font-semibold sm:text-3xl">{page.workflowTitle}</h2>
+              <p className="mt-3 text-base text-[var(--text-2)]">Fluxo simples para quem registra e para quem acompanha.</p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {page.workflow.map((step, index) => (
-                <div key={step} className="marketing-spotlight reveal-on-scroll rounded-lg border border-[var(--border)] bg-[var(--bg)] p-5">
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-700 text-lg font-semibold text-white">{index + 1}</div>
-                  <p className="text-lg font-semibold leading-7 text-[var(--text)]">{step}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {page.workflow.map((step, i) => (
+                <div key={step} className="reveal-on-scroll rounded-xl border border-[var(--border)] bg-[var(--bg)] p-5">
+                  <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-700 text-sm font-semibold text-white">{i + 1}</div>
+                  <p className="font-medium leading-relaxed">{step}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        <section className="bg-[var(--surface)] py-14" data-marketing-section="produto" data-section-label="Produto">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl">
-              <SectionLabel>Produto real</SectionLabel>
-              <h2 className="text-2xl font-semibold text-[var(--text)] sm:text-4xl">Telas reais para ver o Rancho em uso.</h2>
-              <p className="mt-4 text-base leading-7 text-[var(--text-2)]">Prints do sistema com dados protegidos, mostrando como a rotina aparece no painel.</p>
-            </div>
-            <div className="mt-10 grid gap-6 lg:grid-cols-2">
+        {/* Screenshots */}
+        <section className="bg-[var(--surface)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="produto" data-section-label="Produto">
+          <div className="mx-auto max-w-6xl">
+            <h2 className="reveal-on-scroll text-2xl font-semibold sm:text-3xl">Telas reais do sistema</h2>
+            <div className="mt-8 grid gap-5 lg:grid-cols-2">
               {visibleScreenshots.map((item) => <ScreenshotCard key={item.name} item={item} />)}
             </div>
           </div>
         </section>
 
-        <section className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[0.75fr_1.25fr] lg:px-8" data-marketing-section="faq" data-section-label="FAQ">
-          <div>
-            <SectionLabel>Perguntas frequentes</SectionLabel>
-            <h2 className="text-2xl font-semibold text-[var(--text)] sm:text-4xl">O que o produtor costuma querer saber.</h2>
+        {/* Examples */}
+        {page.examples.length > 0 ? (
+          <section className="bg-[var(--bg)] px-5 py-16 sm:px-8 sm:py-20">
+            <div className="mx-auto max-w-6xl">
+              <h2 className="reveal-on-scroll mb-8 text-2xl font-semibold sm:text-3xl">Exemplos de uso</h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {page.examples.map((ex) => (
+                  <div key={ex.text} className="reveal-on-scroll rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{ex.area}</span>
+                    <p className="mt-2 rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white dark:bg-gray-800">&ldquo;{ex.text}&rdquo;</p>
+                    <p className="mt-2 text-sm text-[var(--text-2)]">{ex.result}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {/* FAQ */}
+        <section className="px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="faq" data-section-label="FAQ">
+          <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.4fr_0.6fr]">
+            <h2 className="reveal-on-scroll text-2xl font-semibold sm:text-3xl">Perguntas frequentes</h2>
+            <FaqBlock faq={page.faq} />
           </div>
-          <FaqBlock faq={page.faq} />
         </section>
 
-        <section className="bg-gray-900 py-14 text-white dark:bg-gray-800" data-marketing-section="relacionados" data-section-label="Relacionados">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <SectionLabel dark>Também pode ajudar</SectionLabel>
-            <div className="grid gap-4 md:grid-cols-3">
-              {relatedPages.map((related) => (
-                <Link key={related.slug} href={`/${related.slug}`} className="marketing-spotlight reveal-on-scroll group rounded-lg border border-white/10 bg-white/[0.06] p-5 transition hover:border-emerald-400/40 hover:bg-white/[0.09]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300">{related.heroLabel}</p>
-                  <h3 className="mt-3 text-xl font-semibold text-white">{related.heroTitle}</h3>
-                  <p className="mt-3 text-sm leading-6 text-gray-300">{related.description}</p>
-                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300">
-                    Ver solução
-                    <ChevronRight className="h-4 w-4 transition group-hover:translate-x-1" />
+        {/* Related */}
+        <section className="bg-[#0f1a14] px-5 py-16 text-white sm:px-8 sm:py-20" data-marketing-section="relacionados" data-section-label="Relacionados">
+          <div className="mx-auto max-w-6xl">
+            <h2 className="reveal-on-scroll mb-8 text-2xl font-semibold">Também pode ajudar</h2>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {relatedPages.map((rel) => (
+                <Link key={rel.slug} href={`/${rel.slug}`} className="reveal-on-scroll group rounded-xl border border-white/10 bg-white/5 p-5 transition hover:border-emerald-400/30 hover:bg-white/8">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">{rel.heroLabel}</span>
+                  <h3 className="mt-2 font-semibold">{rel.heroTitle}</h3>
+                  <p className="mt-2 text-sm text-gray-400">{rel.description}</p>
+                  <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-emerald-300">
+                    Ver solução <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
                   </span>
                 </Link>
               ))}
@@ -642,7 +678,24 @@ export function MarketingSolutionPage({ page }: { page: MarketingPageContent }) 
           </div>
         </section>
 
-        <CtaBand title={`Quer usar o Rancho para ${page.heroLabel.toLowerCase()}?`} text="Agende uma demonstração e veja essa rotina funcionando no sistema, do registro pelo WhatsApp ao acompanhamento no painel." />
+        {/* CTA */}
+        <section className="px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="contato" data-section-label="Contato">
+          <div className="reveal-on-scroll mx-auto max-w-3xl rounded-2xl bg-[#0f1a14] p-8 text-center text-white sm:p-12">
+            <h2 className="text-2xl font-semibold sm:text-3xl">Quer usar o Rancho para {page.heroLabel.toLowerCase()}?</h2>
+            <p className="mx-auto mt-4 max-w-lg text-base text-gray-300">
+              Agende uma demonstração e veja essa rotina funcionando no sistema.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a href={CONTACT_HREF} className="inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 font-semibold text-gray-900 transition hover:bg-emerald-50">
+                Solicitar demonstração <ArrowRight className="h-4 w-4" />
+              </a>
+              <Link href="/login" className="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-6 font-medium text-white/90 transition hover:bg-white/5">
+                Entrar no sistema
+              </Link>
+            </div>
+          </div>
+        </section>
+
         <Footer />
       </main>
     </>

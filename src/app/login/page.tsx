@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { Loader2, Mail, LogIn, Leaf, ShieldCheck, X } from "lucide-react";
+import { Loader2, Mail, LogIn, Leaf, KeyRound, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { getPasswordResetRedirectUrl } from "@/lib/app-url";
 import { getFriendlyErrorMessage } from "@/lib/errors";
@@ -80,106 +80,133 @@ export default function LoginPage() {
   const visibleError = error || authError;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--bg)] p-6 text-[var(--text)]">
-      <section className="grid w-full max-w-5xl overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)] lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="bg-emerald-800 p-8 text-white dark:bg-emerald-900">
-          <div className="inline-flex items-center gap-3 rounded-lg bg-white/10 px-3 py-2 font-semibold">
-            <Leaf className="h-5 w-5" />
-            Rancho
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[#0f1a14] px-5 py-12">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_30%,rgba(16,185,129,0.08),transparent)]" />
+
+      <div className="relative w-full max-w-sm">
+        {/* Logo */}
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600">
+            <Leaf className="h-6 w-6 text-white" />
           </div>
-          <h1 className="mt-8 text-3xl font-semibold tracking-tight sm:text-4xl">Entre para acessar sua fazenda.</h1>
-          <p className="mt-4 text-emerald-100">
-            O acesso ao Rancho é fechado e liberado apenas por convite do administrador da fazenda.
-          </p>
-          <div className="mt-8 rounded-lg border border-white/15 bg-white/10 p-4 text-sm text-emerald-50">
-            <div className="flex items-center gap-2 font-semibold">
-              <ShieldCheck className="h-4 w-4" />
-              Cadastro público fechado
-            </div>
-            <p className="mt-2">
-              Se você ainda não tem acesso, peça ao administrador para enviar um convite ou cadastrar seu WhatsApp no bot.
-            </p>
-          </div>
+          <h1 className="text-2xl font-semibold text-white">Entrar no Rancho</h1>
+          <p className="mt-1.5 text-sm text-gray-400">Acesso restrito por convite</p>
         </div>
 
-        <div className="p-8">
-          <form onSubmit={handleLogin} className="space-y-5" noValidate>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Acesso seguro</p>
-              <h2 className="mt-2 text-2xl font-semibold">Login</h2>
-            </div>
-
-            <label className="block space-y-2">
-              <span className="text-sm font-medium">E-mail</span>
-              <input className="input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
+        {/* Card */}
+        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/20">
+          <form onSubmit={handleLogin} className="space-y-4" noValidate>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-gray-300">E-mail</span>
+              <input
+                className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                placeholder="seu@email.com"
+              />
             </label>
 
-            <label className="block space-y-2">
-              <span className="text-sm font-medium">Senha</span>
-              <input className="input" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-gray-300">Senha</span>
+              <input
+                className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                placeholder="••••••••"
+              />
             </label>
 
             {visibleError ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm font-medium text-red-300">
                 {visibleError}
               </div>
             ) : null}
 
-            <button className="btn btn-primary w-full" type="submit" disabled={busy || loading}>
-              <LogIn className="h-4 w-4" />
+            <button
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+              type="submit"
+              disabled={busy || loading}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
               {busy ? "Entrando..." : "Entrar"}
             </button>
 
-            <button className="w-full text-center text-sm font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-400" type="button" onClick={openPasswordReset}>
+            <button
+              className="w-full text-center text-sm text-gray-400 transition hover:text-emerald-400"
+              type="button"
+              onClick={openPasswordReset}
+            >
               Esqueci minha senha
             </button>
-
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4 text-sm text-[var(--text-2)]">
-              <strong className="block text-[var(--text)]">Precisa de acesso?</strong>
-              <span className="mt-1 block">Solicite um convite ao administrador do Rancho ou fale com o suporte.</span>
-              <span className="mt-2 block text-xs font-medium uppercase tracking-wide text-[var(--text-3)]">E-mail do suporte</span>
-              <span className="mt-1 block break-all font-semibold text-[var(--text)]">{SUPPORT_EMAIL}</span>
-              <a className="btn btn-secondary mt-4 w-full justify-center" href={SUPPORT_MAILTO}>
-                <Mail className="h-4 w-4" /> Enviar e-mail ao suporte
-              </a>
-            </div>
           </form>
         </div>
-      </section>
 
+        {/* Access info */}
+        <div className="mt-5 rounded-xl border border-white/8 bg-white/[0.03] p-5 text-center">
+          <p className="text-sm font-medium text-gray-300">Precisa de acesso?</p>
+          <p className="mt-1 text-sm text-gray-500">Solicite um convite ao administrador ou fale com o suporte.</p>
+          <a
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-gray-300 transition hover:border-emerald-500/30 hover:text-emerald-400"
+            href={SUPPORT_MAILTO}
+          >
+            <Mail className="h-3.5 w-3.5" />
+            {SUPPORT_EMAIL}
+          </a>
+        </div>
+      </div>
+
+      {/* Password reset modal */}
       {resetOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
-          <form onSubmit={handlePasswordReset} className="w-full max-w-md animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]" noValidate>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-5">
+          <form
+            onSubmit={handlePasswordReset}
+            className="w-full max-w-sm animate-fade-in rounded-xl border border-white/10 bg-[#151f19] p-6 shadow-2xl"
+            noValidate
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold">Redefinir senha</h2>
-                <p className="mt-2 text-sm text-[var(--text-2)]">Informe seu e-mail para receber o link de redefinição.</p>
+                <h2 className="text-lg font-semibold text-white">Redefinir senha</h2>
+                <p className="mt-1 text-sm text-gray-400">Enviaremos um link para o seu e-mail.</p>
               </div>
-              <button className="rounded-lg border border-[var(--border)] p-2" type="button" onClick={() => setResetOpen(false)} title="Fechar">
+              <button className="rounded-lg border border-white/10 p-2 text-gray-400 transition hover:text-white" type="button" onClick={() => setResetOpen(false)} title="Fechar">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <label className="mt-5 block space-y-2">
-              <span className="text-sm font-medium">E-mail</span>
-              <input className="input" type="email" value={resetEmail} onChange={(event) => setResetEmail(event.target.value)} autoComplete="email" />
+            <label className="mt-5 block space-y-1.5">
+              <span className="text-sm font-medium text-gray-300">E-mail</span>
+              <input
+                className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                type="email"
+                value={resetEmail}
+                onChange={(event) => setResetEmail(event.target.value)}
+                autoComplete="email"
+              />
             </label>
 
             {resetError ? (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+              <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm font-medium text-red-300">
                 {resetError}
               </div>
             ) : null}
 
             {resetSuccess ? (
-              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
+              <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-sm font-medium text-emerald-300">
                 {resetSuccess}
               </div>
             ) : null}
 
-            <button className="btn btn-primary mt-5 w-full" type="submit" disabled={resetBusy}>
-              {resetBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              {resetBusy ? "Enviando..." : "Enviar link de redefinição"}
+            <button
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+              type="submit"
+              disabled={resetBusy}
+            >
+              {resetBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+              {resetBusy ? "Enviando..." : "Enviar link"}
             </button>
           </form>
         </div>

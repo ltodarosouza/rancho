@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { Loader2, Mail, LogIn, PawPrint, ShieldCheck, X } from "lucide-react";
+import { Loader2, Mail, LogIn, Leaf, ShieldCheck, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { getPasswordResetRedirectUrl } from "@/lib/app-url";
 import { getFriendlyErrorMessage } from "@/lib/errors";
@@ -80,19 +80,19 @@ export default function LoginPage() {
   const visibleError = error || authError;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-900 dark:bg-slate-950 dark:text-white">
-      <section className="grid w-full max-w-5xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="bg-emerald-900 p-8 text-white">
-          <div className="inline-flex items-center gap-3 rounded-lg bg-white/10 px-3 py-2 font-black">
-            <PawPrint className="h-5 w-5" />
-            Rancho Pro
+    <main className="flex min-h-screen items-center justify-center bg-[var(--bg)] p-6 text-[var(--text)]">
+      <section className="grid w-full max-w-5xl overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)] lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="bg-emerald-800 p-8 text-white dark:bg-emerald-900">
+          <div className="inline-flex items-center gap-3 rounded-lg bg-white/10 px-3 py-2 font-semibold">
+            <Leaf className="h-5 w-5" />
+            Rancho
           </div>
-          <h1 className="mt-8 text-4xl font-black tracking-tight">Entre para acessar sua fazenda.</h1>
+          <h1 className="mt-8 text-3xl font-semibold tracking-tight sm:text-4xl">Entre para acessar sua fazenda.</h1>
           <p className="mt-4 text-emerald-100">
             O acesso ao Rancho é fechado e liberado apenas por convite do administrador da fazenda.
           </p>
           <div className="mt-8 rounded-lg border border-white/15 bg-white/10 p-4 text-sm text-emerald-50">
-            <div className="flex items-center gap-2 font-black">
+            <div className="flex items-center gap-2 font-semibold">
               <ShieldCheck className="h-4 w-4" />
               Cadastro público fechado
             </div>
@@ -105,22 +105,22 @@ export default function LoginPage() {
         <div className="p-8">
           <form onSubmit={handleLogin} className="space-y-5" noValidate>
             <div>
-              <p className="text-sm font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Acesso seguro</p>
-              <h2 className="mt-2 text-2xl font-black">Login</h2>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Acesso seguro</p>
+              <h2 className="mt-2 text-2xl font-semibold">Login</h2>
             </div>
 
             <label className="block space-y-2">
-              <span className="text-sm font-bold">E-mail</span>
+              <span className="text-sm font-medium">E-mail</span>
               <input className="input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
             </label>
 
             <label className="block space-y-2">
-              <span className="text-sm font-bold">Senha</span>
+              <span className="text-sm font-medium">Senha</span>
               <input className="input" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
             </label>
 
             {visibleError ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
                 {visibleError}
               </div>
             ) : null}
@@ -130,15 +130,15 @@ export default function LoginPage() {
               {busy ? "Entrando..." : "Entrar"}
             </button>
 
-            <button className="w-full text-center text-sm font-bold text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-300" type="button" onClick={openPasswordReset}>
+            <button className="w-full text-center text-sm font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-400" type="button" onClick={openPasswordReset}>
               Esqueci minha senha
             </button>
 
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
-              <strong className="block text-slate-900 dark:text-white">Precisa de acesso?</strong>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4 text-sm text-[var(--text-2)]">
+              <strong className="block text-[var(--text)]">Precisa de acesso?</strong>
               <span className="mt-1 block">Solicite um convite ao administrador do Rancho ou fale com o suporte.</span>
-              <span className="mt-2 block text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">E-mail do suporte</span>
-              <span className="mt-1 block break-all font-black text-slate-900 dark:text-white">{SUPPORT_EMAIL}</span>
+              <span className="mt-2 block text-xs font-medium uppercase tracking-wide text-[var(--text-3)]">E-mail do suporte</span>
+              <span className="mt-1 block break-all font-semibold text-[var(--text)]">{SUPPORT_EMAIL}</span>
               <a className="btn btn-secondary mt-4 w-full justify-center" href={SUPPORT_MAILTO}>
                 <Mail className="h-4 w-4" /> Enviar e-mail ao suporte
               </a>
@@ -148,31 +148,31 @@ export default function LoginPage() {
       </section>
 
       {resetOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-          <form onSubmit={handlePasswordReset} className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900" noValidate>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+          <form onSubmit={handlePasswordReset} className="w-full max-w-md animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]" noValidate>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-black">Redefinir senha</h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Informe seu e-mail para receber o link de redefinição.</p>
+                <h2 className="text-xl font-semibold">Redefinir senha</h2>
+                <p className="mt-2 text-sm text-[var(--text-2)]">Informe seu e-mail para receber o link de redefinição.</p>
               </div>
-              <button className="rounded-lg border border-slate-200 p-2 dark:border-slate-800" type="button" onClick={() => setResetOpen(false)} title="Fechar">
+              <button className="rounded-lg border border-[var(--border)] p-2" type="button" onClick={() => setResetOpen(false)} title="Fechar">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <label className="mt-5 block space-y-2">
-              <span className="text-sm font-bold">E-mail</span>
+              <span className="text-sm font-medium">E-mail</span>
               <input className="input" type="email" value={resetEmail} onChange={(event) => setResetEmail(event.target.value)} autoComplete="email" />
             </label>
 
             {resetError ? (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
                 {resetError}
               </div>
             ) : null}
 
             {resetSuccess ? (
-              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
+              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
                 {resetSuccess}
               </div>
             ) : null}

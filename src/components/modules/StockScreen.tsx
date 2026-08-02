@@ -179,9 +179,14 @@ function StockActionModal({
     });
   }
 
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 md:items-center">
-      <form onSubmit={submit} className="w-full max-w-lg animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-3">
+      <form onSubmit={submit} className="my-auto w-full max-w-lg animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-lg">
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
             <div className="rounded-lg bg-[var(--bg)] p-3">

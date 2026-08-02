@@ -183,8 +183,8 @@ export function MarketingEffects() {
           <div className="screenshot-viewer-panel">
             <div className="screenshot-viewer-header">
               <div className="min-w-0">
-                <p className="truncate text-xs font-black uppercase tracking-[0.14em] text-emerald-200">{viewer.detail}</p>
-                <h2 className="truncate text-lg font-black text-white">{viewer.title}</h2>
+                <p className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200">{viewer.detail}</p>
+                <h2 className="truncate text-lg font-semibold text-white">{viewer.title}</h2>
               </div>
               <button type="button" className="screenshot-viewer-icon-button" onClick={() => setViewer(null)} aria-label="Fechar imagem">
                 <X className="h-5 w-5" />
@@ -232,7 +232,7 @@ export function MarketingEffects() {
           <Leaf className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1 text-left">
-          <span className="block text-sm font-black leading-tight">Conhecer o Rancho</span>
+          <span className="block text-sm font-semibold leading-tight">Conhecer o Rancho</span>
           <span className="block truncate text-xs font-bold text-emerald-50/85">Solicitar demonstração</span>
         </span>
         <ArrowRight className="h-5 w-5 shrink-0" />

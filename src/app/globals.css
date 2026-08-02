@@ -272,7 +272,7 @@ html[data-marketing-scrolled="true"] .mobile-marketing-cta {
   background: rgba(255, 255, 255, 0.08);
   color: white;
   font-size: 0.82rem;
-  font-weight: 900;
+  font-weight: 600;
   transition: background 160ms ease, transform 160ms ease, opacity 160ms ease;
 }
 .screenshot-viewer-icon-button {
@@ -317,7 +317,7 @@ html[data-marketing-scrolled="true"] .mobile-marketing-cta {
   text-align: center;
   color: #bbf7d0;
   font-size: 0.82rem;
-  font-weight: 900;
+  font-weight: 600;
 }
 @keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes reveal-on-scroll { from { opacity: 0; transform: translateY(22px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }

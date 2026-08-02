@@ -93,42 +93,42 @@ export default function RedefinirSenhaPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-900 dark:bg-slate-950 dark:text-white">
-      <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-2 text-sm font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--bg)] p-6 text-[var(--text)]">
+      <section className="w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
           <KeyRound className="h-4 w-4" />
           Redefinir senha
         </div>
-        <h1 className="mt-5 text-2xl font-black">Crie uma nova senha</h1>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        <h1 className="mt-5 text-2xl font-semibold">Crie uma nova senha</h1>
+        <p className="mt-2 text-sm text-[var(--text-2)]">
           Use o link enviado por e-mail para definir uma nova senha de acesso ao Rancho.
         </p>
 
         {loading ? (
-          <div className="mt-6 flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-300">
+          <div className="mt-6 flex items-center gap-2 text-sm font-medium text-[var(--text-2)]">
             <Loader2 className="h-4 w-4 animate-spin" />
             Validando link...
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
             <label className="block space-y-2">
-              <span className="text-sm font-bold">Nova senha</span>
+              <span className="text-sm font-medium">Nova senha</span>
               <input className="input" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" />
             </label>
 
             <label className="block space-y-2">
-              <span className="text-sm font-bold">Confirmar nova senha</span>
+              <span className="text-sm font-medium">Confirmar nova senha</span>
               <input className="input" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" />
             </label>
 
             {error ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
                 {error}
               </div>
             ) : null}
 
             {success ? (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
                 {success}
               </div>
             ) : null}

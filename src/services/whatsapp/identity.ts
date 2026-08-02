@@ -63,6 +63,64 @@ async function findOwnerUsers(supabase: SupabaseAdmin, incomingCandidates: Set<s
   });
 }
 
+async function restoreOwnerWhatsAppAccess(
+  supabase: SupabaseAdmin,
+  user: Record<string, unknown>,
+  normalizedPhone: string
+) {
+  const telefone = normalizedPhone || normalizeWhatsappNumber(String(user.telefone || ""));
+  if (!telefone) throw new Error("Administrador sem telefone valido para acesso ao WhatsApp");
+
+  const payload = {
+    fazenda_id: String(user.fazenda_id),
+    usuario_id: String(user.id),
+    funcionario_id: null,
+    telefone_e164: telefone,
+    nome_exibicao: String(user.nome || "Administrador"),
+    papel_bot: "admin",
+    ativo: true
+  };
+
+  const { data: existingRows, error: existingError } = await supabase
+    .from(TABLES.whatsappUsuarios)
+    .select("id,fazenda_id,usuario_id,funcionario_id,telefone_e164,nome_exibicao,papel_bot,ativo")
+    .eq("fazenda_id", payload.fazenda_id)
+    .eq("usuario_id", payload.usuario_id)
+    .limit(5);
+
+  if (existingError) throw new Error(existingError.message);
+
+  const existing = (existingRows || [])[0];
+  if (existing?.id) {
+    const { data, error } = await supabase
+      .from(TABLES.whatsappUsuarios)
+      .update(payload)
+      .eq("id", existing.id)
+      .select("id,fazenda_id,usuario_id,funcionario_id,telefone_e164,nome_exibicao,papel_bot,ativo")
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  const { data, error } = await supabase
+    .from(TABLES.whatsappUsuarios)
+    .insert(payload)
+    .select("id,fazenda_id,usuario_id,funcionario_id,telefone_e164,nome_exibicao,papel_bot,ativo")
+    .single();
+
+  if (!error && data) return data;
+
+  // A second concurrent message may have created the same link first.
+  const concurrentRows = await findWhatsAppUsers(supabase, new Set(whatsappNumberCandidates(telefone)));
+  const concurrent = concurrentRows.find((row) => (
+    String(row.fazenda_id) === payload.fazenda_id && String(row.usuario_id) === payload.usuario_id
+  ));
+  if (concurrent) return concurrent;
+
+  throw new Error(error?.message || "Nao foi possivel restaurar o acesso ao WhatsApp");
+}
+
 export async function resolveWhatsAppOwner(supabase: SupabaseAdmin, from: string): Promise<ResolveWhatsAppOwnerResult> {
   const normalizedPhone = normalizeWhatsappNumber(from);
   const incomingCandidates = new Set(whatsappNumberCandidates(from));
@@ -158,14 +216,15 @@ export async function resolveWhatsAppOwner(supabase: SupabaseAdmin, from: string
         continue;
       }
 
+      const whatsappUser = await restoreOwnerWhatsAppAccess(supabase, user, normalizedPhone);
       const owner = {
-        fazenda_id: user.fazenda_id as string,
-        whatsapp_usuario_id: null,
-        funcionario_id: null,
-        usuario_id: user.id as string,
-        telefone_e164: normalizeWhatsappNumber(user.telefone as string) || normalizedPhone,
-        nome_exibicao: user.nome as string | null,
-        papel_bot: "admin",
+        fazenda_id: whatsappUser.fazenda_id as string,
+        whatsapp_usuario_id: whatsappUser.id as string,
+        funcionario_id: (whatsappUser.funcionario_id as string | null) || null,
+        usuario_id: (whatsappUser.usuario_id as string | null) || (user.id as string),
+        telefone_e164: normalizeWhatsappNumber(whatsappUser.telefone_e164 as string) || normalizedPhone,
+        nome_exibicao: (whatsappUser.nome_exibicao as string | null) || (user.nome as string | null),
+        papel_bot: (whatsappUser.papel_bot as string | null) || "admin",
         source: "usuarios" as const
       };
 
@@ -175,7 +234,8 @@ export async function resolveWhatsAppOwner(supabase: SupabaseAdmin, from: string
         source: "usuarios",
         userFound: true,
         ranchoFound: Boolean(owner.fazenda_id),
-        reason: "ok"
+        reason: "ok",
+        whatsappAccessRestored: true
       });
 
       return { owner };

@@ -1301,6 +1301,15 @@ module.exports = function loadBotTestSection(context) {
         failures.push(`dry-run gerou escrita de negocio: ${businessWrites.map((write) => `${write.tableName}:${write.action}`).join(", ")}`);
       }
 
+      if (test.expectWhatsappLinkRestored) {
+        const restoredAccess = supabase.tables[BOT_TEST_TABLES.whatsappUsuarios].some((row) => (
+          String(row.usuario_id || "") === String(test.expectWhatsappLinkRestored.usuarioId)
+          && String(row.fazenda_id || "") === String(test.expectWhatsappLinkRestored.fazendaId)
+          && row.ativo !== false
+        ));
+        if (!restoredAccess) failures.push("vinculo whatsapp_usuarios do administrador nao foi restaurado");
+      }
+
       activeBotTestSupabase = null;
       return {
         index,

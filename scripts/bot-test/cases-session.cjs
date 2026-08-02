@@ -464,6 +464,7 @@ module.exports = function loadBotTestSection(context) {
         phone: BOT_TEST_ADMIN_PHONE,
         whatsappUsers: [],
         expectNoBusinessWrites: true,
+        expectWhatsappLinkRestored: { usuarioId: "user-admin", fazendaId: BOT_TEST_FARM_ID },
         messages: [
           {
             text: "quanto leite hoje",

@@ -392,6 +392,33 @@ function isValidBotPhone(value: string | number | null | undefined) {
   return ddd >= 11 && ddd <= 99 && national[2] === "9" && !/^(\d)\1+$/.test(national);
 }
 
+function firstEmployeeValue(values: AnyRecord, keys: string[]) {
+  for (const key of keys) {
+    const value = values[key];
+    if (value !== null && value !== undefined && String(value).trim()) return value;
+  }
+  return null;
+}
+
+function employeePhoneFromValues(values: AnyRecord) {
+  return normalizeWhatsappNumber(firstEmployeeValue(values, [
+    "contato_whatsapp",
+    "telefone",
+    "whatsapp",
+    "celular"
+  ]));
+}
+
+function employeeActiveFromValues(values: AnyRecord) {
+  return domainStatusActive(firstEmployeeValue(values, ["ativo", "status"]));
+}
+
+function employeeBotRoleFromValues(values: AnyRecord) {
+  return normalizeBotRole(
+    firstEmployeeValue(values, ["papel_bot", "permissao_bot", "papel", "nivel_acesso"])
+  );
+}
+
 function permissionDeniedMessage(owner: WhatsAppOwner, parsed?: ParsedRanchoMessage | null) {
   if (!parsed?.tipo) return null;
   if (parsed.tipo === "CRIAR_ITEM_ESTOQUE") {
@@ -1535,13 +1562,14 @@ async function enrichDomainTableImport(supabase: SupabaseAdmin, owner: WhatsAppO
       if (key) tableKeys.add(key);
     } else if (domain === "FUNCIONARIOS") {
       const name = domainText(values.nome);
-      const phone = normalizeWhatsappNumber(values.telefone || values.contato_whatsapp || values.whatsapp);
+      const phone = employeePhoneFromValues(values);
       const cpf = domainText((values as AnyRecord).cpf);
       if (!name) errors.add("nome_funcionario_obrigatorio");
       if (!isValidBotPhone(phone)) errors.add("whatsapp_invalido");
       if (cpf && !validCpf(cpf)) errors.add("cpf_invalido");
       if (values.salario !== null && values.salario !== undefined && values.salario !== "" && (!Number.isFinite(Number(values.salario)) || Number(values.salario) < 0)) errors.add("salario_invalido");
-      if (values.status && !validDomainStatus(values.status)) errors.add("status_invalido");
+      const activeValue = values.ativo ?? values.status;
+      if (activeValue && !validDomainStatus(activeValue)) errors.add("status_invalido");
       if (phone && activeEmployees.some((employee) => whatsappNumbersMatch(phone, employee.contato_whatsapp))) warnings.add("whatsapp_duplicado_no_rancho");
       if (phone && whatsappRows.some((item) => item.ativo !== false && whatsappNumbersMatch(phone, item.telefone_e164))) warnings.add("whatsapp_ja_vinculado");
       if (cpf && activeEmployees.some((employee) => domainText(employee.cpf).replace(/\D/g, "") === cpf.replace(/\D/g, ""))) warnings.add("cpf_duplicado_no_rancho");
@@ -1822,10 +1850,11 @@ async function saveFuncionariosImport(supabase: SupabaseAdmin, owner: WhatsAppOw
   for (const row of domainImportReadyRows(parsed)) {
     const values = domainRowValues(row);
     const name = domainText(values.nome);
-    const phone = normalizeWhatsappNumber(values.telefone || values.contato_whatsapp || values.whatsapp);
+    const phone = employeePhoneFromValues(values);
     const role = domainText(values.cargo || values.funcao || "Funcionario");
     const salary = Number(values.salario ?? values.salario_base ?? values.valor ?? values.valor_total ?? 0);
     const admissionDate = domainDateOnly(values.data_admissao || values.admissao || values.data);
+    const active = employeeActiveFromValues(values);
     if (!name) {
       stats.failed.push({ line: domainLine(row), reason: "nome ausente" });
       continue;
@@ -1841,32 +1870,67 @@ async function saveFuncionariosImport(supabase: SupabaseAdmin, owner: WhatsAppOw
       continue;
     }
 
-    const employee = await insertRealRecord(supabase, owner, TABLES.funcionarios, {
-      fazenda_id: owner.fazenda_id,
-      nome: name,
-      funcao: role || "Funcionario",
-      contato_whatsapp: phone,
-      salario_base: Number.isFinite(salary) ? salary : 0,
-      data_admissao: admissionDate,
-      carga_horaria_mensal: 220,
-      valor_hora_extra: 0,
-      ativo: domainStatusActive(values.status),
-      tipo_acesso: "bot_only",
-      papel_sistema: "bot_only"
-    }) as AnyRecord;
+    let employee: AnyRecord | null = null;
+    try {
+      const savedEmployee = await insertRealRecord(supabase, owner, TABLES.funcionarios, {
+        fazenda_id: owner.fazenda_id,
+        nome: name,
+        funcao: role || "Funcionario",
+        contato_whatsapp: phone,
+        salario_base: Number.isFinite(salary) ? salary : 0,
+        data_admissao: admissionDate,
+        carga_horaria_mensal: 220,
+        valor_hora_extra: 0,
+        ativo: active,
+        tipo_acesso: "bot_only",
+        papel_sistema: "bot_only"
+      }) as AnyRecord;
+      employee = savedEmployee;
 
-    const whatsappPayload = {
-      fazenda_id: owner.fazenda_id,
-      telefone_e164: phone,
-      funcionario_id: employee.id,
-      usuario_id: null,
-      nome_exibicao: name,
-      ativo: domainStatusActive(values.status),
-      papel_bot: normalizeBotRole(values.papel_bot || values.permissao_bot)
-    };
-    await insertRealRecord(supabase, owner, TABLES.whatsappUsuarios, whatsappPayload);
-    activeEmployees.push(employee);
-    whatsappUsers.push(whatsappPayload);
+      const whatsappPayload = {
+        fazenda_id: owner.fazenda_id,
+        telefone_e164: phone,
+        funcionario_id: savedEmployee.id,
+        usuario_id: null,
+        nome_exibicao: name,
+        ativo: active,
+        papel_bot: employeeBotRoleFromValues(values)
+      };
+      await insertRealRecord(supabase, owner, TABLES.whatsappUsuarios, whatsappPayload);
+      activeEmployees.push(savedEmployee);
+      whatsappUsers.push(whatsappPayload);
+    } catch (error) {
+      // A tabela precisa ser atômica por linha: se o vínculo do WhatsApp falhar,
+      // não deixamos um funcionário órfão gravado sem acesso ao bot.
+      if (employee?.id) {
+        try {
+          const { error: rollbackError } = await supabase
+            .from(TABLES.funcionarios)
+            .delete()
+            .eq("id", employee.id)
+            .eq("fazenda_id", owner.fazenda_id);
+          if (rollbackError) {
+            console.warn("[BOT DOMAIN IMPORT] rollback de funcionario falhou", {
+              funcionario_id: employee.id,
+              message: safeErrorText(rollbackError)
+            });
+          }
+        } catch (rollbackError) {
+          console.warn("[BOT DOMAIN IMPORT] rollback de funcionario lançou erro", {
+            funcionario_id: employee.id,
+            message: safeErrorText(rollbackError)
+          });
+        }
+      }
+      console.error("[BOT DOMAIN IMPORT] falha ao salvar funcionario", {
+        line: domainLine(row),
+        name,
+        phone: phone ? maskPhone(phone) : null,
+        message: safeErrorText(error)
+      });
+      stats.failed.push({ line: domainLine(row), reason: "erro ao salvar funcionário; nenhum vínculo foi mantido" });
+      continue;
+    }
     stats.saved += 1;
     stats.savedTables.add(TABLES.funcionarios);
     stats.savedTables.add(TABLES.whatsappUsuarios);
@@ -2048,13 +2112,27 @@ async function saveDomainTableImport(supabase: SupabaseAdmin, owner: WhatsAppOwn
     service: "saveDomainTableImport"
   });
 
-  if (summary.domain === "LOTES") return saveLotesImport(supabase, owner, parsed);
-  if (summary.domain === "GENEALOGIA") return saveGenealogiaImport(supabase, owner, parsed);
-  if (summary.domain === "FINANCEIRO") return saveFinanceiroImport(supabase, owner, parsed);
-  if (summary.domain === "FUNCIONARIOS") return saveFuncionariosImport(supabase, owner, parsed);
-  if (summary.domain === "PONTO_FUNCIONARIO") return savePontoFuncionarioImport(supabase, owner, parsed);
-  if (summary.domain === "SAUDE_SANITARIO") return saveSaudeSanitarioImport(supabase, owner, parsed);
-  if (summary.domain === "OBSERVACOES") return saveObservacoesImport(supabase, owner, parsed);
+  try {
+    if (summary.domain === "LOTES") return await saveLotesImport(supabase, owner, parsed);
+    if (summary.domain === "GENEALOGIA") return await saveGenealogiaImport(supabase, owner, parsed);
+    if (summary.domain === "FINANCEIRO") return await saveFinanceiroImport(supabase, owner, parsed);
+    if (summary.domain === "FUNCIONARIOS") return await saveFuncionariosImport(supabase, owner, parsed);
+    if (summary.domain === "PONTO_FUNCIONARIO") return await savePontoFuncionarioImport(supabase, owner, parsed);
+    if (summary.domain === "SAUDE_SANITARIO") return await saveSaudeSanitarioImport(supabase, owner, parsed);
+    if (summary.domain === "OBSERVACOES") return await saveObservacoesImport(supabase, owner, parsed);
+  } catch (error) {
+    console.error("[BOT DOMAIN IMPORT] falha geral ao salvar tabela", {
+      domain: summary.domain,
+      fazenda_id: owner.fazenda_id,
+      code: (error as { supabaseErrorCode?: string | null }).supabaseErrorCode || null,
+      message: safeErrorText(error)
+    });
+    return {
+      response: `Não consegui concluir a importação de ${label}. A última etapa falhou e nenhum novo vínculo foi confirmado. Confira os dados e tente novamente.`,
+      savedReal: false,
+      savedTables: []
+    };
+  }
 
   return {
     response: `Preview confirmado: tabela de ${label} com ${rows.length} linha(s). Esse dominio ainda nao tem persistencia real especifica no Rancho. Nenhum registro foi salvo.`,
@@ -4680,7 +4758,21 @@ async function handleConfirmation(
       return `Não consegui preparar o item de leite no estoque. Nenhum registro de produção foi salvo. ${safeErrorText(error)}`;
     }
 
-    const result = await saveConfirmedRecord(supabase, owner, pendingToSave);
+    let result: SaveResult;
+    try {
+      result = await saveConfirmedRecord(supabase, owner, pendingToSave);
+    } catch (error) {
+      const details = error as Error & { supabaseErrorCode?: string | null; supabaseErrorMessage?: string | null };
+      console.error("[BOT CONFIRMATION SAVE ERROR]", {
+        tipo: pendingToSave.tipo,
+        domain: pendingToSave.dados?.dominio_tabela || null,
+        fazenda_id: owner.fazenda_id,
+        code: details.supabaseErrorCode || null,
+        message: safeErrorText(details.supabaseErrorMessage || error)
+      });
+      await saveSession(supabase, owner, { etapa: "livre", dados: {} });
+      return "Não consegui concluir esse salvamento. Nenhuma nova linha foi processada. Os dados do erro foram registrados para revisão; confira os campos e tente novamente.";
+    }
     await saveSession(supabase, owner, sessionAfterConfirmedSave(result, pendingToSave));
     const postConfirmationText = result.savedReal ?await handlePostConfirmationConsultations(supabase, owner, pendingToSave) : "";
     const resultResponse = postConfirmationText ?`${result.response}\n\n${postConfirmationText}` : result.response;

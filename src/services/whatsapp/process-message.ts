@@ -1869,6 +1869,10 @@ async function saveFuncionariosImport(supabase: SupabaseAdmin, owner: WhatsAppOw
       stats.skipped += 1;
       continue;
     }
+    const reusableWhatsapp = whatsappUsers.find((item) => (
+      whatsappNumbersMatch(phone, String(item.telefone_e164 || ""))
+      && (item.ativo === false || !item.funcionario_id)
+    ));
 
     let employee: AnyRecord | null = null;
     try {
@@ -1896,9 +1900,18 @@ async function saveFuncionariosImport(supabase: SupabaseAdmin, owner: WhatsAppOw
         ativo: active,
         papel_bot: employeeBotRoleFromValues(values)
       };
-      await insertRealRecord(supabase, owner, TABLES.whatsappUsuarios, whatsappPayload);
+      if (reusableWhatsapp?.id) {
+        const { error: updateError } = await supabase
+          .from(TABLES.whatsappUsuarios)
+          .update(whatsappPayload)
+          .eq("id", reusableWhatsapp.id)
+          .eq("fazenda_id", owner.fazenda_id);
+        if (updateError) throw new Error(updateError.message);
+      } else {
+        await insertRealRecord(supabase, owner, TABLES.whatsappUsuarios, whatsappPayload);
+      }
       activeEmployees.push(savedEmployee);
-      whatsappUsers.push(whatsappPayload);
+      whatsappUsers.push({ ...whatsappPayload, id: reusableWhatsapp?.id || null });
     } catch (error) {
       // A tabela precisa ser atômica por linha: se o vínculo do WhatsApp falhar,
       // não deixamos um funcionário órfão gravado sem acesso ao bot.

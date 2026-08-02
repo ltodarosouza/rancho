@@ -62,13 +62,20 @@ const {
   resetGeminiRuntimeStats
 } = require("../src/lib/whatsapp/gemini/runtime.ts");
 
-const messages = [
-  "090 pariu",
-  "quais vacas tao prenhas?",
-  "relatório financeiro dos últimos 6 meses",
-  "comprei 10 sacos de ração por 500 reais",
-  "177:PROTOCOLO\n094:PROTOCOLO\n053:INSEMINACAO\n249:PROTOCOLO\n205:RETESTE"
-];
+function liveMessages() {
+  const inputFile = String(process.env.RANCHO_LIVE_AI_INPUT_FILE || "").trim();
+  if (inputFile) return [fs.readFileSync(path.resolve(inputFile), "utf8").trim()];
+
+  return [
+    "090 pariu",
+    "quais vacas tao prenhas?",
+    "relatório financeiro dos últimos 6 meses",
+    "comprei 10 sacos de ração por 500 reais",
+    "177:PROTOCOLO\n094:PROTOCOLO\n053:INSEMINACAO\n249:PROTOCOLO\n205:RETESTE"
+  ];
+}
+
+const messages = liveMessages();
 
 function compactParsed(parsed) {
   return {
@@ -101,6 +108,7 @@ function compactParsed(parsed) {
   for (const text of messages) {
     const result = await interpretWithGemini({
       text,
+      structuredInput: text.length >= 500 && (text.match(/[;\t|]/g) || []).length >= 4,
       currentDate: new Date().toISOString().slice(0, 10),
       timezone: "America/Sao_Paulo"
     });

@@ -114,7 +114,8 @@ export async function generateStructuredAI(input: GenerateStructuredInput): Prom
     provider,
     model: model || null,
     purpose: input.purpose,
-    requestId: input.requestId || null
+    requestId: input.requestId || null,
+    promptLength: input.userPrompt.length
   });
 
   const request: ProviderRequest = { ...input, provider, model };

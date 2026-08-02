@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v23";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v24";
 
 const EXAMPLES = [
   {
@@ -486,8 +486,14 @@ const EXAMPLES = [
   }
 ];
 
-export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest; currentDate?: string; timezone?: string } = {}) {
+export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest; currentDate?: string; timezone?: string; compact?: boolean } = {}) {
   const manifest = input.manifest || RANCHO_DOMAIN_MANIFEST;
+  const examples = input.compact
+    ? [
+      "Mensagem estruturada: use action=import_table, mapeie semanticamente cabecalhos e linhas para data.rows e table.columnMapping.",
+      "Nao invente valores ausentes; mantenha todas as linhas que puder ler com seguranca e deixe o backend validar referencias e persistencia."
+    ]
+    : ["Exemplos de contrato:", JSON.stringify(EXAMPLES)];
   return [
     `ActionPlan prompt version: ${ACTION_PLAN_PROMPT_VERSION}`,
     "Retorne somente um objeto JSON ActionPlan. Nao retorne markdown, texto livre, bloco ```json, intent legado ou SQL.",
@@ -571,8 +577,7 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Domain manifest:",
     JSON.stringify(summarizeDomainManifestForPrompt(manifest)),
     "",
-    "Exemplos de contrato:",
-    JSON.stringify(EXAMPLES),
+    ...examples,
     "",
     `Data atual do rancho: ${input.currentDate || getRanchTodayISO()}`,
     `Data atual: ${input.currentDate || getRanchTodayISO()}`,

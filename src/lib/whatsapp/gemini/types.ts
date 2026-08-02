@@ -47,6 +47,7 @@ export type GeminiStructuredResult = {
 
 export type GeminiInterpreterInput = {
   text: string;
+  structuredInput?: boolean;
   session?: AnyRecord | null;
   user?: AnyRecord | null;
   rancho?: AnyRecord | null;

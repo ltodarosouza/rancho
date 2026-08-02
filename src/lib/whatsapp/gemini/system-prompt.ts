@@ -7,13 +7,15 @@ const ACTION_PLAN_PROMPT_CACHE_LIMIT = 8;
 const actionPlanPromptCache = new Map<string, string>();
 
 function cachedActionPlanPromptFragment(input: GeminiInterpreterInput) {
-  const key = `${input.currentDate || ""}|${input.timezone || ""}`;
+  const compact = input.structuredInput === true;
+  const key = `${input.currentDate || ""}|${input.timezone || ""}|${compact ? "compact" : "full"}`;
   const cached = actionPlanPromptCache.get(key);
   if (cached) return cached;
 
   const fragment = buildActionPlanPromptFragment({
     currentDate: input.currentDate,
-    timezone: input.timezone
+    timezone: input.timezone,
+    compact
   });
   actionPlanPromptCache.set(key, fragment);
   if (actionPlanPromptCache.size > ACTION_PLAN_PROMPT_CACHE_LIMIT) {
@@ -38,10 +40,12 @@ function activeQueryContext(input: GeminiInterpreterInput) {
 
 export function buildGeminiSystemPrompt(input: GeminiInterpreterInput) {
   const queryContext = activeQueryContext(input);
+  const structuredInput = input.structuredInput === true
+    || (input.structuredInput === undefined && input.text.length >= 500 && (input.text.match(/[;\t|]/g) || []).length >= 4);
   return [
     `Prompt version: ${GEMINI_SYSTEM_PROMPT_VERSION}`,
     "Voce e o interpretador semantico do bot Rancho.",
-    cachedActionPlanPromptFragment(input),
+    cachedActionPlanPromptFragment({ ...input, structuredInput }),
     "",
     "Contexto de sessao, somente para interpretar referencias conversacionais:",
     JSON.stringify(input.session || {}),

@@ -596,6 +596,15 @@ test("prompt Gemini-first inclui contrato, manifest e seguranca", () => {
   assert(!systemPrompt.includes("ACTION_DESCRIPTIONS"), "prompt principal vazou ACTION_DESCRIPTIONS");
   assert(!systemPrompt.includes("LEGACY_ACTION_DESCRIPTIONS"), "prompt principal vazou LEGACY_ACTION_DESCRIPTIONS");
   assert(!systemPrompt.includes("Acoes suportadas:"), "prompt principal parece usar contrato legado");
+
+  const compactTablePrompt = buildGeminiSystemPrompt({
+    text: "Animal;Evento;Data;Medicamento\n080;vacina;2026-04-30;Vacina clostridial",
+    structuredInput: true,
+    currentDate: "2026-06-18",
+    timezone: "America/Fortaleza"
+  });
+  assert(compactTablePrompt.includes("action=import_table"), "prompt compacto sem instrucoes de tabela");
+  assert(!compactTablePrompt.includes("090 pariu"), "prompt compacto ainda enviou exemplos naturais desnecessarios");
 });
 
 test("artefatos gerados de bot ficam ignorados e fora do indice", () => {

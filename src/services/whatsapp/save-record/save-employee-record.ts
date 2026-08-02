@@ -159,10 +159,9 @@ export async function saveEmployeeRecord(ctx: SaveRecordHandlerContext): Promise
       const reusableWhatsapp = whatsappRows.find((row) => (
         whatsappNumbersMatch(phone, String(row.telefone_e164 || "")) && (row.ativo === false || !row.funcionario_id)
       ));
-      const whatsappPayload = {
+      const whatsappPayload: AnyRecord = {
         fazenda_id: owner.fazenda_id,
         telefone_e164: phone,
-        usuario_id: null,
         funcionario_id: employee.id,
         nome_exibicao: dados.funcionario_nome,
         papel_bot: normalizeBotRole(dados.papel_bot || dados.permissao_bot),
@@ -298,10 +297,9 @@ export async function saveEmployeeRecord(ctx: SaveRecordHandlerContext): Promise
       const rows = (whatsappRows || []) as AnyRecord[];
       const current = rows.find((row) => row.funcionario_id === found.row.id)
         || rows.find((row) => whatsappNumbersMatch(payload.contato_whatsapp, String(row.telefone_e164 || "")) && (row.ativo === false || !row.funcionario_id));
-      const whatsappPayload = {
+      const whatsappPayload: AnyRecord = {
         fazenda_id: owner.fazenda_id,
         telefone_e164: payload.contato_whatsapp,
-        usuario_id: null,
         funcionario_id: found.row.id,
         nome_exibicao: payload.nome || found.row.nome,
         papel_bot: normalizeBotRole(dados.papel_bot || dados.permissao_bot || current?.papel_bot),

@@ -977,8 +977,9 @@ function supabaseWriteError(error: AnyRecord) {
   return wrapped;
 }
 
-function isSchemaColumnError(error: unknown) {
-  return /42703|pgrst204|schema cache|column .* does not exist|coluna .* não existe|coluna .* nao existe/i.test(safeErrorText(error));
+function isRecoverableSchemaError(error: unknown) {
+  const text = safeErrorText(error);
+  return /42703|23502|23514|pgrst204|schema cache|column .* does not exist|coluna .* não existe|coluna .* nao existe|not-null|violates not-null|violates check|null value in column/i.test(text);
 }
 
 function legacyEmployeePayload(payload: AnyRecord) {
@@ -1007,7 +1008,7 @@ async function saveEmployeeImportRecord(supabase: SupabaseAdmin, owner: WhatsApp
     }
     return await insertRealRecord(supabase, owner, TABLES.funcionarios, payload) as AnyRecord;
   } catch (error) {
-    if (!isSchemaColumnError(error)) throw error;
+    if (!isRecoverableSchemaError(error)) throw error;
     console.warn("[BOT DOMAIN IMPORT] usando payload compatível para funcionário", {
       fazenda_id: owner.fazenda_id,
       existing_id: existingId || null,
@@ -1032,6 +1033,9 @@ async function saveEmployeeImportRecord(supabase: SupabaseAdmin, owner: WhatsApp
 function legacyWhatsappEmployeePayload(payload: AnyRecord) {
   const fallback = { ...payload };
   delete fallback.papel_bot;
+  if (fallback.usuario_id === null || fallback.usuario_id === undefined) {
+    delete fallback.usuario_id;
+  }
   return fallback;
 }
 
@@ -1059,7 +1063,7 @@ async function saveWhatsappEmployeeLink(
   try {
     return await save(payload);
   } catch (error) {
-    if (!isSchemaColumnError(error)) throw error;
+    if (!isRecoverableSchemaError(error)) throw error;
     console.warn("[BOT DOMAIN IMPORT] usando payload compatível para vínculo WhatsApp", {
       fazenda_id: owner.fazenda_id,
       existing_id: existingId || null,
@@ -1979,79 +1983,32 @@ async function saveFuncionariosImport(supabase: SupabaseAdmin, owner: WhatsAppOw
       continue;
     }
 
-    let employee: AnyRecord | null = null;
-    let createdEmployee = false;
-    try {
-      const employeePayload: AnyRecord = {
-        fazenda_id: owner.fazenda_id,
-        nome: name,
-        funcao: role || "Funcionario",
-        contato_whatsapp: phone,
-        salario_base: Number.isFinite(salary) ? salary : 0,
-        data_admissao: admissionDate,
-        carga_horaria_mensal: 220,
-        valor_hora_extra: 0,
-        ativo: active,
-        tipo_acesso: "bot_only",
-        papel_sistema: "bot_only"
-      };
-      if (existingEmployee && Object.prototype.hasOwnProperty.call(existingEmployee, "deleted_at")) {
-        employeePayload.deleted_at = null;
-      }
+    const employeePayload: AnyRecord = {
+      fazenda_id: owner.fazenda_id,
+      nome: name,
+      funcao: role || "Funcionario",
+      contato_whatsapp: phone,
+      salario_base: Number.isFinite(salary) ? salary : 0,
+      data_admissao: admissionDate,
+      carga_horaria_mensal: 220,
+      valor_hora_extra: 0,
+      ativo: active,
+      tipo_acesso: "bot_only",
+      papel_sistema: "bot_only"
+    };
+    if (existingEmployee && Object.prototype.hasOwnProperty.call(existingEmployee, "deleted_at")) {
+      employeePayload.deleted_at = null;
+    }
 
-      const savedEmployee = await saveEmployeeImportRecord(
+    let savedEmployee: AnyRecord;
+    try {
+      savedEmployee = await saveEmployeeImportRecord(
         supabase,
         owner,
         employeePayload,
         existingEmployee?.id ? String(existingEmployee.id) : undefined
       );
-      createdEmployee = !existingEmployee?.id;
-      employee = savedEmployee;
-
-      const whatsappPayload = {
-        fazenda_id: owner.fazenda_id,
-        telefone_e164: phone,
-        funcionario_id: savedEmployee.id,
-        usuario_id: null,
-        nome_exibicao: name,
-        ativo: active,
-        papel_bot: employeeBotRoleFromValues(values)
-      };
-      if (existingWhatsapp?.id) {
-        await saveWhatsappEmployeeLink(supabase, owner, whatsappPayload, String(existingWhatsapp.id));
-      } else {
-        await saveWhatsappEmployeeLink(supabase, owner, whatsappPayload);
-      }
-      const employeeIndex = activeEmployees.findIndex((item) => String(item.id) === String(savedEmployee.id));
-      if (employeeIndex >= 0) activeEmployees[employeeIndex] = savedEmployee;
-      else activeEmployees.push(savedEmployee);
-      const whatsappIndex = whatsappUsers.findIndex((item) => String(item.id) === String(existingWhatsapp?.id || ""));
-      const savedWhatsapp = { ...whatsappPayload, id: existingWhatsapp?.id || null };
-      if (whatsappIndex >= 0) whatsappUsers[whatsappIndex] = savedWhatsapp;
-      else whatsappUsers.push(savedWhatsapp);
     } catch (error) {
-      // A tabela precisa ser atômica por linha: se o vínculo do WhatsApp falhar,
-      // não deixamos um funcionário órfão gravado sem acesso ao bot.
-      if (createdEmployee && employee?.id) {
-        try {
-          const { error: rollbackError } = await supabase
-            .from(TABLES.funcionarios)
-            .delete()
-            .eq("id", employee.id)
-            .eq("fazenda_id", owner.fazenda_id);
-          if (rollbackError) {
-            console.warn("[BOT DOMAIN IMPORT] rollback de funcionario falhou", {
-              funcionario_id: employee.id,
-              message: safeErrorText(rollbackError)
-            });
-          }
-        } catch (rollbackError) {
-          console.warn("[BOT DOMAIN IMPORT] rollback de funcionario lançou erro", {
-            funcionario_id: employee.id,
-            message: safeErrorText(rollbackError)
-          });
-        }
-      }
       console.error("[BOT DOMAIN IMPORT] falha ao salvar funcionario", {
         line: domainLine(row),
         name,
@@ -2059,12 +2016,44 @@ async function saveFuncionariosImport(supabase: SupabaseAdmin, owner: WhatsAppOw
         code: (error as { supabaseErrorCode?: string | null }).supabaseErrorCode || null,
         message: safeErrorText(error)
       });
-      stats.failed.push({ line: domainLine(row), reason: "erro ao salvar funcionário; nenhum vínculo foi mantido" });
+      stats.failed.push({ line: domainLine(row), reason: "erro ao salvar funcionário" });
       continue;
     }
-    stats.saved += 1;
+
+    const employeeIndex = activeEmployees.findIndex((item) => String(item.id) === String(savedEmployee.id));
+    if (employeeIndex >= 0) activeEmployees[employeeIndex] = savedEmployee;
+    else activeEmployees.push(savedEmployee);
     stats.savedTables.add(TABLES.funcionarios);
-    stats.savedTables.add(TABLES.whatsappUsuarios);
+
+    const whatsappPayload: AnyRecord = {
+      fazenda_id: owner.fazenda_id,
+      telefone_e164: phone,
+      funcionario_id: savedEmployee.id,
+      nome_exibicao: name,
+      ativo: active,
+      papel_bot: employeeBotRoleFromValues(values)
+    };
+    try {
+      if (existingWhatsapp?.id) {
+        await saveWhatsappEmployeeLink(supabase, owner, whatsappPayload, String(existingWhatsapp.id));
+      } else {
+        await saveWhatsappEmployeeLink(supabase, owner, whatsappPayload);
+      }
+      const whatsappIndex = whatsappUsers.findIndex((item) => String(item.id) === String(existingWhatsapp?.id || ""));
+      const savedWhatsapp = { ...whatsappPayload, id: existingWhatsapp?.id || null };
+      if (whatsappIndex >= 0) whatsappUsers[whatsappIndex] = savedWhatsapp;
+      else whatsappUsers.push(savedWhatsapp);
+      stats.savedTables.add(TABLES.whatsappUsuarios);
+    } catch (error) {
+      console.warn("[BOT DOMAIN IMPORT] funcionario salvo mas vinculo whatsapp falhou", {
+        line: domainLine(row),
+        name,
+        funcionario_id: savedEmployee.id,
+        code: (error as { supabaseErrorCode?: string | null }).supabaseErrorCode || null,
+        message: safeErrorText(error)
+      });
+    }
+    stats.saved += 1;
   }
 
   return realSaveResult(domainImportResultMessage("funcionarios", stats, "funcionario"), Array.from(stats.savedTables));

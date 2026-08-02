@@ -1,6 +1,6 @@
 import { aiProviderLog, generateStructuredAI, isTransientAIProviderFailure, parseJsonObjectText } from "@/lib/whatsapp/ai-provider";
 import { botTestVerbose, geminiActionPlanEnabled } from "@/lib/whatsapp/gemini/config";
-import { buildGeminiSystemPrompt } from "@/lib/whatsapp/gemini/system-prompt";
+import { buildPerMessagePrompt, buildStableSystemPrompt } from "@/lib/whatsapp/gemini/system-prompt";
 import { validateInterpretedAction } from "@/lib/whatsapp/gemini/validator";
 import { RANCHO_DOMAIN_MANIFEST, summarizeDomainManifestForPrompt } from "@/lib/whatsapp/gemini/domain-manifest";
 import {
@@ -213,14 +213,14 @@ export async function callGeminiInterpreter(input: GeminiInterpreterInput): Prom
     return validateMockedInterpretation(input, unknownGeminiMockResponse(), "mock:fixture-not-found");
   }
 
-  const prompt = buildGeminiSystemPrompt({
-    ...input
-  });
+  const systemPrompt = buildStableSystemPrompt(input);
+  const userPrompt = buildPerMessagePrompt(input);
 
   try {
     const generated = await generateStructuredAI({
       purpose: "action_plan",
-      userPrompt: prompt,
+      systemPrompt,
+      userPrompt,
       temperature: 0.1,
       requestId: input.geminiMockId || undefined
     });
@@ -344,7 +344,7 @@ export async function callGeminiInterpreter(input: GeminiInterpreterInput): Prom
 
     if (botTestVerbose()) {
       geminiInterpreterLog("verbose", {
-        prompt,
+        prompt: [systemPrompt, userPrompt].join("\n\n"),
         rawText,
         validationStatus: validation.status,
         warnings: validation.warnings

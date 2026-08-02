@@ -45,7 +45,6 @@ export async function generateStructuredWithGemini(input: ProviderRequest): Prom
     return { ok: false, provider: "gemini", model, reason: "missing_api_key", message: "GEMINI_API_KEY nao configurada." };
   }
 
-  const prompt = [input.systemPrompt, input.userPrompt].filter(Boolean).join("\n\n");
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
   const modelPath = model.replace(/^models\//, "");
@@ -53,13 +52,17 @@ export async function generateStructuredWithGemini(input: ProviderRequest): Prom
 
   try {
     recordGeminiLiveCall();
+    const requestBody: Record<string, unknown> = {
+      contents: [{ parts: [{ text: input.userPrompt }] }],
+      generationConfig: { temperature: input.temperature ?? 0.1, responseMimeType: "application/json" }
+    };
+    if (input.systemPrompt) {
+      requestBody.systemInstruction = { parts: [{ text: input.systemPrompt }] };
+    }
     const requestInit = {
       method: "POST",
       headers: { "Content-Type": "application/json", ...geminiAuthHeaders(apiKey) },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: input.temperature ?? 0.1, responseMimeType: "application/json" }
-      }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal
     } satisfies RequestInit;
 

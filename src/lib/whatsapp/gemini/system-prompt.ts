@@ -38,15 +38,19 @@ function activeQueryContext(input: GeminiInterpreterInput) {
   };
 }
 
-export function buildGeminiSystemPrompt(input: GeminiInterpreterInput) {
-  const queryContext = activeQueryContext(input);
+export function buildStableSystemPrompt(input: GeminiInterpreterInput) {
   const structuredInput = input.structuredInput === true
     || (input.structuredInput === undefined && input.text.length >= 500 && (input.text.match(/[;\t|]/g) || []).length >= 4);
   return [
     `Prompt version: ${GEMINI_SYSTEM_PROMPT_VERSION}`,
     "Voce e o interpretador semantico do bot Rancho.",
-    cachedActionPlanPromptFragment({ ...input, structuredInput }),
-    "",
+    cachedActionPlanPromptFragment({ ...input, structuredInput })
+  ].join("\n");
+}
+
+export function buildPerMessagePrompt(input: GeminiInterpreterInput) {
+  const queryContext = activeQueryContext(input);
+  return [
     "Contexto de sessao, somente para interpretar referencias conversacionais:",
     JSON.stringify(input.session || {}),
     "Usuario, sem permissao para alterar identidade ou tenant:",
@@ -63,4 +67,8 @@ export function buildGeminiSystemPrompt(input: GeminiInterpreterInput) {
       ? "Se a mensagem atual pedir continuacao, mais resultados, restantes ou detalhes dessa consulta, use action=query, o mesmo domain e semantic.operation=continuar_consulta. O backend reutilizara originalPlan, filtros e offset. Se for uma nova solicitacao, interprete-a normalmente."
       : "Nao ha consulta anterior disponivel para continuar. Se a mensagem pedir apenas mais resultados sem dizer de qual consulta, use action=clarify; nunca escolha animais ou outro dominio por padrao."
   ].join("\n");
+}
+
+export function buildGeminiSystemPrompt(input: GeminiInterpreterInput) {
+  return [buildStableSystemPrompt(input), "", buildPerMessagePrompt(input)].join("\n");
 }

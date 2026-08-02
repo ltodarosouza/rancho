@@ -46,10 +46,10 @@ function openRouterHeaders(apiKey: string) {
 }
 
 function messagesFor(input: ProviderRequest) {
-  return [
-    input.systemPrompt ? { role: "system", content: input.systemPrompt } : null,
-    { role: "user", content: input.userPrompt }
-  ].filter(Boolean);
+  const userContent = input.systemPrompt
+    ? `${input.systemPrompt}\n\n${input.userPrompt}`
+    : input.userPrompt;
+  return [{ role: "user", content: userContent }];
 }
 
 function bodyFor(input: ProviderRequest, includeResponseFormat: boolean) {

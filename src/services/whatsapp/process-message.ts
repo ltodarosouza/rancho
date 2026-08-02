@@ -3958,6 +3958,25 @@ async function handleSemanticPendingPatch(
   if (!isGeminiPrimaryMode()) return null;
   if (!shouldUsePendingPatchForText(text)) return null;
 
+  // Complements for a pending birth-import table have an explicit row-to-child
+  // structure. Apply them before asking Gemini to infer a generic correction.
+  if (pending.tipo === "IMPORTACAO_EVENTOS_TABELA") {
+    const childPatched = applyReproductionImportChildComplement(pending, text);
+    if (childPatched) {
+      const next = await enrichWithCatalog(catalogEnrichmentDependencies(), supabase, owner, childPatched);
+      await saveSession(supabase, owner, { etapa: "aguardando_confirmacao", dados: { pending: next } });
+      botTabularImportLog("birth_child_batch_patch_applied", owner, {
+        ...tabularImportSummary(next),
+        partos: next.dados?.resumo_partos || null
+      });
+      return {
+        handled: true,
+        parsed: next,
+        response: `Atualizei os dados das crias no lote.\n${confirmationText(next)}`
+      };
+    }
+  }
+
   const interpretPatch = () => interpretPendingPatchWithGemini({
     text,
     pending,

@@ -4933,15 +4933,19 @@ test("Gemini live JSON invalido nao usa parser local no modo Gemini", async () =
 });
 
 test("Gemini live HTTP 503 nao usa parser local no modo Gemini", async () => {
+  let requestCount = 0;
   await withInterpreterEnv({
     BOT_INTERPRETER: "gemini",
     GEMINI_MODE: "live",
     ALLOW_LIVE_GEMINI_TESTS: "true",
     GEMINI_API_KEY: "fake-test-key"
   }, async () => {
-    await withFetchMock(async () => new Response(JSON.stringify({
-      error: { code: 503, message: "service unavailable", status: "UNAVAILABLE" }
-    }), { status: 503, headers: { "Content-Type": "application/json" } }), async () => {
+    await withFetchMock(async () => {
+      requestCount += 1;
+      return new Response(JSON.stringify({
+        error: { code: 503, message: "service unavailable", status: "UNAVAILABLE" }
+      }), { status: 503, headers: { "Content-Type": "application/json" } });
+    }, async () => {
       const text = "090 pariu";
       const result = await parseWithConfiguredInterpreter({
         text,
@@ -4953,6 +4957,7 @@ test("Gemini live HTTP 503 nao usa parser local no modo Gemini", async () => {
       assert(result.reason === "api_error", `motivo esperado api_error, recebido ${result.reason}`);
       assert(String(result.message).includes("instabilidade"), "HTTP 503 deveria orientar nova tentativa por instabilidade");
       assert(!String(result.debug?.interpreter_final_usado || "").includes("fallback"), "nao deveria marcar fallback local");
+      assert(requestCount >= 2 && requestCount <= 4, `HTTP 503 deveria ter nova tentativa controlada sem loop, recebeu ${requestCount} chamadas`);
     });
     resetGeminiRuntimeStats();
   });

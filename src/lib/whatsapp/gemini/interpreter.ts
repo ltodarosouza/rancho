@@ -1,4 +1,4 @@
-import { aiProviderLog, generateStructuredAI, parseJsonObjectText } from "@/lib/whatsapp/ai-provider";
+import { aiProviderLog, generateStructuredAI, isTransientAIProviderFailure, parseJsonObjectText } from "@/lib/whatsapp/ai-provider";
 import { botTestVerbose, geminiActionPlanEnabled } from "@/lib/whatsapp/gemini/config";
 import { buildGeminiSystemPrompt } from "@/lib/whatsapp/gemini/system-prompt";
 import { validateInterpretedAction } from "@/lib/whatsapp/gemini/validator";
@@ -405,6 +405,23 @@ export async function callGeminiInterpreter(input: GeminiInterpreterInput): Prom
 }
 
 export async function interpretWithGemini(input: GeminiInterpreterInput): Promise<GeminiInterpreterResult> {
-  return callGeminiInterpreter(input);
+  const firstAttempt = await callGeminiInterpreter(input);
+  if (firstAttempt.ok || !isTransientAIProviderFailure(firstAttempt)) return firstAttempt;
+
+  // A single retry absorbs temporary provider failures without inventing a local interpretation.
+  geminiInterpreterLog("retry_scheduled", {
+    reason: firstAttempt.reason,
+    status: firstAttempt.status,
+    delayMs: 300
+  });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+
+  const retryAttempt = await callGeminiInterpreter(input);
+  geminiInterpreterLog("retry_result", {
+    ok: retryAttempt.ok,
+    reason: retryAttempt.ok ? undefined : retryAttempt.reason,
+    status: retryAttempt.ok ? undefined : retryAttempt.status
+  });
+  return retryAttempt;
 }
 

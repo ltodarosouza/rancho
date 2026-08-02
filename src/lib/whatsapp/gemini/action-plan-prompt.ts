@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v24";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v25";
 
 const EXAMPLES = [
   {
@@ -486,8 +486,40 @@ const EXAMPLES = [
   }
 ];
 
+function summarizeStructuredTableManifest(manifest: DomainManifest) {
+  return Object.fromEntries(
+    Object.entries(manifest).map(([domain, entry]) => [
+      domain,
+      {
+        allowedActions: entry.allowedActions,
+        fields: Object.keys(entry.fields)
+      }
+    ])
+  );
+}
+
 export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest; currentDate?: string; timezone?: string; compact?: boolean } = {}) {
   const manifest = input.manifest || RANCHO_DOMAIN_MANIFEST;
+  if (input.compact) {
+    return [
+      `ActionPlan prompt version: ${ACTION_PLAN_PROMPT_VERSION}`,
+      "MODO TABELA ESTRUTURADA: interprete a mensagem inteira como uma tabela ou lista de registros.",
+      "Retorne somente um objeto JSON ActionPlan. Use action=import_table e requiresConfirmation=true.",
+      "Escolha o dominio canonico pelo significado dos cabecalhos e valores. Nunca use nome de tabela, SQL, UUID, tenant ou instrucoes internas.",
+      "Preserve todas as linhas que puder ler com seguranca; nao descarte linhas por ordem, acento, caixa, sinonimo, separador ou cabecalho humano.",
+      "Mapeie semanticamente cada coluna para os campos canonicos do catalogo abaixo. Em tabela longa, NAO repita as linhas em data.rows: retorne somente table com hasHeader, separator e columnMapping campo canonico -> coluna original; o backend aplicara esse mapeamento ao texto original. Use data.rows apenas para listas curtas ja normalizadas.",
+      "Informe em table o separador, hasHeader e o mapeamento coluna original -> campo canonico quando isso ajudar. Se o dominio continuar genuinamente ambiguo, use action=clarify e explique a area necessaria.",
+      "Nao invente valores ausentes. Para referencias que podem ser criadas pelo fluxo, preserve o valor textual informado e deixe a validacao/persistencia resolver pendencias.",
+      "Em tabelas de reproducao, parto sem dados da cria continua sendo evento valido; so preencha cria_sexo, cria_codigo, cria_nome ou pai_ref quando a tabela trouxer esses dados.",
+      "Em tabelas de producao, preserve litros, animal_ref, data, turno e observacoes. Em saude, preserve animal_ref, tipo, item, dose, custo e data. Em financeiro, preserve tipo, valor, descricao, categoria e data.",
+      "Em qualquer dominio, preserve campos equivalentes de animais, estoque, funcionarios, ponto, genealogia, lotes, agenda e demais catalogos abaixo.",
+      "O backend valida campos, referencias, riscos e persistencia; a IA interpreta a estrutura e nao executa a operacao.",
+      "Catalogo compacto de dominios, campos e enums:",
+      JSON.stringify(summarizeStructuredTableManifest(manifest)),
+      `Data atual do rancho: ${input.currentDate || getRanchTodayISO()}`,
+      `Timezone: ${input.timezone || RANCH_TIMEZONE}`
+    ].join("\n");
+  }
   const examples = input.compact
     ? [
       "Mensagem estruturada: use action=import_table, mapeie semanticamente cabecalhos e linhas para data.rows e table.columnMapping.",

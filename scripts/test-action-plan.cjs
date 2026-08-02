@@ -604,7 +604,9 @@ test("prompt Gemini-first inclui contrato, manifest e seguranca", () => {
     timezone: "America/Fortaleza"
   });
   assert(compactTablePrompt.includes("action=import_table"), "prompt compacto sem instrucoes de tabela");
+  assert(compactTablePrompt.includes("NAO repita as linhas"), "prompt compacto deveria evitar ecoar tabelas longas");
   assert(!compactTablePrompt.includes("090 pariu"), "prompt compacto ainda enviou exemplos naturais desnecessarios");
+  assert(compactTablePrompt.length < 18000, `prompt compacto acima do limite de latencia: ${compactTablePrompt.length}`);
 });
 
 test("artefatos gerados de bot ficam ignorados e fora do indice", () => {

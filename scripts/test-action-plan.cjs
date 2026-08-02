@@ -92,6 +92,10 @@ const {
 const { detectConversationAct } = require("../src/services/whatsapp/conversation-act.ts");
 const { confirmationText } = require("../src/services/whatsapp/confirmation-message.ts");
 const {
+  milkStockMissingItemNeedsDecision,
+  withMilkStockMissingItemDecision
+} = require("../src/services/whatsapp/milk-stock-service.ts");
+const {
   normalizeDate,
   normalizeReproductionEvent,
   normalizeSex
@@ -1810,6 +1814,23 @@ test("executor query financeiro quanto gastei em mes nomeado filtra saidas do me
   assert(result.rows.every((row) => row.tipo === "saida" && String(row.data_transacao).startsWith("2026-06")), "consulta deveria retornar apenas saidas de junho");
   assert(result.parsed.dados?.resultado?.filters?.some((filter) => filter.field === "data" && filter.op === "between" && String(filter.value?.month || "").includes("junho")), "filtro between de junho ausente");
   assert(result.response.includes("Total gasto: R$ 390,00."), `resposta deveria mostrar gasto de junho, recebeu: ${result.response}`);
+});
+
+test("producao sem item de leite oferece criar dependencia antes da confirmacao", () => {
+  const parsed = {
+    tipo: "LOTE_REGISTROS",
+    dados: {
+      total_litros: 120,
+      estoque_leite_detectado: true,
+      estoque_leite: { status_resolucao: "not_found", total_litros: 120 }
+    }
+  };
+
+  assert(milkStockMissingItemNeedsDecision(parsed), "item de leite ausente deveria abrir decisao");
+  const next = withMilkStockMissingItemDecision(parsed, true);
+  assert(next.dados.estoque_leite.status_resolucao === "create_pending", "decisao deveria marcar criacao pendente");
+  assert(next.dados.estoque_leite.estoque_movimentar === true, "criacao deveria preparar entrada no estoque");
+  assert(confirmationText(next).includes("Leite"), "confirmacao deveria informar o item que sera criado");
 });
 
 test("executor query producao Mimosa desde janeiro usa relacao animal", async () => {

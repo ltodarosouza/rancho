@@ -886,13 +886,26 @@ module.exports = function loadBotTestSection(context) {
             text: "vaca 1 deu 14 litros e vaca 2 15",
             expected: {
               intent: "LOTE_REGISTROS",
+              estadoNovo: "aguardando_dado",
+              dados: {
+                total_litros: 29,
+                estoque_leite_status: "not_found",
+                estoque_leite_movimentar: false
+              },
+              responseIncludes: "Criar item"
+            }
+          },
+          {
+            text: "2",
+            expected: {
+              intent: "LOTE_REGISTROS",
               estadoNovo: "aguardando_confirmacao",
               dados: {
                 total_litros: 29,
                 estoque_leite_status: "not_found",
                 estoque_leite_movimentar: false
               },
-              responseIncludes: "item de estoque"
+              responseIncludes: "Está correto"
             }
           }
         ]

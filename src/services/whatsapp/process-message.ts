@@ -82,7 +82,10 @@ import {
   milkStockAfterSaveText,
   milkStockDebug,
   milkStockDecisionQuestion,
+  milkStockMissingItemDecisionQuestion,
+  milkStockMissingItemNeedsDecision,
   milkStockNeedsDecision,
+  isMilkStockUnit,
   normalizePhysicalSalePending,
   physicalSaleNeedsStockDecision,
   physicalSaleStockDecisionQuestion,
@@ -91,6 +94,7 @@ import {
   shouldResolveMilkStockForProduction,
   stockDecisionReason,
   stockResolutionDebug,
+  withMilkStockMissingItemDecision,
   withMilkStockMovementDecision,
   withPhysicalSaleStockDecision,
   withoutChildMilkStockMetadata
@@ -3247,6 +3251,82 @@ async function saveMilkStockMovementIfNeeded(
   return movement;
 }
 
+async function ensureMilkStockItemForSave(
+  supabase: SupabaseAdmin,
+  owner: WhatsAppOwner,
+  parsed: ParsedRanchoMessage,
+  options: { persist?: boolean } = {}
+) {
+  const stock = parsed.dados?.estoque_leite as AnyRecord | undefined;
+  if (stock?.status_resolucao !== "create_pending" || stock.item_id) return parsed;
+  if (!isBotAdmin(owner)) throw new Error("Usuario sem permissao para criar item de estoque.");
+
+  const itemName = String(stock.item_leite_resolvido || "Leite").trim() || "Leite";
+  const itemUnit = String(stock.item_leite_unidade || "litro").trim() || "litro";
+  const { data: catalog, error: catalogError } = await supabase
+    .from(TABLES.estoqueItens)
+    .select("id,nome,unidade_medida,ativo")
+    .eq("fazenda_id", owner.fazenda_id)
+    .limit(1000);
+
+  if (catalogError) throw new Error(catalogError.message);
+  const existing = ((catalog || []) as AnyRecord[]).find((row) => (
+    row.ativo !== false
+    && normalizeCatalogText(String(row.nome || "")) === normalizeCatalogText(itemName)
+    && isMilkStockUnit(row.unidade_medida)
+  ));
+
+  let item = existing;
+  if (!item?.id) {
+    if (options.persist === false) {
+      item = {
+        id: `dry-run-leite-${owner.fazenda_id}`,
+        nome: itemName,
+        unidade_medida: itemUnit
+      };
+    } else {
+      const { data, error } = await supabase
+        .from(TABLES.estoqueItens)
+        .insert({
+          fazenda_id: owner.fazenda_id,
+          nome: itemName,
+          categoria: "outro",
+          unidade_medida: itemUnit,
+          quantidade_atual: 0,
+          quantidade_minima: 0,
+          valor_unitario: 0,
+          fornecedor: null,
+          ativo: true,
+          created_by: owner.usuario_id || null
+        })
+        .select("id,nome,unidade_medida")
+        .single();
+      if (error || !data?.id) throw new Error(error?.message || "Nao foi possivel criar o item de leite.");
+      item = data as AnyRecord;
+    }
+  }
+
+  const nextStock = {
+    ...stock,
+    status_resolucao: "matched",
+    item_id: item.id,
+    item_leite_resolvido: item.nome || itemName,
+    item_leite_unidade: item.unidade_medida || itemUnit,
+    estoque_movimentar: true,
+    acao_pendente_estoque: true,
+    criar_item: false
+  };
+  return refreshRanchoMessage(parsed, {
+    ...(parsed.dados || {}),
+    estoque_leite: nextStock,
+    estoque_leite_item_id: item.id,
+    estoque_leite_item_nome: nextStock.item_leite_resolvido,
+    estoque_leite_unidade: nextStock.item_leite_unidade,
+    estoque_leite_status: "matched",
+    estoque_leite_movimentar: true
+  });
+}
+
 async function buildAnimalIndividualReport(supabase: SupabaseAdmin, owner: WhatsAppOwner, animal: AnyRecord, reference: string, lot?: AnyRecord | null) {
   return buildAnimalIndividualReportFromModule({ listAnimals }, supabase, owner, animal, reference, lot);
 }
@@ -3538,6 +3618,11 @@ async function handleFreeText(supabase: SupabaseAdmin, owner: WhatsAppOwner, tex
     });
     await saveSession(supabase, owner, { etapa: "aguardando_dado", dados: { pending: parsed } });
     return composeMissingDataText(parsed);
+  }
+
+  if (milkStockMissingItemNeedsDecision(parsed) && isBotAdmin(owner)) {
+    await saveSession(supabase, owner, { etapa: "aguardando_dado", dados: { pending: parsed, acao_pendente: "producao_leite_item_nao_encontrado" } });
+    return milkStockMissingItemDecisionQuestion(parsed);
   }
 
   if (milkStockNeedsDecision(parsed)) {
@@ -3930,6 +4015,11 @@ async function saveCorrectedPending(
   if (next.perguntas_faltantes.length) {
     await saveSession(supabase, owner, { etapa: "aguardando_dado", dados: { pending: next } });
     return { response: [prefix, composeMissingDataText(next)].filter(Boolean).join("\n"), parsed: next };
+  }
+
+  if (milkStockMissingItemNeedsDecision(next) && isBotAdmin(owner)) {
+    await saveSession(supabase, owner, { etapa: "aguardando_dado", dados: { pending: next, acao_pendente: "producao_leite_item_nao_encontrado" } });
+    return { response: milkStockMissingItemDecisionQuestion(next), parsed: next };
   }
 
   if (milkStockNeedsDecision(next)) {
@@ -4325,6 +4415,24 @@ async function handleMissingData(
     return "Responda 1 para adicionar ao estoque ou 2 para registrar apenas a produção.";
   }
 
+  if (session.dados?.acao_pendente === "producao_leite_item_nao_encontrado") {
+    const command = normalizeRanchoText(text);
+    const wantsCreate = command === "1" || /\b(?:criar|cadast(?:rar|ro)|adicionar|estoque)\b/.test(command);
+    const wantsProductionOnly = command === "2" || /\b(?:nao|n|somente producao|apenas producao|so producao)\b/.test(command);
+
+    if (wantsCreate) {
+      const next = withMilkStockMissingItemDecision(pending, true);
+      await saveSession(supabase, owner, { etapa: "aguardando_confirmacao", dados: { pending: next } });
+      return confirmationText(next);
+    }
+    if (wantsProductionOnly) {
+      const next = withMilkStockMissingItemDecision(pending, false);
+      await saveSession(supabase, owner, { etapa: "aguardando_confirmacao", dados: { pending: next } });
+      return confirmationText(next);
+    }
+    return "Responda 1 para criar o item e adicionar ao estoque ou 2 para registrar apenas a producao.";
+  }
+
   if (session.dados?.acao_pendente === "venda_baixa_estoque_opcional") {
     const command = normalizeRanchoText(text);
     const wantsStockOut = command === "1" || /\b(?:sim|s|ss|quero|pode|baixa|dar baixa|tira do estoque)\b/.test(command);
@@ -4397,6 +4505,11 @@ async function handleMissingData(
     return composeMissingDataText(next);
   }
 
+  if (milkStockMissingItemNeedsDecision(next) && isBotAdmin(owner)) {
+    await saveSession(supabase, owner, { etapa: "aguardando_dado", dados: { pending: next, acao_pendente: "producao_leite_item_nao_encontrado" } });
+    return milkStockMissingItemDecisionQuestion(next);
+  }
+
   if (milkStockNeedsDecision(next)) {
     await saveSession(supabase, owner, { etapa: "aguardando_dado", dados: { pending: next, acao_pendente: "producao_leite_estoque_opcional" } });
     return milkStockDecisionQuestion(next);
@@ -4417,7 +4530,7 @@ async function handleConfirmation(
   session: BotSession,
   text: string,
   command: string,
-  options: { modoTesteSalvarReal?: boolean } = {}
+  options: { modoTeste?: boolean; modoTesteSalvarReal?: boolean } = {}
 ) {
   const pending = session.dados?.pending as ParsedRanchoMessage | undefined;
   if (!pending?.tipo) {
@@ -4558,6 +4671,15 @@ async function handleConfirmation(
     if (pendingToSave.tipo === "IMPORTACAO_ESTOQUE_TABELA") {
       botTabularImportLog("stock_import_confirm_command", owner, stockImportSummary(pendingToSave));
     }
+    try {
+      pendingToSave = await ensureMilkStockItemForSave(supabase, owner, pendingToSave, {
+        persist: options.modoTeste !== true || options.modoTesteSalvarReal === true
+      });
+    } catch (error) {
+      await saveSession(supabase, owner, { etapa: "livre", dados: {} });
+      return `Não consegui preparar o item de leite no estoque. Nenhum registro de produção foi salvo. ${safeErrorText(error)}`;
+    }
+
     const result = await saveConfirmedRecord(supabase, owner, pendingToSave);
     await saveSession(supabase, owner, sessionAfterConfirmedSave(result, pendingToSave));
     const postConfirmationText = result.savedReal ?await handlePostConfirmationConsultations(supabase, owner, pendingToSave) : "";
@@ -5074,6 +5196,7 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
         ));
         eventConfirmed = (isConfirmCommand(command) || isHerdDeleteConfirmationCommand(parsed, command) || isStockImportDecision) && !isMissingAnimalDecision && !isDestructiveBulkParsed(parsed);
         response = await handleConfirmation(supabase, owner, previousSession, message, command, {
+          modoTeste: input.modoTeste,
           modoTesteSalvarReal: salvarRealNoTeste
         });
       }

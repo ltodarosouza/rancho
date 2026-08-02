@@ -260,6 +260,10 @@ export function milkStockStatusText(parsed: ParsedRanchoMessage) {
     return `\n\nItem de leite encontrado (${stock.item_leite_resolvido}), mas não vou movimentar estoque automaticamente.`;
   }
 
+  if (stock.status_resolucao === "create_pending") {
+    return `\n\nTambém vou criar o item ${stock.item_leite_resolvido || "Leite"} em ${stock.item_leite_unidade || "litros"} e adicionar ${formatNumber(Number(stock.total_litros || parsed.dados?.total_litros || 0), " L")} ao estoque.`;
+  }
+
   if (stock.status_resolucao === "ambiguous") {
     const options = Array.isArray(stock.opcoes) ?stock.opcoes as AnyRecord[] : [];
     const lines = options.slice(0, 5).map((option, index) => `${index + 1}. ${option.nome} (${option.unidade || "unidade não informada"})`).join("\n");

@@ -201,6 +201,43 @@ export function milkStockNeedsDecision(parsed: ParsedRanchoMessage) {
   return Boolean(stock?.pedir_decisao && stock.status_resolucao === "matched" && !stock.estoque_movimentar);
 }
 
+export function milkStockMissingItemNeedsDecision(parsed: ParsedRanchoMessage) {
+  const stock = parsed.dados?.estoque_leite as AnyRecord | undefined;
+  return Boolean(
+    stock
+    && parsed.dados?.estoque_leite_detectado
+    && stock.status_resolucao === "not_found"
+    && Number(stock.total_litros || parsed.dados?.total_litros || 0) > 0
+  );
+}
+
+export function milkStockMissingItemDecisionQuestion(parsed: ParsedRanchoMessage) {
+  const stock = parsed.dados?.estoque_leite as AnyRecord | undefined;
+  const total = Number(stock?.total_litros || parsed.dados?.total_litros || 0);
+  return `Não encontrei um item de estoque compatível com leite. Deseja criar "Leite" em litros e adicionar ${formatNumber(total, " L")} ao estoque?
+1 - Criar item e adicionar ao estoque
+2 - Registrar apenas a produção`;
+}
+
+export function withMilkStockMissingItemDecision(parsed: ParsedRanchoMessage, shouldCreate: boolean) {
+  const stock = { ...((parsed.dados?.estoque_leite || {}) as AnyRecord) };
+  const dados = {
+    ...(parsed.dados || {}),
+    estoque_leite: {
+      ...stock,
+      status_resolucao: shouldCreate ? "create_pending" : "not_found",
+      item_leite_resolvido: shouldCreate ? "Leite" : stock.item_leite_resolvido || null,
+      item_leite_unidade: shouldCreate ? "litro" : stock.item_leite_unidade || null,
+      criar_item: shouldCreate,
+      estoque_movimentar: shouldCreate,
+      acao_pendente_estoque: shouldCreate,
+      pedir_decisao: false
+    },
+    estoque_leite_movimentar: shouldCreate
+  };
+  return refreshRanchoMessage(parsed, dados);
+}
+
 export function milkStockDecisionQuestion(parsed: ParsedRanchoMessage) {
   const stock = parsed.dados?.estoque_leite as AnyRecord | undefined;
   const total = Number(stock?.total_litros || parsed.dados?.total_litros || parsed.dados?.litros || 0);

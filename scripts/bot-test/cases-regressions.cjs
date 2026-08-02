@@ -985,7 +985,7 @@ module.exports = function loadBotTestSection(context) {
         phone: BOT_TEST_ADMIN_PHONE,
         extraAnimals: [{ id: "animal-lindona-producao", brinco: "001", nome: "Lindona" }],
         stockItems: mockStock.filter((item) => !/leite/i.test(item.nome)),
-        messages: ["tirei 30 litros de Lindona hoje", "sim"],
+        messages: ["tirei 30 litros de Lindona hoje", "2", "sim"],
         expected: {
           finalIntent: "PRODUCAO_LEITE",
           entities: { animal_codigo: "001", litros: 30, data_referencia: "hoje" },
@@ -1079,14 +1079,16 @@ module.exports = function loadBotTestSection(context) {
         module: "producao-estoque-leite",
         phone: BOT_TEST_ADMIN_PHONE,
         stockItems: mockStock.filter((item) => !/leite/i.test(item.nome)),
-        messages: ["B-002 deu 30 litros no tanque"],
+        messages: ["B-002 deu 30 litros no tanque", "2", "sim"],
         expected: {
           finalIntent: "PRODUCAO_LEITE",
           entities: { animal_codigo: "B-002", litros: 30, estoque_leite_movimentar: false },
-          responseIncludes: "Não encontrei item de estoque compatível com leite",
           shouldAskConfirmation: true,
           shouldSaveBeforeConfirmation: false,
-          savedAfterConfirmation: false,
+          savedAfterConfirmation: true,
+          simulatedSaveCount: 1,
+          savedTables: [BOT_TEST_TABLES.ordenhas],
+          shouldSaveValues: { animal_codigo: "B-002", litros: 30 },
           shouldNotWriteBusiness: true
         }
       },

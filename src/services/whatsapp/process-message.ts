@@ -8,6 +8,7 @@ import { applyStockMissingItemRegistrationText } from "@/lib/whatsapp/action-pla
 import {
   isOversizedText,
   isUnsafeOperationalMessage,
+  MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH,
   safeErrorText,
   sanitizeFreeText,
   sanitizeWhatsappMessageText,
@@ -4751,8 +4752,13 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
 
   const phone = normalizeWhatsappNumber(input.telefone) || input.telefone;
   const originalMessage = String(input.mensagem || "");
-  const message = sanitizeFreeText(originalMessage);
-  const messageTooLong = isOversizedText(originalMessage);
+  const structuredMessage = sanitizeWhatsappMessageText(originalMessage, MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH);
+  const structuredDetection = detectStructuredInput(structuredMessage);
+  const message = structuredDetection.isStructured ? structuredMessage : sanitizeFreeText(originalMessage);
+  const messageTooLong = isOversizedText(
+    originalMessage,
+    structuredDetection.isStructured ? MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH : undefined
+  );
   const salvarRealNoTeste = Boolean(input.modoTeste && input.salvarReal);
   let owner: WhatsAppOwner | null = null;
   let previousSession: BotSession | null = null;
@@ -4828,8 +4834,6 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       response = SAFE_OPERATION_BLOCKED_MESSAGE;
       suppressPreviousPending = true;
     } else {
-    const structuredMessage = sanitizeWhatsappMessageText(originalMessage);
-    const structuredDetection = detectStructuredInput(structuredMessage);
     const parserMessage = structuredDetection.isStructured
       ? structuredMessage
       : originalMessage.includes(";") && /[\r\n]/.test(originalMessage) ?originalMessage : message;

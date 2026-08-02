@@ -2,6 +2,35 @@ module.exports = function loadBotTestSection(context) {
   with (context) {
     const botConversationTests = [
       {
+        name: "tabela longa com observacao sem confirmacao segue para importacao",
+        phone: BOT_TEST_ADMIN_PHONE,
+        expectNoBusinessWrites: true,
+        messages: [
+          {
+            text: [
+              "Animal;Evento;Data;Observacoes",
+              ...Array.from({ length: 42 }, (_, index) => {
+                const day = String((index % 28) + 1).padStart(2, "0");
+                return `B-002;inseminacao;2025-07-${day};Primeira IA sem confirmacao de prenhez, registro ${index + 1}`;
+              })
+            ].join("\n"),
+            expected: {
+              intent: "IMPORTACAO_EVENTOS_TABELA",
+              estadoNovo: "aguardando_confirmacao",
+              responseIncludes: "tabela"
+            }
+          },
+          {
+            text: "cancelar",
+            expected: {
+              estadoAnterior: "aguardando_confirmacao",
+              estadoNovo: "livre",
+              responseIncludes: "Nada foi salvo"
+            }
+          }
+        ]
+      },
+      {
         name: "producao com dado faltante, sessao e confirmacao em dry-run",
         phone: BOT_TEST_ADMIN_PHONE,
         expectNoBusinessWrites: true,

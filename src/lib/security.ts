@@ -6,6 +6,7 @@ const EMAIL_PATTERN = /\b([a-zA-Z0-9._%+-]{1,2})[a-zA-Z0-9._%+-]*(@[a-zA-Z0-9.-]
 const PHONE_PATTERN = /\b(?:whatsapp:)?\+?\d[\d\s().-]{9,}\d\b/g;
 
 export const MAX_WHATSAPP_MESSAGE_LENGTH = 2000;
+export const MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH = 12000;
 export const SAFE_OPERATION_BLOCKED_MESSAGE = "Não posso executar esse tipo de comando nem revelar dados internos. Envie uma consulta ou registro permitido do Rancho.";
 
 function normalizeSecurityText(value: string) {
@@ -84,7 +85,8 @@ export function isUnsafeOperationalMessage(value: unknown) {
     /\b(?:muda|troca|altera)\s+meu\s+cargo\s+para\s+(?:dono|admin|owner)\b/,
     /\b(?:mostra|ver|acessa|usar?|usa)\s+(?:o\s+|a\s+|os\s+|as\s+)?(?:dados|rancho|fazenda)\s+de\s+outr[ao]\b/,
     /\b(?:confirma|salva|registra|faz)\s+tudo\s+sozinh[ao]\b/,
-    /\b(?:sem|sem pedir)\s+confirmacao\b/
+    /\b(?:confirmar|salvar|salve|registrar|registre|executar|execute|fazer|faca|faz|atualizar|atualize|alterar|altere|aplicar|prossiga|prosseguir|realizar)\b[^\n.;]{0,80}\bsem\s+(?:pedir\s+)?confirmacao\b/,
+    /\bsem\s+(?:pedir\s+)?confirmacao\b[^\n.;]{0,80}\b(?:salvar|salve|registrar|registre|executar|execute|fazer|faca|faz|atualizar|atualize|alterar|altere|aplicar|prossiga|prosseguir|realizar)\b/
   ].some((pattern) => pattern.test(text));
 }
 

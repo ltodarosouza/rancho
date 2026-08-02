@@ -1,5 +1,5 @@
 import { handleTwilioRanchoMessage } from "@/services/whatsapp/twilio";
-import { isOversizedText, maskSensitivePhone, safeErrorText, sanitizeFreeText, sanitizeWhatsappMessageText } from "@/lib/security";
+import { isOversizedText, maskSensitivePhone, MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH, safeErrorText, sanitizeFreeText, sanitizeWhatsappMessageText } from "@/lib/security";
 
 function escapeXml(value: string) {
   return value
@@ -37,13 +37,13 @@ export async function POST(request: Request) {
     }
 
     const rawBody = await request.text();
-    if (isOversizedText(rawBody, 10000)) {
+    if (isOversizedText(rawBody, MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH * 3)) {
       return xmlResponse(twiml("Mensagem muito longa para processar com segurança."), 413);
     }
 
     const params = new URLSearchParams(rawBody);
 
-    const Body = sanitizeWhatsappMessageText(params.get("Body") || "");
+    const Body = sanitizeWhatsappMessageText(params.get("Body") || "", MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH);
     const From = sanitizeFreeText(params.get("From") || "", 80);
     const To = sanitizeFreeText(params.get("To") || "", 80);
     const MessageSid = sanitizeFreeText(params.get("MessageSid") || "", 120);

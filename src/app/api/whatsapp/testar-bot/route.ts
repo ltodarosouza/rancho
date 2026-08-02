@@ -3,7 +3,7 @@ import { INTERNAL_TOOLS_FORBIDDEN_MESSAGE } from "@/lib/internal-access";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { TABLES } from "@/lib/tables";
 import { whatsappNumbersMatch } from "@/lib/phone";
-import { isOversizedText, safeErrorText, sanitizeFreeText, sanitizeWhatsappMessageText } from "@/lib/security";
+import { isOversizedText, MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH, safeErrorText, sanitizeFreeText, sanitizeWhatsappMessageText } from "@/lib/security";
 import { requireInternalWhatsappTester } from "@/lib/server/internal-whatsapp-tools";
 import { processWhatsappMessage } from "@/services/whatsapp/process-message";
 
@@ -60,11 +60,11 @@ export async function POST(request: NextRequest) {
 
     const { telefone, mensagem, salvarReal } = await request.json();
     const phone = sanitizeFreeText(telefone || "", 80);
-    const text = sanitizeWhatsappMessageText(mensagem || "");
+    const text = sanitizeWhatsappMessageText(mensagem || "", MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH);
 
     if (!phone) return jsonError("Informe o telefone simulado.", 400);
     if (!text) return jsonError("Informe a mensagem para simular.", 400);
-    if (isOversizedText(mensagem)) return jsonError("Mensagem muito longa para processar com segurança.", 413);
+    if (isOversizedText(mensagem, MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH)) return jsonError("Mensagem muito longa para processar com segurança.", 413);
 
     const permission = await assertCanUseSimulator(request, phone);
     if (permission.error) return permission.error;

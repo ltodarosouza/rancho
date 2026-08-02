@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { isOversizedText, maskSensitivePhone, safeErrorText, sanitizeFreeText, sanitizeWhatsappMessageText } from "@/lib/security";
+import { isOversizedText, maskSensitivePhone, MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH, safeErrorText, sanitizeFreeText, sanitizeWhatsappMessageText } from "@/lib/security";
 import {
   getIncomingMessages,
   isMetaWebhookSignatureConfigured,
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const results = [];
     for (const incoming of incomingMessages) {
       const phone = sanitizeFreeText(incoming.phone, 80);
-      const text = sanitizeWhatsappMessageText(incoming.text);
+      const text = sanitizeWhatsappMessageText(incoming.text, MAX_WHATSAPP_STRUCTURED_MESSAGE_LENGTH);
       if (!phone || !text) {
         results.push({ id: incoming.id, ignored: "unsupported_message_type" });
         continue;

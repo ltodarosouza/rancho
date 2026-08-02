@@ -1,12 +1,21 @@
 "use client";
 
-import { ArrowDownCircle, ArrowUpCircle, Download, Eye, Pencil, Search, Trash2, X } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, ArrowDownUp, Download, Eye, Filter, Pencil, Search, Trash2, X } from "lucide-react";
 import { memo, useMemo } from "react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { AnyRecord, ModuleField, RelationOption } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { isFinancialExpense, isFinancialIncome } from "@/lib/finance";
+
+export type DataTableFilter = {
+  key: string;
+  label: string;
+  type: "select" | "number" | "date";
+  options?: Array<{ label: string; value: string }>;
+  placeholder?: string;
+  step?: string;
+};
 
 function renderCell(row: AnyRecord, field: ModuleField, lookups?: Record<string, Record<string, string>>) {
   const value = row[field.name];
@@ -56,7 +65,14 @@ export const DataTable = memo(function DataTable({
   relationOptions = {},
   loading = false,
   canManage = true,
-  emptyMessage = "Nenhum registro encontrado."
+  emptyMessage = "Nenhum registro encontrado.",
+  filters = [],
+  filterValues = {},
+  onFilterChange,
+  sortOptions = [],
+  sortValue = "default",
+  onSortChange,
+  onClearFilters
 }: {
   rows: AnyRecord[];
   fields: ModuleField[];
@@ -70,6 +86,13 @@ export const DataTable = memo(function DataTable({
   loading?: boolean;
   canManage?: boolean;
   emptyMessage?: string;
+  filters?: DataTableFilter[];
+  filterValues?: Record<string, string>;
+  onFilterChange?: (key: string, value: string) => void;
+  sortOptions?: Array<{ label: string; value: string }>;
+  sortValue?: string;
+  onSortChange?: (value: string) => void;
+  onClearFilters?: () => void;
 }) {
   const visibleFields = useMemo(() => fields.filter((field) => field.tableVisible !== false).slice(0, 8), [fields]);
   const lookups = useMemo(() => Object.entries(relationOptions).reduce<Record<string, Record<string, string>>>((acc, [field, options]) => {
@@ -93,6 +116,49 @@ export const DataTable = memo(function DataTable({
           <Download className="h-4 w-4" /> Exportar CSV
         </button>
       </div>
+      {filters.length || sortOptions.length ? (
+        <div className="flex flex-wrap items-end gap-2 border-b border-[var(--border)] bg-[var(--bg)]/50 p-3">
+          <div className="mr-1 flex items-center gap-1.5 pb-1 text-xs font-semibold text-[var(--text-2)]">
+            <Filter className="h-3.5 w-3.5" /> Filtros
+          </div>
+          {filters.map((filter) => (
+            <label key={filter.key} className="flex min-w-[9rem] flex-col gap-1 text-[11px] font-medium text-[var(--text-2)]">
+              <span>{filter.label}</span>
+              {filter.type === "select" ? (
+                <select
+                  className="input h-9 min-w-[9rem] py-1 text-xs"
+                  value={filterValues[filter.key] || ""}
+                  onChange={(event) => onFilterChange?.(filter.key, event.target.value)}
+                >
+                  {(filter.options || []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              ) : (
+                <input
+                  className="input h-9 min-w-[9rem] py-1 text-xs"
+                  type={filter.type}
+                  step={filter.step}
+                  placeholder={filter.placeholder}
+                  value={filterValues[filter.key] || ""}
+                  onChange={(event) => onFilterChange?.(filter.key, event.target.value)}
+                />
+              )}
+            </label>
+          ))}
+          {sortOptions.length ? (
+            <label className="flex min-w-[12rem] flex-col gap-1 text-[11px] font-medium text-[var(--text-2)]">
+              <span className="flex items-center gap-1"><ArrowDownUp className="h-3 w-3" /> Ordenar por</span>
+              <select className="input h-9 min-w-[12rem] py-1 text-xs" value={sortValue} onChange={(event) => onSortChange?.(event.target.value)}>
+                {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+          ) : null}
+          {onClearFilters ? (
+            <button className="btn btn-ghost h-9 text-xs" type="button" onClick={onClearFilters}>
+              <X className="h-3.5 w-3.5" /> Limpar filtros
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <div className="table-wrap">
         <table>
           <thead>

@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { DataTable } from "@/components/ui/DataTable";
+import { DataTable, type DataTableFilter } from "@/components/ui/DataTable";
 import { AnimalCards } from "@/components/modules/AnimalCards";
 import { ModuleForm } from "@/components/modules/ModuleForm";
 import { StatCard } from "@/components/ui/StatCard";
@@ -154,6 +154,170 @@ function calcStat(rows: AnyRecord[], stat: NonNullable<ModuleConfig["quickStats"
   return formatNumber(sum, stat.suffix || "");
 }
 
+type ModuleTableControls = {
+  filters: DataTableFilter[];
+  sortOptions: Array<{ label: string; value: string }>;
+};
+
+function moduleTableControls(key: string): ModuleTableControls {
+  if (key === "producao") {
+    return {
+      filters: [
+        { key: "litros_min", label: "Litros mínimos", type: "number", placeholder: "Ex.: 10", step: "0.1" },
+        { key: "litros_max", label: "Litros máximos", type: "number", placeholder: "Ex.: 40", step: "0.1" }
+      ],
+      sortOptions: [
+        { label: "Data: mais recentes", value: "default" },
+        { label: "Data: mais antigas", value: "data_asc" },
+        { label: "Litros: maior para menor", value: "litros_desc" },
+        { label: "Litros: menor para maior", value: "litros_asc" }
+      ]
+    };
+  }
+
+  if (key === "eventos") {
+    return {
+      filters: [
+        {
+          key: "tipo",
+          label: "Tipo de evento",
+          type: "select",
+          options: [
+            { label: "Todos", value: "" },
+            { label: "Parto", value: "parto" },
+            { label: "Vacina", value: "vacina" },
+            { label: "Doença", value: "doenca" },
+            { label: "Tratamento", value: "tratamento" },
+            { label: "Inseminação", value: "inseminacao" },
+            { label: "Pesagem", value: "pesagem" },
+            { label: "Observação", value: "observacao" },
+            { label: "Outro", value: "outro" }
+          ]
+        },
+        { key: "data_de", label: "A partir de", type: "date" },
+        { key: "data_ate", label: "Até", type: "date" },
+        { key: "custo_min", label: "Custo mínimo", type: "number", placeholder: "Ex.: 100", step: "0.01" }
+      ],
+      sortOptions: [
+        { label: "Data: mais recentes", value: "default" },
+        { label: "Data: mais antigas", value: "data_asc" },
+        { label: "Custo: maior para menor", value: "custo_desc" },
+        { label: "Custo: menor para maior", value: "custo_asc" }
+      ]
+    };
+  }
+
+  if (key === "lotes") {
+    return {
+      filters: [
+        {
+          key: "ativo",
+          label: "Status",
+          type: "select",
+          options: [
+            { label: "Todos", value: "" },
+            { label: "Ativos", value: "true" },
+            { label: "Inativos", value: "false" }
+          ]
+        }
+      ],
+      sortOptions: [
+        { label: "Mais recentes", value: "default" },
+        { label: "Mais antigos", value: "created_asc" },
+        { label: "Nome: A-Z", value: "nome_asc" },
+        { label: "Nome: Z-A", value: "nome_desc" }
+      ]
+    };
+  }
+
+  if (key === "financeiro") {
+    return {
+      filters: [
+        {
+          key: "tipo",
+          label: "Movimento",
+          type: "select",
+          options: [
+            { label: "Entradas e saídas", value: "" },
+            { label: "Entradas", value: "entrada" },
+            { label: "Saídas", value: "saida" }
+          ]
+        },
+        { key: "data_de", label: "A partir de", type: "date" },
+        { key: "data_ate", label: "Até", type: "date" },
+        { key: "valor_min", label: "Valor mínimo", type: "number", placeholder: "Ex.: 500", step: "0.01" }
+      ],
+      sortOptions: [
+        { label: "Data: mais recentes", value: "default" },
+        { label: "Data: mais antigas", value: "data_asc" },
+        { label: "Valor: maior para menor", value: "valor_desc" },
+        { label: "Valor: menor para maior", value: "valor_asc" }
+      ]
+    };
+  }
+
+  return { filters: [], sortOptions: [] };
+}
+
+function rowDateValue(row: AnyRecord, key: string) {
+  return String(row[key] || "").slice(0, 10);
+}
+
+function sortTableRows(rows: AnyRecord[], key: string, sortValue: string) {
+  if (!sortValue || sortValue === "default") return rows;
+  const direction = sortValue.endsWith("_asc") ? 1 : -1;
+  const field = sortValue.replace(/_(?:asc|desc)$/, "");
+  return [...rows].sort((left, right) => {
+    const leftValue = ["litros", "custo", "valor"].includes(field)
+      ? Number(left[field] || 0)
+      : field === "data" ? rowDateValue(left, "data_evento") : left[field] || "";
+    const rightValue = ["litros", "custo", "valor"].includes(field)
+      ? Number(right[field] || 0)
+      : field === "data" ? rowDateValue(right, "data_evento") : right[field] || "";
+    if (typeof leftValue === "number" && typeof rightValue === "number") return (leftValue - rightValue) * direction;
+    return String(leftValue).localeCompare(String(rightValue), "pt-BR", { numeric: true }) * direction;
+  });
+}
+
+function filterAndSortModuleRows(rows: AnyRecord[], key: string, search: string, filterValues: Record<string, string>, sortValue: string) {
+  const term = search.trim().toLowerCase();
+  let filtered = rows.filter((row) => {
+    if (term && !JSON.stringify(row).toLowerCase().includes(term)) return false;
+    if (key === "producao") {
+      const liters = Number(row.litros || 0);
+      if (filterValues.litros_min && liters < Number(filterValues.litros_min)) return false;
+      if (filterValues.litros_max && liters > Number(filterValues.litros_max)) return false;
+    }
+    if (key === "eventos") {
+      if (filterValues.tipo && String(row.tipo || "") !== filterValues.tipo) return false;
+      const date = rowDateValue(row, "data_evento");
+      if (filterValues.data_de && date < filterValues.data_de) return false;
+      if (filterValues.data_ate && date > filterValues.data_ate) return false;
+      if (filterValues.custo_min && Number(row.custo || 0) < Number(filterValues.custo_min)) return false;
+    }
+    if (key === "lotes" && filterValues.ativo && String(Boolean(row.ativo)) !== filterValues.ativo) return false;
+    if (key === "financeiro") {
+      if (filterValues.tipo && String(row.tipo || "") !== filterValues.tipo) return false;
+      const date = rowDateValue(row, "data_transacao");
+      if (filterValues.data_de && date < filterValues.data_de) return false;
+      if (filterValues.data_ate && date > filterValues.data_ate) return false;
+      if (filterValues.valor_min && Number(row.valor || 0) < Number(filterValues.valor_min)) return false;
+    }
+    return true;
+  });
+
+  if (key === "producao" && (sortValue === "litros_desc" || sortValue === "litros_asc")) return sortTableRows(filtered, key, sortValue);
+  if (key === "eventos" && (sortValue === "custo_desc" || sortValue === "custo_asc")) return sortTableRows(filtered, key, sortValue);
+  if (key === "financeiro" && (sortValue === "valor_desc" || sortValue === "valor_asc")) return sortTableRows(filtered, key, sortValue);
+  if (key === "lotes" && (sortValue === "nome_asc" || sortValue === "nome_desc")) return sortTableRows(filtered, key, sortValue);
+  if (sortValue === "data_asc") {
+    const dateField = key === "producao" ? "ordenhado_em" : key === "financeiro" ? "data_transacao" : key === "eventos" ? "data_evento" : "created_at";
+    return [...filtered].sort((left, right) => rowDateValue(left, dateField).localeCompare(rowDateValue(right, dateField)));
+  }
+  if (sortValue === "created_asc") return [...filtered].sort((left, right) => rowDateValue(left, "created_at").localeCompare(rowDateValue(right, "created_at")));
+  return filtered;
+}
+
 function exportCsv(filename: string, rows: AnyRecord[], fields: ModuleConfig["fields"]) {
   const visible = fields.filter((field) => field.tableVisible !== false);
   const header = visible.map((field) => `"${field.label}"`).join(",");
@@ -194,6 +358,8 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
   const formRef = useRef<HTMLDivElement | null>(null);
   const loadRequestRef = useRef(0);
   const deferredSearch = useDeferredValue(search);
+  const [tableFilterValues, setTableFilterValues] = useState<Record<string, string>>({});
+  const [tableSort, setTableSort] = useState("default");
 
   const Icon = moduleIcons[config.icon] || Database;
   const initialLoading = loading && !rows.length;
@@ -202,6 +368,7 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
   const canManage = canManageData(profile);
   const selectColumns = useMemo(() => moduleListSelect(config), [config]);
   const pageSize = useMemo(() => modulePageSize(config.tableName), [config.tableName]);
+  const tableControls = useMemo(() => moduleTableControls(config.key), [config.key]);
   const emptyMessage = initialError
     ? `Nao consegui carregar os registros de ${config.title.toLowerCase()} agora.`
     : deferredSearch.trim()
@@ -275,24 +442,43 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
   useEffect(() => {
     setVisibleLimit(modulePageSize(config.tableName));
     setHasMoreRows(false);
+    setTableFilterValues({});
+    setTableSort("default");
   }, [config.tableName]);
 
-  const searchableRows = useMemo(
-    () => allRows.map((row) => ({ row, text: JSON.stringify(row).toLowerCase() })),
-    [allRows]
+  const hasTableFilters = useMemo(
+    () => Object.values(tableFilterValues).some((value) => Boolean(value)),
+    [tableFilterValues]
   );
 
-  const filteredRows = useMemo(() => {
-    const term = deferredSearch.trim().toLowerCase();
-    if (!term) return rows;
-    return searchableRows.filter((item) => item.text.includes(term)).map((item) => item.row);
-  }, [deferredSearch, rows, searchableRows]);
+  const allFilteredRows = useMemo(
+    () => filterAndSortModuleRows(allRows, config.key, deferredSearch, tableFilterValues, tableSort),
+    [allRows, config.key, deferredSearch, tableFilterValues, tableSort]
+  );
 
-  const statRows = deferredSearch.trim() ? filteredRows : allRows;
+  const shouldUseCompleteRows = Boolean(deferredSearch.trim() || hasTableFilters || tableSort !== "default");
+  const filteredRows = useMemo(
+    () => shouldUseCompleteRows
+      ? allFilteredRows
+      : filterAndSortModuleRows(rows, config.key, "", {}, "default"),
+    [allFilteredRows, config.key, rows, shouldUseCompleteRows]
+  );
+
+  const statRows = allFilteredRows;
 
   const denyManage = useCallback(() => setError(PERMISSION_DENIED_MESSAGE), []);
-  const exportFilteredRows = useCallback(() => exportCsv(config.key, filteredRows, config.fields), [config.fields, config.key, filteredRows]);
+  const exportFilteredRows = useCallback(() => exportCsv(config.key, allFilteredRows, config.fields), [allFilteredRows, config.fields, config.key]);
   const exportAnimals = useCallback((animals: AnyRecord[]) => exportCsv(config.key, animals, config.fields), [config.fields, config.key]);
+
+  const updateTableFilter = useCallback((key: string, value: string) => {
+    setTableFilterValues((current) => ({ ...current, [key]: value }));
+  }, []);
+
+  const clearTableFilters = useCallback(() => {
+    setSearch("");
+    setTableFilterValues({});
+    setTableSort("default");
+  }, [setSearch]);
 
   async function assertAnimalCanReceiveRecord(values: AnyRecord) {
     const isAnimalRecord = config.tableName === TABLES.ordenhas || config.tableName === TABLES.eventosAnimal;
@@ -552,7 +738,7 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
           <div className="flex items-center justify-between">
             <h2 className="text-[15px] font-semibold">{config.key === "rebanho" ? "Animais do rebanho" : "Registros"}</h2>
             <span className="text-xs font-medium text-[var(--text-2)]">
-              {showPlaceholders ? <Skeleton className="h-4 w-20" /> : initialError ? "-" : config.key === "rebanho" ? `${allRows.length} animais` : `${deferredSearch.trim() ? filteredRows.length : allRows.length} itens`}
+              {showPlaceholders ? <Skeleton className="h-4 w-20" /> : initialError ? "-" : config.key === "rebanho" ? `${allRows.length} animais` : `${shouldUseCompleteRows ? filteredRows.length : allRows.length} itens`}
             </span>
           </div>
           {config.key === "rebanho" ? (
@@ -581,9 +767,16 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
               loading={showPlaceholders}
               canManage={canManage}
               emptyMessage={emptyMessage}
+              filters={tableControls.filters}
+              filterValues={tableFilterValues}
+              onFilterChange={updateTableFilter}
+              sortOptions={tableControls.sortOptions}
+              sortValue={tableSort}
+              onSortChange={setTableSort}
+              onClearFilters={clearTableFilters}
             />
           )}
-          {pageSize && hasMoreRows && !deferredSearch.trim() ? (
+          {pageSize && hasMoreRows && !shouldUseCompleteRows ? (
             <div className="flex justify-center">
               <button
                 className="btn btn-secondary"

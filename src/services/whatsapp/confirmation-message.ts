@@ -401,7 +401,7 @@ export function tabularReadyEventDetails(parsed: ParsedRanchoMessage, maxRows = 
     row.evento_tipo === "parto" && row.child_status === "complete" ? `cria ${row.cria_sexo || ""} ${row.cria_codigo || ""}`.trim() : "",
     row.evento_tipo === "parto" && row.child_status === "pending_child_optional" ? "sem cria cadastrada agora" : "",
     row.evento_tipo === "parto" && row.child_status === "missing_child_code" ? "falta codigo da cria" : "",
-    row.evento_tipo === "parto" && row.child_status === "missing_child_sex" ? "falta sexo da cria" : "",
+    row.evento_tipo === "parto" && row.child_status === "missing_child_sex" ? `cria ${row.cria_codigo || "informada"}; falta sexo` : "",
     row.observacoes || ""
   ].filter(Boolean).join(" | "));
   const total = tabularImportRows(parsed).length;
@@ -422,7 +422,7 @@ function tabularBirthRowDetails(parsed: ParsedRanchoMessage, maxRows = 8) {
       return `- ${mother}: cria ${[row.cria_sexo, row.cria_codigo].filter(Boolean).join(" ")}${row.pai_ref ? `, pai ${row.pai_ref}` : ""}.`;
     }
     if (status === "missing_child_code") return `- ${mother}: falta o codigo da cria.`;
-    if (status === "missing_child_sex") return `- ${mother}: falta o sexo da cria.`;
+    if (status === "missing_child_sex") return `- ${mother}: cria ${row.cria_codigo || "informada"}; falta o sexo.`;
     if (status === "not_registered") return `- ${mother}: marcado para registrar sem cria.`;
     return `- ${mother}: parto sem cria cadastrada agora.`;
   });

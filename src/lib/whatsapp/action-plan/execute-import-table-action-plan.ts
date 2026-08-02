@@ -399,7 +399,7 @@ function reproductionPreview(rows: AnyRecord[]) {
       return `- ${mother}: cria ${[row.cria_sexo, row.cria_codigo].filter(Boolean).join(" ")}${row.pai_ref ? `, pai ${row.pai_ref}` : ""}.`;
     }
     if (row.child_status === "missing_child_code") return `- ${mother}: falta o codigo da cria.`;
-    if (row.child_status === "missing_child_sex") return `- ${mother}: falta o sexo da cria.`;
+    if (row.child_status === "missing_child_sex") return `- ${mother}: cria ${row.cria_codigo || "informada"}; falta o sexo.`;
     if (row.child_status === "not_registered") return `- ${mother}: marcado para registrar sem cria.`;
     return `- ${mother}: parto sem cria cadastrada agora.`;
   });
@@ -445,6 +445,7 @@ function reproductionTableParsed(plan: ImportTableActionPlan, rows: AnyRecord[],
     if (!date) problems.push("data_invalida");
     const child = classifyReproductionImportChild({
       evento_tipo: eventKind,
+      observacoes: row.parsedValues?.observacoes || row.values?.observacoes || row.parsedValues?.descricao || row.values?.descricao,
       cria_sexo: row.parsedValues?.cria_sexo || row.values?.cria_sexo || row.parsedValues?.sexo_cria || row.values?.sexo_cria,
       cria_codigo: row.parsedValues?.cria_codigo || row.values?.cria_codigo || row.parsedValues?.codigo_cria || row.values?.codigo_cria,
       cria_nome: row.parsedValues?.cria_nome || row.values?.cria_nome,

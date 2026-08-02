@@ -161,6 +161,11 @@ module.exports = function loadBotTestSection(context) {
       "011;Parto;11.10.26;",
       "012;Nasceu;12.10.26;"
     ].join("\n");
+    const birthChildInObservationTableMessage = [
+      "Animal;Evento;Data;Observacoes",
+      "080;parto;2023-04-15;Parto registrado: cria 101 vinculada na tabela de genealogia",
+      "081;parto;2023-05-02;Nasceu bezerra C-102, pai T-001"
+    ].join("\n");
     const prePartoAndPartoEventsMessage = [
       "Codigo / Animal;Status / Tipo;Data;Observacoes",
       "020;Pré-parto;20.09.26;",
@@ -861,6 +866,24 @@ module.exports = function loadBotTestSection(context) {
           total_linhas_parse_validas: 2,
           eventCounts: { pre_parto: 1, parto: 1 },
           tableRow: { lineNumber: 2, animal: "020", evento_tipo: "pre_parto", data_referencia: "2026-09-20" }
+        }
+      },
+      {
+        name: "tabela de parto extrai cria descrita nas observacoes",
+        module: "tabela-eventos",
+        phrase: birthChildInObservationTableMessage,
+        expected: {
+          exactTipo: true,
+          tipo: "IMPORTACAO_EVENTOS_TABELA",
+          total_linhas: 2,
+          eventCounts: { parto: 2 },
+          tableRow: {
+            lineNumber: 2,
+            animal: "080",
+            evento_tipo: "parto",
+            data_referencia: "2023-04-15",
+            cria_codigo: "101"
+          }
         }
       },
       {

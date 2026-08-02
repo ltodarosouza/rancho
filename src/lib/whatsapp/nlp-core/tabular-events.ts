@@ -2,7 +2,7 @@ import { normalizeRanchoText } from "@/lib/whatsapp/nlp-text";
 import { inferAnimalSexFromCategory } from "./extractors";
 import { finalize } from "./result";
 import type { ParsedRanchoMessage } from "./types";
-import { normalizeCalfSex } from "./birth-child";
+import { extractBirthChildData, normalizeCalfSex } from "./birth-child";
 import { normalizeReproductiveEventType, reproductiveEventDbType, reproductiveEventLabel, type ReproductiveEventKind } from "./reproductive-events";
 import {
   TABULAR_DOMAIN_SCHEMAS,
@@ -26,6 +26,11 @@ export type ParsedTabularAnimalEventRow = {
   data_original: string;
   data_referencia: string | null;
   observacoes: string;
+  cria_codigo?: string;
+  cria_sexo?: string;
+  cria_nome?: string;
+  pai_ref?: string;
+  parto_cria_cadastro?: boolean;
   problemas: string[];
 };
 
@@ -833,6 +838,15 @@ function parseDataLine(line: string, lineNumber: number, header: HeaderMap): Par
   const animalCode = normalizeAnimalTableCode(animalOriginal);
   const eventType = resolveEventType(statusOriginal);
   const parsedDate = parseTableDate(dateOriginal);
+  const child = eventType?.evento_tipo === "parto"
+    ? extractBirthChildData(notes)
+    : {
+      cria_codigo: undefined,
+      cria_sexo: undefined,
+      cria_nome: undefined,
+      pai_ref: undefined,
+      parto_cria_cadastro: undefined
+    };
 
   if (!animalCode) problemas.push("animal_sem_codigo");
   if (!eventType) problemas.push("tipo_evento_desconhecido");
@@ -851,6 +865,11 @@ function parseDataLine(line: string, lineNumber: number, header: HeaderMap): Par
     data_original: dateOriginal,
     data_referencia: parsedDate,
     observacoes: notes,
+    cria_codigo: child.cria_codigo,
+    cria_sexo: child.cria_sexo,
+    cria_nome: child.cria_nome,
+    pai_ref: child.pai_ref,
+    parto_cria_cadastro: child.parto_cria_cadastro,
     problemas
   };
 }

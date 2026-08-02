@@ -1,6 +1,6 @@
 import { TABLES } from "@/lib/tables";
 import type { AnyRecord } from "@/lib/types";
-import { reproductionImportChildSummary } from "@/lib/whatsapp/action-plan/reproduction-import-child";
+import { classifyReproductionImportChild, reproductionImportChildSummary, warningCodesForChildStatus } from "@/lib/whatsapp/action-plan/reproduction-import-child";
 import { normalizeCatalogText, resolveAnimalIdentifier, resolveStockItem } from "@/lib/whatsapp/catalog";
 import { animalStatusValue, isAnimalInactiveForBot } from "@/lib/whatsapp/animal-status";
 import { refreshRanchoMessage, type ParsedRanchoMessage } from "@/lib/whatsapp/nlp";
@@ -81,8 +81,13 @@ export async function enrichTabularAnimalEventImport(supabase: SupabaseAdmin, ow
 
   for (const row of rows) {
     const problems = Array.isArray(row.problemas) ?row.problemas.map(String) : [];
+    const child = String(row.evento_tipo || "").toLowerCase() === "parto"
+      ? classifyReproductionImportChild(row)
+      : null;
     const next: AnyRecord = {
       ...row,
+      ...(child || {}),
+      ...(child ? { avisos: warningCodesForChildStatus(child.child_status) } : {}),
       problemas_validacao: [...problems],
       status_validacao: "invalido"
     };

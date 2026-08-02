@@ -1,5 +1,5 @@
 import type { AnyRecord } from "@/lib/types";
-import { normalizeCalfSex } from "@/lib/whatsapp/nlp-core/birth-child";
+import { extractBirthChildData, normalizeCalfSex } from "@/lib/whatsapp/nlp-core/birth-child";
 import { normalizeRanchoText, refreshRanchoMessage, type ParsedRanchoMessage } from "@/lib/whatsapp/nlp";
 
 export type ReproductionImportChildStatus =
@@ -105,10 +105,19 @@ export function classifyReproductionImportChild(row: AnyRecord) {
     };
   }
 
-  const sex = normalizeCalfSex(row.cria_sexo || row.sexo_cria || row.child_sex);
-  const childCode = childCodeFrom(row.cria_codigo || row.codigo_cria || row.brinco_cria || row.child_code);
-  const childName = clean(row.cria_nome || row.nome_cria || row.child_name);
-  const fatherRef = clean(row.pai_ref || row.pai || row.father_ref);
+  // Importacoes historicas frequentemente descrevem a cria nas observacoes,
+  // em vez de criarem colunas separadas para cada dado.
+  const observationChild = extractBirthChildData(clean(row.observacoes || row.observacao || row.descricao));
+  const sex = normalizeCalfSex(row.cria_sexo || row.sexo_cria || row.child_sex || observationChild.cria_sexo);
+  const childCode = childCodeFrom(
+    row.cria_codigo
+    || row.codigo_cria
+    || row.brinco_cria
+    || row.child_code
+    || observationChild.cria_codigo
+  );
+  const childName = clean(row.cria_nome || row.nome_cria || row.child_name || observationChild.cria_nome);
+  const fatherRef = clean(row.pai_ref || row.pai || row.father_ref || observationChild.pai_ref);
 
   let childStatus: ReproductionImportChildStatus = "pending_child_optional";
   if (sex && childCode) childStatus = "complete";

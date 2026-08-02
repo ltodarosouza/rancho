@@ -48,7 +48,7 @@ export function extractBirthChildData(originalText: string) {
     ||
     cleanRef(originalText.match(/\b(?:codigo|c[oó]digo|brinco)\s+(?:da\s+)?cria\s+([A-Za-z0-9][A-Za-z0-9-]*)/i)?.[1])
     || cleanRef(originalText.match(/\bcria\s+(?:codigo|c[oó]digo|brinco)\s+([A-Za-z0-9][A-Za-z0-9-]*)/i)?.[1])
-    || cleanRef(originalText.match(/\bcria\s+([A-Za-z]+-\d[A-Za-z0-9-]*|[A-Za-z]*\d[A-Za-z0-9-]*-\w+)\b/i)?.[1]);
+    || cleanRef(originalText.match(/\b(?:cria|bezerra|bezerro|filha|filho|terneira|terneiro)\s+(?:codigo|c[oÃ³]digo|brinco\s+)?([A-Za-z]*-?\d[A-Za-z0-9-]*)\b/i)?.[1]);
   const criaSexo = normalizeCalfSex(normalized);
   const explicitChildCue = /\b(?:cria|bezerra|bezerro|terneira|terneiro|filha|filho|nasceu)\b/.test(normalized);
   const keyedPaiRef = cleanRef(originalText.match(/\bpai\s*[:=]\s*([A-Za-z0-9][A-Za-z0-9-]*)/i)?.[1]);

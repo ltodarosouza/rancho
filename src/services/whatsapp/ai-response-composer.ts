@@ -255,6 +255,8 @@ function shouldTryAIComposition(input: ComposeBotResponseInput) {
   if (!providerApiKeyConfigured()) return false;
   if (response.length > MAX_RESPONSE_TO_COMPOSE) return false;
   if (/erro interno|instabilidade para interpretar/i.test(response)) return false;
+  if (/^(Olá|Oi|Bom dia|Boa tarde|Boa noite|Bem-vindo|Tudo bem)[!.,?\s]/i.test(response)) return false;
+  if (/mensagem muito longa|envie uma mensagem/i.test(response)) return false;
   if (isEmptyQueryResult(input)) return true;
   if (response.length < MIN_RESPONSE_TO_COMPOSE) return false;
   return Boolean(input.parsed?.tipo || mandatoryLines(response).length || response.length >= 120);

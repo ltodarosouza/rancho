@@ -222,6 +222,7 @@ export async function callGeminiInterpreter(input: GeminiInterpreterInput): Prom
       systemPrompt,
       userPrompt,
       temperature: 0.1,
+      maxTokens: 4096,
       requestId: input.geminiMockId || undefined
     });
     let model = generated.model;

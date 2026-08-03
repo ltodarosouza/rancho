@@ -62,7 +62,11 @@ async function callGemini(
 ): Promise<{ response: Response; data: GeminiApiResponse } | null> {
   const requestBody: Record<string, unknown> = {
     contents: [{ parts: [{ text: input.userPrompt }] }],
-    generationConfig: { temperature: input.temperature ?? 0.1, responseMimeType: "application/json" }
+    generationConfig: {
+        temperature: input.temperature ?? 0.1,
+        responseMimeType: "application/json",
+        ...(input.maxTokens ? { maxOutputTokens: input.maxTokens } : {})
+      }
   };
   if (cachedContentName) {
     requestBody.cachedContent = cachedContentName;

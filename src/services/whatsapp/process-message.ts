@@ -679,7 +679,7 @@ async function saveWhatsAppMessage(
 }
 
 async function logAudit(supabase: SupabaseAdmin, owner: WhatsAppOwner, entidade: string, acao: string, depois: AnyRecord) {
-  await supabase.from(TABLES.auditoriaLogs).insert({
+  const { error } = await supabase.from(TABLES.auditoriaLogs).insert({
     fazenda_id: owner.fazenda_id,
     usuario_id: owner.usuario_id || null,
     entidade,
@@ -687,6 +687,9 @@ async function logAudit(supabase: SupabaseAdmin, owner: WhatsAppOwner, entidade:
     depois,
     origem: "whatsapp"
   });
+  if (error) {
+    console.warn("[BOT FLOW]", { event: "audit_log_failed", entidade, acao, error: error.message });
+  }
 }
 
 function notificationActor(owner: WhatsAppOwner) {
@@ -5459,9 +5462,13 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       provider: input.provider,
       modoTeste: Boolean(input.modoTeste),
       phone: maskPhone(phone),
-      message
+      message,
+      stack: error instanceof Error ? error.stack : undefined
     });
     response = "Erro interno no Rancho. Tente novamente.";
+    if (owner) {
+      try { await saveSession(supabase, owner, { etapa: "livre", dados: {} }); } catch { /* best-effort */ }
+    }
     if (!input.modoTeste) {
       await saveWhatsAppMessage(supabase, {
         owner,

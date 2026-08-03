@@ -860,7 +860,12 @@ async function interpretPendingActionWithSemanticAI(pending: ParsedRanchoMessage
     });
     if (!generated.ok) return null;
     return applyPendingActionSemanticPlan(pending, parseJsonObjectText(generated.rawText));
-  } catch {
+  } catch (error) {
+    console.warn("[BOT PENDING ACTION]", {
+      event: "semantic_ai_error",
+      intent: pending.tipo,
+      message: error instanceof Error ? error.message : "unknown"
+    });
     return null;
   }
 }

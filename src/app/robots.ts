@@ -1,9 +1,8 @@
 import type { MetadataRoute } from "next";
 import { absoluteSiteUrl } from "@/lib/seo";
-import { solutionPages } from "@/lib/marketing-content";
 
 export default function robots(): MetadataRoute.Robots {
-  const publicMarketingPaths = ["/", "/landing", "/icon.svg", "/landing/screenshots/", ...solutionPages.map((page) => `/${page.slug}`)];
+  const publicMarketingPaths = ["/", "/landing", "/icon.svg", "/landing/screenshots/"];
 
   return {
     rules: [

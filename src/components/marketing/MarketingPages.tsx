@@ -87,44 +87,8 @@ function Nav() {
   );
 }
 
-function NavLight({ currentSlug }: { currentSlug?: string }) {
-  const navItems = [
-    { label: "Software", href: "/software-para-fazenda", slug: "software-para-fazenda" },
-    { label: "Rebanho", href: "/controle-de-rebanho", slug: "controle-de-rebanho" },
-    { label: "Produção", href: "/controle-leiteiro", slug: "controle-leiteiro" },
-    { label: "WhatsApp", href: "/bot-whatsapp-fazenda", slug: "bot-whatsapp-fazenda" },
-    { label: "Financeiro", href: "/financeiro-rural", slug: "financeiro-rural" }
-  ];
-
-  return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-      <div className="marketing-scroll-progress" aria-hidden="true" />
-      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
-        <Link href="/" className="flex items-center gap-2.5 text-[var(--text)]" aria-label="Rancho">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white">
-            <Leaf className="h-4.5 w-4.5" />
-          </span>
-          <span className="text-lg font-semibold tracking-tight">Rancho</span>
-        </Link>
-        <div className="flex items-center gap-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.slug}
-              href={item.href}
-              className={`marketing-nav-link hidden rounded-md px-2.5 py-1.5 text-sm font-medium transition sm:inline-block ${currentSlug === item.slug ? "marketing-nav-link-active text-emerald-700 dark:text-emerald-400" : "text-[var(--text-2)] hover:text-[var(--text)]"}`}
-              aria-current={currentSlug === item.slug ? "page" : undefined}
-            >
-              {item.label}
-            </Link>
-          ))}
-          <Link href="/login" className="ml-2 inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 text-sm font-medium text-[var(--text)] transition hover:bg-[var(--bg)]">
-            <LogIn className="h-3.5 w-3.5" />
-            Entrar
-          </Link>
-        </div>
-      </nav>
-    </header>
-  );
+function NavLight(_props: { currentSlug?: string }) {
+  return <Nav />;
 }
 
 function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; large?: boolean }) {
@@ -211,11 +175,6 @@ function Footer() {
           <a href={`mailto:${SUPPORT_EMAIL}`} className="mt-2 inline-block text-sm font-medium text-emerald-700 dark:text-emerald-400">{SUPPORT_EMAIL}</a>
         </div>
         <div className="grid gap-x-10 gap-y-3 text-sm sm:grid-cols-2">
-          {solutionPages.map((page) => (
-            <Link key={page.slug} href={`/${page.slug}`} className="font-medium text-[var(--text-2)] transition hover:text-emerald-700 dark:hover:text-emerald-400">
-              {page.heroLabel}
-            </Link>
-          ))}
           <Link href="/login" className="font-medium text-[var(--text-2)] transition hover:text-emerald-700 dark:hover:text-emerald-400">
             Entrar no sistema
           </Link>
@@ -339,24 +298,6 @@ export function MarketingHomePage() {
                   </div>
                 );
               })}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Soluções ── */}
-        <section className="bg-[var(--surface)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="solucoes" data-section-label="Soluções">
-          <div className="mx-auto max-w-6xl">
-            <h2 className="reveal-on-scroll text-center text-2xl font-semibold sm:text-3xl">Explore por área</h2>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {solutionPages.slice(0, 6).map((page) => (
-                <Link key={page.slug} href={`/${page.slug}`} className="marketing-spotlight reveal-on-scroll group rounded-xl border border-[var(--border)] bg-[var(--bg)] p-5 transition hover:border-[var(--text-3)]">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{page.heroLabel}</span>
-                  <h3 className="mt-2 font-semibold text-[var(--text)]">{page.heroTitle}</h3>
-                  <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                    Ver página <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-                  </span>
-                </Link>
-              ))}
             </div>
           </div>
         </section>

@@ -900,9 +900,15 @@ function buildAnimalCollectiveResponse(rows: AnyRecord[], plan: QueryActionPlan,
   const statuses = countByText(rows, (row) => row.status || "ativo");
   const pageRows = rows.slice(offset, offset + pageSize);
   const sample = pageRows.map((row, index) => {
-    const categoryText = row.categoria ? ` - ${row.categoria}` : "";
-    const statusText = row.status ? ` - ${row.status}` : "";
-    return `${offset + index + 1}. ${animalLabel(row)}${categoryText}${statusText}`;
+    const parts = [
+      `${offset + index + 1}. ${animalLabel(row)}`,
+      row.categoria || "",
+      row.fase || "",
+      row.sexo || "",
+      row.peso ? `${numberText(Number(row.peso))} kg` : "",
+      row.status && normalizedText(row.status) !== "ativo" ? row.status : ""
+    ].filter(Boolean);
+    return parts.join(" - ");
   });
 
   if (offset) {
@@ -915,15 +921,16 @@ function buildAnimalCollectiveResponse(rows: AnyRecord[], plan: QueryActionPlan,
   }
 
   return [
-    category ? `Dados das ${label}:` : "Resumo do rebanho:",
-    `Total encontrado: ${rows.length}.`,
-    `Ativos: ${active}.`,
-    `Categorias: ${categories || "sem dados"}.`,
-    `Status: ${statuses || "sem dados"}.`,
+    category ? `${label} do rebanho:` : "Rebanho completo:",
     "",
-    "Amostra:",
+    `Total: ${rows.length} animais.`,
+    `Ativos: ${active}.`,
+    rows.length - active > 0 ? `Inativos/vendidos/mortos: ${rows.length - active}.` : "",
+    `Categorias: ${categories || "sem dados"}.`,
+    "",
+    `Animais${rows.length > pageRows.length ? ` (primeiros ${pageRows.length})` : ""}:`,
     ...sample,
-    rows.length > sample.length ? `...e mais ${rows.length - sample.length} animal(is). Responda "mostrar mais" para continuar.` : ""
+    rows.length > sample.length ? `Responda "mostrar mais" para ver os outros ${rows.length - sample.length} animais.` : ""
   ].filter(Boolean).join("\n");
 }
 
@@ -1752,17 +1759,25 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
   const offset = Math.max(0, input.pagination?.offset || 0);
   const pageRows = rows.slice(offset, offset + pageSize);
   const nextOffset = offset + pageRows.length;
+  const belowMin = rows.filter((item) => Number(item.quantidade_minima || 0) > 0 && Number(item.quantidade_atual || 0) <= Number(item.quantidade_minima || 0)).length;
   const response = pageRows.length
     ? [
-        itemText ? `Estoque de ${rows[0]?.nome || itemFilter?.value}:` : offset ? "Mais itens de estoque:" : "Estoque atual:",
+        itemText ? `Estoque de ${rows[0]?.nome || itemFilter?.value}:` : offset ? "Mais itens de estoque:" : "Estoque do rancho:",
+        !offset && !itemText ? "" : null,
+        !offset && !itemText ? `Itens cadastrados: ${rows.length}.` : null,
+        !offset && !itemText && belowMin > 0 ? `Itens em alerta (abaixo do mínimo): ${belowMin}.` : null,
+        !offset && !itemText ? "" : null,
         ...pageRows.map((item, index) => {
           const latest = latestMovementByItem.get(String(item.id));
-          const min = item.quantidade_minima !== undefined && item.quantidade_minima !== null ? `; mínimo ${stockAmount(item.quantidade_minima, item.unidade_medida)}` : "";
-          const alert = Number(item.quantidade_minima || 0) > 0 && Number(item.quantidade_atual || 0) <= Number(item.quantidade_minima || 0) ? " Atenção: abaixo do mínimo." : "";
-          return `${offset + index + 1}. ${item.nome}: ${stockAmount(item.quantidade_atual, item.unidade_medida)}${min}${latest ? `; última movimentação ${shortDate(latest.created_at)}` : ""}.${alert}`;
+          const unit = item.unidade_medida || "unidade(s)";
+          const current = stockAmount(item.quantidade_atual, unit);
+          const min = Number(item.quantidade_minima || 0) > 0 ? ` (mínimo: ${stockAmount(item.quantidade_minima, unit)})` : "";
+          const alert = Number(item.quantidade_minima || 0) > 0 && Number(item.quantidade_atual || 0) <= Number(item.quantidade_minima || 0) ? " ⚠ abaixo do mínimo" : "";
+          const lastMov = latest ? ` - última movimentação: ${shortDate(latest.created_at)}` : "";
+          return `${offset + index + 1}. ${item.nome} - saldo: ${current}${min}${lastMov}${alert}`;
         }),
-        nextOffset < rows.length ? `...e mais ${rows.length - nextOffset} item(ns). Responda "mostrar mais" para continuar.` : offset ? "Fim da lista." : ""
-      ].filter(Boolean).join("\n")
+        nextOffset < rows.length ? `Responda "mostrar mais" para ver os outros ${rows.length - nextOffset} itens.` : offset ? "Fim da lista." : ""
+      ].filter((line): line is string => line != null).join("\n")
     : itemText ? `Não encontrei ${itemFilter?.value || "esse item"} no estoque deste rancho.` : "Não encontrei itens de estoque cadastrados.";
   const parsed = finalizeActionPlanParsed("CONSULTA_ESTOQUE_GERAL", {
     consulta: true,
@@ -2175,18 +2190,34 @@ function buildStructuredSummary(
   const observations = summaryObservationLines(domain, rows);
   const general = summaryGeneralLines(domain, rows, metrics);
   const recent = recentRows.map((row, index) => summaryRecentLine(domain, row, index + 1, relations));
+  const recentLabel: Record<string, string> = {
+    financeiro: "Últimos lançamentos",
+    producao_leite: "Últimas ordenhas",
+    animais: "Animais",
+    estoque: "Itens do estoque",
+    reproducao: "Últimos eventos",
+    saude_sanitario: "Últimos eventos",
+    observacoes: "Últimos registros",
+    funcionarios: "Funcionários",
+    ponto_funcionario: "Últimos registros de ponto",
+    genealogia: "Animais com genealogia",
+    agenda_tarefas: "Últimas tarefas",
+    lotes: "Lotes"
+  };
+  const recentTitle = recentLabel[domain.domain] || "Últimos registros";
   const response = [
-    `Resumo ${label} ${period}:`,
+    `Resumo de ${label} ${period}:`,
     "",
-    "Resumo geral:",
+    "Visão geral:",
     ...general,
     "",
-    "Últimas movimentações:",
-    ...(recent.length ? recent : ["Nenhuma movimentação ou registro encontrado no recorte consultado."]),
+    `${recentTitle}:`,
+    ...(recent.length ? recent : ["Nenhum registro encontrado no período consultado."]),
+    recent.length < rows.length ? `...e mais ${rows.length - recent.length}. Responda "mostrar mais" para ver todos.` : "",
     "",
     "Observações:",
-    ...(observations.length ? observations.map((value) => `- ${value}`) : ["Nenhuma observação registrada no recorte consultado."])
-  ].join("\n");
+    ...(observations.length ? observations.map((value) => `- ${value}`) : ["Nenhuma observação registrada neste período."])
+  ].filter(Boolean).join("\n");
   return {
     response,
     data: {
@@ -2217,8 +2248,10 @@ function financeDetailPlan(plan: QueryActionPlan): QueryActionPlan {
 
 function financeLine(row: AnyRecord, index: number) {
   const type = normalizeFinanceType(row.tipo) === "saida" ? "Saída" : "Entrada";
-  const description = row.descricao || row.categoria || "sem descrição";
-  return `${index}. ${shortDate(row.data_transacao || row.created_at)} - ${type} - ${description}: ${money(Number(row.valor || 0))}`;
+  const description = row.descricao || "sem descrição";
+  const cat = row.categoria && row.descricao && normalizedText(row.categoria) !== normalizedText(row.descricao) ? ` (${row.categoria})` : "";
+  const method = row.forma_pagamento ? ` - ${row.forma_pagamento}` : "";
+  return `${index}. ${shortDate(row.data_transacao || row.created_at)} - ${type} - ${description}${cat}: ${money(Number(row.valor || 0))}${method}`;
 }
 
 function buildFinanceDetailedResponse(rows: AnyRecord[], plan: QueryActionPlan, offset = 0, pageSize = 10) {
@@ -2358,18 +2391,28 @@ function buildProductionResponse(
     return buildProductionDetailedResponse(rows, plan, relations, pagination?.offset || 0, pagination?.pageSize || 10);
   }
 
-  // O total de uma consulta de produção é uma propriedade das linhas já
-  // filtradas. A agregação do plano só complementa a consulta, nunca deve
-  // decidir se a soma exibida existe ou não.
   const total = productionTotal(rows);
   const average = rows.length ? total / rows.length : 0;
   const animal = plan.filters.find((filter) => filter.field === "animal_ref")?.value;
+  const prodPeriod = periodText(plan);
+  const recentProd = [...rows].sort((a, b) => {
+    const da = String(a.ordenhado_em || a.created_at || "");
+    const db = String(b.ordenhado_em || b.created_at || "");
+    return db.localeCompare(da);
+  }).slice(0, 5);
+  const recentProdLines = recentProd.map((row, i) => productionLine(row, i + 1, relations));
+  const hasMoreProd = rows.length > 5;
   return [
-    `Produção de leite${animal ? ` da ${animal}` : ""}:`,
-    `Registros: ${rows.length}.`,
-    `Total: ${numberText(total)} litros.`,
-    `Média por registro: ${numberText(average)} litros.`
-  ].join("\n");
+    `Produção de leite${animal ? ` de ${animal}` : ""}${prodPeriod ? ` ${prodPeriod}` : ""}:`,
+    "",
+    `Total de ordenhas: ${rows.length}.`,
+    `Total produzido: ${numberText(total)} litros.`,
+    `Média por ordenha: ${numberText(average)} litros.`,
+    "",
+    "Últimas ordenhas:",
+    ...recentProdLines,
+    hasMoreProd ? `Responda "mostrar mais" para ver todas as ${rows.length} ordenhas.` : ""
+  ].filter(Boolean).join("\n");
 }
 
 function genealogyRankingResponse(groups: AnyRecord[], plan: QueryActionPlan, relations: AnyRecord) {
@@ -2514,33 +2557,55 @@ function buildResponse(
     const search = plan.filters.find((filter) => ["descricao", "categoria"].includes(filter.field) && String(filter.value || "").trim())?.value;
     const typeFilter = plan.filters.find((filter) => filter.field === "tipo");
     const financeType = typeFilter ? normalizeFinanceType(typeFilter.value) : "";
+    const recentSorted = [...rows].sort((a, b) => {
+      const da = String(a.data_transacao || a.created_at || "");
+      const db = String(b.data_transacao || b.created_at || "");
+      return db.localeCompare(da);
+    });
+    const recentLines = recentSorted.slice(0, 5).map((row, i) => financeLine(row, i + 1));
+    const hasMore = rows.length > 5;
     if (financeType === "saida") {
-      const title = search ? `Gastos de ${search}` : "Gastos";
+      const title = search ? `Gastos com ${search}` : "Gastos";
       return [
         `${title}${period ? ` ${period}` : ""}:`,
-        `Registros: ${rows.length}.`,
-        `Total gasto: ${money(saidas || total)}.`
-      ].join("\n");
+        "",
+        `Total de lançamentos: ${rows.length}.`,
+        `Total gasto: ${money(saidas || total)}.`,
+        "",
+        "Últimos lançamentos:",
+        ...recentLines,
+        hasMore ? `Responda "mostrar mais" para ver todos os ${rows.length} lançamentos.` : ""
+      ].filter(Boolean).join("\n");
     }
     if (financeType === "entrada") {
       const title = search ? `Receitas de ${search}` : "Receitas";
       return [
         `${title}${period ? ` ${period}` : ""}:`,
-        `Registros: ${rows.length}.`,
-        `Total recebido: ${money(entradas || total)}.`
-      ].join("\n");
+        "",
+        `Total de lançamentos: ${rows.length}.`,
+        `Total recebido: ${money(entradas || total)}.`,
+        "",
+        "Últimos lançamentos:",
+        ...recentLines,
+        hasMore ? `Responda "mostrar mais" para ver todos os ${rows.length} lançamentos.` : ""
+      ].filter(Boolean).join("\n");
     }
     const aggregateText = plan.aggregations?.length && total !== entradas + saidas ? `Total filtrado: ${money(total)}.` : "";
     const title = search
       ? `Resumo financeiro de ${search}${period ? ` ${period}` : ""}`
-      : period ? `Relatório financeiro ${period}` : "Resumo financeiro";
+      : period ? `Relatório financeiro ${period}` : "Resumo financeiro de todos os lançamentos";
     return [
       `${title}:`,
-      `Registros: ${rows.length}.`,
+      "",
+      `Total de lançamentos: ${rows.length}.`,
       `Entradas: ${money(entradas)}.`,
       `Saídas: ${money(saidas)}.`,
       `Saldo: ${money(entradas - saidas)}.`,
-      aggregateText
+      aggregateText,
+      "",
+      "Últimos lançamentos:",
+      ...recentLines,
+      hasMore ? `Responda "mostrar mais" para ver todos os ${rows.length} lançamentos.` : ""
     ].filter(Boolean).join("\n");
   }
 
@@ -2621,16 +2686,19 @@ function buildEventListResponse(
   const pageRows = rows.slice(offset, offset + pageSize);
   if (!pageRows.length) return "Não há mais eventos para mostrar.";
   const nextOffset = offset + pageRows.length;
+  const types = countByText(rows, (row) => eventTypeLabel(row.tipo));
   return [
-    offset ? `Mais ${pageRows.length} evento(s):` : `Eventos encontrados (${rows.length}):`,
+    offset ? `Mais ${pageRows.length} evento(s):` : `Eventos registrados (${rows.length} no total):`,
+    !offset && types ? `Tipos: ${types}.` : "",
+    "",
     ...pageRows.map((row, index) => {
       const animal = relations.animalsById?.get(String(row.animal_id || ""));
-      const detail = [row.descricao, row.medicamento].filter(Boolean).join(" - ");
+      const detail = [row.descricao, row.medicamento, row.observacoes].filter(Boolean).join(" - ");
       const who = animal ? `${animalLabel(animal)} - ` : "";
       return `${offset + index + 1}. ${shortDate(row.data_evento || row.created_at)} - ${who}${eventTypeLabel(row.tipo)}${detail ? ` - ${detail}` : ""}`;
     }),
-    nextOffset < rows.length ? `...e mais ${rows.length - nextOffset} evento(s). Responda "mostrar mais" para continuar.` : "Fim da lista."
-  ].join("\n");
+    nextOffset < rows.length ? `Responda "mostrar mais" para ver os outros ${rows.length - nextOffset} eventos.` : offset ? "Fim da lista." : ""
+  ].filter(Boolean).join("\n");
 }
 
 async function loadRelationContext(supabase: ActionPlanSupabaseLike | null | undefined, owner: ActionPlanOwnerContext, plan: QueryActionPlan) {

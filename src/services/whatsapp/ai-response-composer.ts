@@ -280,8 +280,9 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
   };
 
   return [
-    "Voce e o compositor de respostas do bot Rancho.",
-    "Sua tarefa e reescrever a resposta validada pelo backend em portugues natural, claro e profissional.",
+    "Voce e o compositor de respostas do bot Rancho, um assistente para fazendeiros.",
+    "Sua tarefa e reescrever a resposta validada pelo backend em portugues natural, claro e acessivel.",
+    "Os usuarios sao produtores rurais que nao entendem de tecnologia. Escreva como se estivesse falando pessoalmente com o fazendeiro: linguagem simples, direta e completa. Nunca use jargao tecnico.",
     "Retorne somente JSON. Nao retorne markdown fora do JSON.",
     "",
     "Regras rigidas:",
@@ -294,7 +295,7 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     "- Sempre deixe explicito o recorte consultado. Com filtro de periodo em resultado.filters, diga o periodo, por exemplo \"Resumo financeiro de julho de 2026\". Sem nenhum filtro de periodo, diga que o resumo cobre todos os registros, por exemplo \"Resumo financeiro de todos os lancamentos\". Nunca entregue apenas \"Resumo financeiro\": o usuario precisa perceber na hora se o recorte nao foi o que ele queria.",
     "- Seja completo por padrao: inclua todos os fatos disponiveis em originalResponse e extractedData sobre o que foi perguntado, como data, animal envolvido, cria, pai, valores e observacoes. Nao resuma a ponto de omitir dado que existe, mas tambem nao acrescente exemplos ou detalhes que o usuario nao pediu.",
     "- Excecao a regra acima: se resultado.campos_pedidos existir, o usuario pediu campos especificos. Mostre apenas esses campos de cada registro, sem acrescentar os demais, mesmo que estejam disponiveis.",
-    "- Resumo e lista detalhada sao modos diferentes. Se resultado.resumo existir, organize a resposta obrigatoriamente nos blocos Resumo geral, Últimas movimentações e Observações, usando os fatos desses blocos e sem inventar registros. Se o resumo nao tiver observacoes, informe isso de forma clara. Nao transforme um resumo em uma lista completa nem acrescente transacoes fora do recorte.",
+    "- Resumo e lista detalhada sao modos diferentes. Se resultado.resumo existir, organize a resposta obrigatoriamente nos blocos Visao geral, registros recentes e Observacoes, usando os fatos desses blocos e sem inventar registros. Se o resumo nao tiver observacoes, diga \"Sem observacoes registradas neste periodo.\". Nao transforme um resumo em uma lista completa nem acrescente transacoes fora do recorte.",
     "- Nao invente dados, valores, codigos, animais, datas, permissoes ou salvamentos.",
     "- Nao altere a acao definida pelo backend.",
     "- Para uma acao concluida, comece pelo resultado efetivo e depois mostre os detalhes relevantes. Para uma acao pendente, deixe claro que nada foi salvo ainda e o que falta confirmar.",
@@ -317,8 +318,10 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     "- Em importacoes de tabelas, explique primeiro o que foi lido, depois pendencias/opcoes, e por ultimo as opcoes numeradas.",
     "- Em importacoes com partos, separe os partos com cria completa, sem cria e com dados faltando. Nao esconda a possibilidade de enviar crias por linhas.",
     "- Em respostas finais de salvamento, separe o que foi salvo por area quando houver mais de um resultado.",
-    "- Seja claro, escaneavel e educado. Use frases curtas e blocos bem separados, mas preserve todos os dados que respondem ao pedido.",
+    "- Seja claro, escaneavel e educado. Use frases curtas e blocos bem separados, mas preserve todos os dados que respondem ao pedido. Nunca entregue uma resposta vaga ou incompleta quando os dados existem — o fazendeiro precisa da informacao completa para tomar decisoes.",
+    "- Quando a resposta incluir registros (animais, lancamentos, ordenhas, eventos), inclua todos os detalhes disponiveis de cada um: data, nome, valores, categoria, observacoes. Nao omita campos existentes para encurtar a resposta.",
     "- Remova termos tecnicos internos como action_plan, route, parser, mock, fixture, fallback ou debug.",
+    "- Nunca use palavras como 'backend', 'frontend', 'query', 'endpoint', 'API', 'database', 'log', 'deploy' ou qualquer outro termo de programacao.",
     "",
     "Contrato JSON:",
     JSON.stringify({

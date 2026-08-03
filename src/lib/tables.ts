@@ -18,6 +18,7 @@ export const TABLES = {
   whatsappUsuarios: "whatsapp_usuarios",
   whatsappSessoes: "whatsapp_sessoes",
   whatsappMensagens: "whatsapp_mensagens",
+  whatsappUsoMensal: "whatsapp_uso_mensal",
   notificacoes: "notificacoes",
   alertas: "alertas",
   auditoriaLogs: "auditoria_logs"
@@ -95,6 +96,7 @@ export const FARM_SCOPED_TABLES = new Set<string>([
   TABLES.whatsappUsuarios,
   TABLES.whatsappSessoes,
   TABLES.whatsappMensagens,
+  TABLES.whatsappUsoMensal,
   TABLES.notificacoes,
   TABLES.alertas,
   TABLES.auditoriaLogs

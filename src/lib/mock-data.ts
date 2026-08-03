@@ -72,6 +72,7 @@ export const mockData: Record<string, AnyRecord[]> = {
   ],
   [TABLES.whatsappSessoes]: [],
   [TABLES.whatsappMensagens]: [],
+  [TABLES.whatsappUsoMensal]: [],
   [TABLES.notificacoes]: [],
   [TABLES.alertas]: [
     { id: "alerta-1", fazenda_id: DEMO_FAZENDA_ID, tipo: "estoque", severidade: "warning", titulo: "Vacina em estoque crítico", descricao: "Vacina clostridial está abaixo do mínimo", resolvido: false, created_at: "2026-05-30T09:30:00.000Z" }

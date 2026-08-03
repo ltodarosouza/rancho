@@ -4,7 +4,8 @@ import { platformAdminError, requirePlatformAdmin } from "@/lib/server/platform-
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { TABLES } from "@/lib/tables";
 import type { AnyRecord } from "@/lib/types";
-import { slug } from "@/lib/utils";
+import { currentMonth, slug } from "@/lib/utils";
+import { usageSummary } from "@/lib/whatsapp/usage";
 
 export const dynamic = "force-dynamic";
 
@@ -174,6 +175,7 @@ async function deleteFarmCompletely(input: {
 
   const tablesInDeleteOrder = [
     TABLES.whatsappMensagens,
+    TABLES.whatsappUsoMensal,
     TABLES.whatsappSessoes,
     TABLES.whatsappUsuarios,
     TABLES.registrosPonto,
@@ -245,20 +247,29 @@ export async function GET(request: NextRequest) {
     const farmRows = (farms || []) as AnyRecord[];
     const farmIds = farmRows.map((farm) => farm.id).filter(Boolean);
 
-    const [{ data: users, error: usersError }, { data: invites, error: invitesError }] = await Promise.all([
+    const usageMonth = `${currentMonth()}-01`;
+    const [{ data: users, error: usersError }, { data: invites, error: invitesError }, { data: usageRows, error: usageError }] = await Promise.all([
       farmIds.length
         ? permission.supabase.from(TABLES.usuarios).select("id,fazenda_id,nome,papel,ativo").in("fazenda_id", farmIds)
         : Promise.resolve({ data: [], error: null }),
       farmIds.length
         ? permission.supabase.from(TABLES.convites).select("id,fazenda_id,email,nome,papel,status,expires_at,accepted_at,created_at").eq("papel", "dono").in("fazenda_id", farmIds).order("created_at", { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+      farmIds.length
+        ? permission.supabase.from(TABLES.whatsappUsoMensal).select("fazenda_id,mes,mensagens_recebidas,mensagens_enviadas").eq("mes", usageMonth).in("fazenda_id", farmIds)
         : Promise.resolve({ data: [], error: null })
     ]);
 
     if (usersError) throw new Error(usersError.message);
     if (invitesError) throw new Error(invitesError.message);
+    const usageAvailable = !usageError;
+    if (usageError && !shouldIgnoreOptionalTableError(usageError)) throw new Error(usageError.message);
 
     const userRows = (users || []) as AnyRecord[];
     const inviteRows = (invites || []) as AnyRecord[];
+    const usageByFarmId = new Map(
+      ((usageRows || []) as AnyRecord[]).map((usage) => [String(usage.fazenda_id), usage])
+    );
     const ownerUsers = userRows.filter((user) => user.papel === "dono");
     const ownerEmailByUserId = await authEmailMap(permission.supabase, ownerUsers.map((user) => user.id));
 
@@ -284,6 +295,14 @@ export async function GET(request: NextRequest) {
           usuario_id: owner?.id || null
         },
         users_count: farmUsers.length,
+        usage: {
+          available: usageAvailable,
+          ...usageSummary({
+            month: usageMonth,
+            received: usageByFarmId.get(String(farm.id))?.mensagens_recebidas,
+            sent: usageByFarmId.get(String(farm.id))?.mensagens_enviadas
+          })
+        },
         owner_invite: ownerInvite ? {
           id: ownerInvite.id,
           email: ownerInvite.email,

@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { TABLES, whatsappMessageDirection } from "@/lib/tables";
+import { incrementWhatsAppUsage } from "@/lib/whatsapp/usage";
 import type { AnyRecord } from "@/lib/types";
 import { getRanchTodayISO } from "@/lib/dates/ranch-time";
 import { normalizeWhatsappNumber, whatsappNumbersMatch } from "@/lib/phone";
@@ -114,7 +115,6 @@ import {
   type StockLookupResult
 } from "@/services/whatsapp/catalog-service";
 import { confirmationText, dryRunConfirmationText, isDestructiveBulkParsed } from "@/services/whatsapp/confirmation-message";
-import { sendOutboundWhatsAppText } from "@/services/whatsapp/outbound";
 import { composeBotResponseWithAI } from "@/services/whatsapp/ai-response-composer";
 import {
   canAccessBotFinance,
@@ -661,83 +661,21 @@ async function saveWhatsAppMessage(
         code: (error as AnyRecord).code || null,
         message: safeErrorText(error)
       });
+    } else if (input.owner?.fazenda_id) {
+      const usage = await incrementWhatsAppUsage(supabase, input.owner.fazenda_id, input.direction);
+      if (usage.error) {
+        console.warn("[WhatsApp usage] Falha ao atualizar contagem mensal", {
+          fazendaId: input.owner.fazenda_id,
+          direction: input.direction,
+          message: safeErrorText(usage.error)
+        });
+      }
     }
   } catch (error) {
     console.error("[Twilio webhook] Falha inesperada ao salvar mensagem", {
       message: safeErrorText(error) || "erro desconhecido"
     });
   }
-}
-
-const PROCESSING_NOTICE_TEXT = "Recebi sua mensagem. Estou conferindo os dados do rancho e já te respondo.";
-const DEFAULT_PROCESSING_NOTICE_DELAY_MS = 2000;
-
-function processingNoticeDelayMs() {
-  const value = Number(process.env.BOT_PROCESSING_NOTICE_DELAY_MS || "");
-  if (!Number.isFinite(value)) return DEFAULT_PROCESSING_NOTICE_DELAY_MS;
-  return Math.min(Math.max(value, 500), 8000);
-}
-
-function processingNoticeEnabled(input: ProcessWhatsappMessageInput) {
-  if (input.modoTeste) return false;
-  if (!["twilio", "meta", "whatsapp"].includes(input.provider)) return false;
-
-  const raw = String(process.env.BOT_PROCESSING_NOTICE_ENABLED || "").trim().toLowerCase();
-  if (["0", "false", "off", "nao", "não"].includes(raw)) return false;
-  if (["1", "true", "on", "sim"].includes(raw)) return true;
-  return process.env.NODE_ENV === "production";
-}
-
-function startProcessingNotice(input: ProcessWhatsappMessageInput, supabase: SupabaseAdmin, owner: WhatsAppOwner, phone: string, reason: string) {
-  if (!processingNoticeEnabled(input)) return { cancel: async () => undefined };
-
-  let cancelled = false;
-  let inFlight: Promise<void> | null = null;
-  const timer = setTimeout(() => {
-    if (cancelled) return;
-    inFlight = (async () => {
-      try {
-        await sendOutboundWhatsAppText(phone, PROCESSING_NOTICE_TEXT, {
-          provider: input.provider === "meta" ? "meta" : input.provider === "twilio" ? "twilio" : undefined,
-          phoneNumberId: input.phoneNumberId
-        });
-        await saveWhatsAppMessage(supabase, {
-          owner,
-          phone,
-          messageSid: `${input.messageSid || "processing"}-${reason}`,
-          direction: "saida",
-          body: PROCESSING_NOTICE_TEXT,
-          raw: {
-            provider: input.provider,
-            processing_notice: true,
-            reason
-          }
-        });
-        console.log("[BOT FLOW]", {
-          event: "processing_notice_sent",
-          provider: input.provider,
-          phone: maskPhone(phone),
-          reason
-        });
-      } catch (error) {
-        console.warn("[BOT FLOW]", {
-          event: "processing_notice_failed",
-          provider: input.provider,
-          phone: maskPhone(phone),
-          reason,
-          message: safeErrorText(error) || "erro desconhecido"
-        });
-      }
-    })();
-  }, processingNoticeDelayMs());
-
-  return {
-    cancel: async () => {
-      cancelled = true;
-      clearTimeout(timer);
-      if (inFlight) await inFlight;
-    }
-  };
 }
 
 async function logAudit(supabase: SupabaseAdmin, owner: WhatsAppOwner, entidade: string, acao: string, depois: AnyRecord) {
@@ -5125,7 +5063,6 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
   let response = "";
   let eventConfirmed = false;
   let suppressPreviousPending = false;
-  let processingNotice = { cancel: async () => undefined as void };
 
   try {
     const resolvedOwner = await resolveWhatsAppOwner(supabase, input.telefone);
@@ -5168,8 +5105,6 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       }
       return buildProcessResult({ response });
     }
-
-    processingNotice = startProcessingNotice(input, supabase, owner, phone, "message_processing");
 
     const command = normalizeRanchoText(message);
     previousSession = await getSession(supabase, owner);
@@ -5505,7 +5440,6 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       });
     }
 
-    await processingNotice.cancel();
     return buildProcessResult({
       response,
       parsed,
@@ -5515,7 +5449,6 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
       suppressPreviousPending
     });
   } catch (error) {
-    await processingNotice.cancel();
     const message = safeErrorText(error) || "Erro interno no Rancho.";
     console.error("[BOT FLOW]", {
       event: "process_error",

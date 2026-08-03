@@ -6,7 +6,26 @@ import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { PLATFORM_ADMIN_FORBIDDEN_MESSAGE, canAccessPlatformAdmin } from "@/lib/platform-admin";
-import { formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
+
+type UsageBand = {
+  key: string;
+  label: string;
+  min: number;
+  max: number | null;
+  additionalFee: number;
+};
+
+type UsageSummary = {
+  available: boolean;
+  month: string;
+  received: number;
+  sent: number;
+  total: number;
+  band: UsageBand;
+  nextBand: UsageBand | null;
+  percentToNextBand: number | null;
+};
 
 type OwnerInvite = {
   id: string;
@@ -34,6 +53,7 @@ type RanchoRow = {
     usuario_id?: string | null;
   };
   owner_invite?: OwnerInvite | null;
+  usage?: UsageSummary;
 };
 
 type ApiResult = {
@@ -81,6 +101,12 @@ export default function AdminInternoPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [inviteLink, setInviteLink] = useState("");
+
+  const usageTotals = useMemo(() => rows.reduce((totals, row) => ({
+    received: totals.received + (row.usage?.received || 0),
+    sent: totals.sent + (row.usage?.sent || 0),
+    total: totals.total + (row.usage?.total || 0)
+  }), { received: 0, sent: 0, total: 0 }), [rows]);
 
   const headers = useMemo(() => ({
     "Content-Type": "application/json",
@@ -258,6 +284,32 @@ export default function AdminInternoPage() {
         </div>
       </section>
 
+      <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <Badge tone="default">Uso mensal do WhatsApp</Badge>
+            <h2 className="mt-3 text-[15px] font-semibold">Mensagens por rancho</h2>
+            <p className="mt-1 text-sm text-[var(--text-2)]">Contagem do mês atual, separando mensagens recebidas e respostas enviadas pelo bot.</p>
+          </div>
+          <span className="text-sm font-semibold text-[var(--text-2)]">Mês atual</span>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-2)]">Recebidas</p>
+            <p className="mt-2 text-2xl font-semibold">{usageTotals.received.toLocaleString("pt-BR")}</p>
+          </div>
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-2)]">Enviadas pelo bot</p>
+            <p className="mt-2 text-2xl font-semibold">{usageTotals.sent.toLocaleString("pt-BR")}</p>
+          </div>
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-2)]">Total contabilizado</p>
+            <p className="mt-2 text-2xl font-semibold">{usageTotals.total.toLocaleString("pt-BR")}</p>
+          </div>
+        </div>
+        <p className="mt-4 text-xs text-[var(--text-2)]">Faixas e valores abaixo são apenas um modelo provisório para visualização e não alteram a mensalidade.</p>
+      </section>
+
       <section className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr]">
         <form onSubmit={submitForm} className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
           <div className="mb-5 flex items-center gap-3">
@@ -366,6 +418,21 @@ export default function AdminInternoPage() {
                       <span>E-mail: <strong>{row.owner?.email || row.owner_invite?.email || "não informado"}</strong></span>
                       <span>Plano: <strong>{row.plano || "mvp"}</strong> · Usuários: <strong>{row.users_count}</strong> · Criado em {formatDate(row.created_at)}</span>
                       <span>Convite do dono: <strong>{row.owner_invite ? statusLabels[row.owner_invite.status] || row.owner_invite.status : "sem convite pendente"}</strong></span>
+                    </div>
+                    <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/20">
+                      {row.usage?.available ? (
+                        <>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <strong>Uso no mês: {row.usage.total.toLocaleString("pt-BR")} mensagens</strong>
+                            <Badge tone="success">{row.usage.band.label}</Badge>
+                          </div>
+                          <p className="mt-1 text-[var(--text-2)]">Recebidas: {row.usage.received.toLocaleString("pt-BR")} · Enviadas pelo bot: {row.usage.sent.toLocaleString("pt-BR")}</p>
+                          <p className="mt-1 text-[var(--text-2)]">Acréscimo provisório: <strong>{formatCurrency(row.usage.band.additionalFee)}</strong></p>
+                          {row.usage.nextBand ? <p className="mt-1 text-xs text-[var(--text-2)]">Próxima faixa a partir de {row.usage.nextBand.min.toLocaleString("pt-BR")} mensagens.</p> : null}
+                        </>
+                      ) : (
+                        <p className="text-[var(--text-2)]">A contagem mensal ficará disponível após aplicar a migration de uso do WhatsApp no Supabase.</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">

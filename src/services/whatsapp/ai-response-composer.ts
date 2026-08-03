@@ -82,6 +82,28 @@ function includesComparable(text: string, expected: string) {
   return normalizeComparable(text).includes(normalizeComparable(expected));
 }
 
+function normalizeVisibleResponse(value: unknown) {
+  const polished = polishBotResponse(value)
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (!polished) return "";
+
+  // Remove apenas blocos consecutivos idênticos. Linhas repetidas dentro de
+  // listas podem representar registros diferentes e devem ser preservadas.
+  const blocks = polished.split(/\n{2,}/);
+  const uniqueBlocks: string[] = [];
+  for (const block of blocks) {
+    const normalized = normalizeComparable(block);
+    if (!normalized) continue;
+    const previous = uniqueBlocks[uniqueBlocks.length - 1];
+    if (previous && normalizeComparable(previous) === normalized) continue;
+    uniqueBlocks.push(block.trim());
+  }
+  return uniqueBlocks.join("\n\n");
+}
+
 function hasFinalSuccessLanguage(value: string) {
   const normalized = normalizeComparable(value);
   return /\b(?:concluid[ao]|salv[ao]|registrad[ao]|cadastrad[ao]|importad[ao]|criad[ao]|movimentacoes registradas)\b/.test(normalized);
@@ -254,7 +276,7 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     mandatoryOptionLines: options,
     mandatoryRecordLines: records,
     mandatoryInstructionLines: instructions,
-    originalResponse: polishBotResponse(input.response)
+    originalResponse: normalizeVisibleResponse(input.response)
   };
 
   return [
@@ -267,13 +289,21 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     "- Em consultas, originalResponse e extractedData.resultado.linhas_pagina sao a fonte de verdade sobre quais registros pertencem a esta resposta e a esta pagina. Nao troque, repita nem acrescente registros usando outros dados do contexto, e nunca use resultado.amostra.",
     "- Numeros, totais, somas, saldos e contagens ja vem calculados pelo backend. Copie-os como estao; nunca recalcule, estime ou some por conta propria.",
     "- Consulta sem resultado (resultado.registros = 0): nao responda apenas que nao ha nada. Diga em linguagem natural o que foi procurado, com base em resultado.filters e no periodo consultado, e ofereca o proximo passo util. Nunca use a palavra 'mais' sugerindo que existiam registros anteriores quando registros = 0.",
-    "- Responda a pergunta que o usuario realmente fez em userMessage. Se o backend trouxe os dados em um recorte diferente do pedido, por exemplo outro periodo, diga qual recorte foi consultado em vez de silenciar a diferenca.",
+    "- Responda primeiro e diretamente a pergunta que o usuario realmente fez em userMessage. Nao comece sempre com 'Entendi que voce quer'; prefira uma resposta natural e objetiva.",
+    "- Se o backend trouxe os dados em um recorte diferente do pedido, por exemplo outro periodo ou outro animal, diga claramente qual recorte foi consultado e nao apresente esse resultado como se fosse o pedido original.",
     "- Sempre deixe explicito o recorte consultado. Com filtro de periodo em resultado.filters, diga o periodo, por exemplo \"Resumo financeiro de julho de 2026\". Sem nenhum filtro de periodo, diga que o resumo cobre todos os registros, por exemplo \"Resumo financeiro de todos os lancamentos\". Nunca entregue apenas \"Resumo financeiro\": o usuario precisa perceber na hora se o recorte nao foi o que ele queria.",
-    "- Seja completo por padrao: inclua todos os fatos disponiveis em originalResponse e extractedData sobre o que foi perguntado, como data, animal envolvido, cria, pai, valores e observacoes. Nao resuma a ponto de omitir dado que existe. Continue sem inventar o que nao estiver nos dados.",
+    "- Seja completo por padrao: inclua todos os fatos disponiveis em originalResponse e extractedData sobre o que foi perguntado, como data, animal envolvido, cria, pai, valores e observacoes. Nao resuma a ponto de omitir dado que existe, mas tambem nao acrescente exemplos ou detalhes que o usuario nao pediu.",
     "- Excecao a regra acima: se resultado.campos_pedidos existir, o usuario pediu campos especificos. Mostre apenas esses campos de cada registro, sem acrescentar os demais, mesmo que estejam disponiveis.",
     "- Resumo e lista detalhada sao modos diferentes. Se originalResponse for um resumo, nao acrescente exemplos, amostras ou transacoes que nao estejam escritos nela.",
     "- Nao invente dados, valores, codigos, animais, datas, permissoes ou salvamentos.",
     "- Nao altere a acao definida pelo backend.",
+    "- Para uma acao concluida, comece pelo resultado efetivo e depois mostre os detalhes relevantes. Para uma acao pendente, deixe claro que nada foi salvo ainda e o que falta confirmar.",
+    "- Para uma consulta, entregue a resposta pedida antes de observacoes complementares. Nao troque uma consulta especifica por um resumo geral e nao use uma amostra como se fosse a lista completa.",
+    "- Quando nao houver resultado, diga o que foi procurado, quais filtros foram usados e qual proximo passo o usuario pode tentar.",
+    "- Em mensagens compostas, separe cada assunto em um bloco com titulo curto e mantenha a ordem em que o usuario pediu. Nao misture consulta com salvamento.",
+    "- Em erros, permissoes ou validacoes, explique o problema em linguagem do cliente e diga exatamente como continuar. Nunca exponha detalhes internos nem devolva apenas uma frase generica quando houver uma orientacao segura.",
+    "- Evite repeticoes: nao repita saudacao, resumo, lista ou bloco de instrucoes. Cada fato deve aparecer uma vez, no lugar mais claro.",
+    "- Use datas no padrao brasileiro DD/MM/AAAA, valores em R$ e unidades junto das quantidades. Preserve codigos, nomes e numeros calculados pelo backend.",
     "- Quando uma dependencia nao for encontrada, separe claramente: o que nao foi encontrado, o que sera registrado mesmo assim e quais opcoes o usuario tem para continuar.",
     "- Em escolhas entre registrar somente o evento e tambem movimentar estoque/financeiro, diga explicitamente o que cada opcao salva e o que nao altera.",
     "- Para opcoes numeradas, use uma pergunta direta, descreva o efeito de cada opcao e finalize pedindo uma resposta pelo numero.",
@@ -287,7 +317,7 @@ function buildResponseComposerPrompt(input: ComposeBotResponseInput) {
     "- Em importacoes de tabelas, explique primeiro o que foi lido, depois pendencias/opcoes, e por ultimo as opcoes numeradas.",
     "- Em importacoes com partos, separe os partos com cria completa, sem cria e com dados faltando. Nao esconda a possibilidade de enviar crias por linhas.",
     "- Em respostas finais de salvamento, separe o que foi salvo por area quando houver mais de um resultado.",
-    "- Mantenha a resposta curta, escaneavel e educada.",
+    "- Seja claro, escaneavel e educado. Use frases curtas e blocos bem separados, mas preserve todos os dados que respondem ao pedido.",
     "- Remova termos tecnicos internos como action_plan, route, parser, mock, fixture, fallback ou debug.",
     "",
     "Contrato JSON:",
@@ -317,12 +347,12 @@ function normalizeComposition(value: unknown): BotResponseComposition | null {
 }
 
 export function validateComposedBotResponse(originalResponse: string, composed: unknown): ComposeBotResponseResult {
-  const original = polishBotResponse(originalResponse);
+  const original = normalizeVisibleResponse(originalResponse);
   const composition = normalizeComposition(composed);
   if (!composition) return { response: original, usedAI: false, reason: "invalid_contract" };
   if (composition.confidence < 0.72) return { response: original, usedAI: false, reason: "low_confidence" };
 
-  const message = polishBotResponse(composition.message).trim();
+  const message = normalizeVisibleResponse(composition.message);
   if (!message) return { response: original, usedAI: false, reason: "empty_message" };
   if (message.length > Math.max(900, original.length * 2.2)) {
     return { response: original, usedAI: false, reason: "too_long" };
@@ -365,7 +395,7 @@ export function validateComposedBotResponse(originalResponse: string, composed: 
 }
 
 export async function composeBotResponseWithAI(input: ComposeBotResponseInput): Promise<ComposeBotResponseResult> {
-  const fallback = polishBotResponse(input.response);
+  const fallback = normalizeVisibleResponse(input.response);
   if (!shouldTryAIComposition(input)) return { response: fallback, usedAI: false, reason: "skipped" };
 
   try {

@@ -205,7 +205,7 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
   }
 
   function sendFreeMessage(text: string) { void sendMessage(text, true); }
-  function sendSuggested(example: BotExample) { void sendMessage(example.text, false); }
+  function sendSuggested(example: BotExample) { void sendMessage(example.text, true); }
 
   function reset() {
     setMessages([{ role: "bot", text: "Demonstração reiniciada. Envie uma mensagem para testar o bot." }]);
@@ -240,7 +240,7 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
               </span>
               <div className="text-sm">
                 <p className="font-semibold">{freeUses} {freeUses === 1 ? "mensagem livre restante" : "mensagens livres restantes"}</p>
-                <p className="text-xs text-slate-400">Mensagens sugeridas são ilimitadas</p>
+                <p className="text-xs text-slate-400">Mensagens sugeridas também usam o limite gratuito</p>
               </div>
             </div>
           </div>
@@ -298,7 +298,7 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
                       key={ex.text}
                       type="button"
                       onClick={() => sendSuggested(ex)}
-                      disabled={busy}
+                      disabled={busy || (freeUses <= 0 && !pendingAction)}
                       className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-200 transition hover:bg-emerald-400/20 disabled:opacity-50"
                     >
                       {ex.label}: &ldquo;{ex.text.length > 25 ? `${ex.text.slice(0, 25)}…` : ex.text}&rdquo;
@@ -332,7 +332,7 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
 
               {freeUses <= 0 ? (
                 <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
-                  <span>As mensagens sugeridas continuam funcionando.</span>
+                  <span>As mensagens sugeridas também usam o limite gratuito.</span>
                   <div className="flex items-center gap-3">
                     <Link href="/login" className="inline-flex items-center gap-1 font-semibold text-emerald-300 transition hover:text-emerald-200">
                       Entrar no sistema <ArrowRight className="h-3 w-3" />

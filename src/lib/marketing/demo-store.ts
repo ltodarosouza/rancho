@@ -27,6 +27,19 @@ export type DemoProduction = {
   date: string;
 };
 
+export type DemoStockMovement = {
+  id: string;
+  item: string;
+  type: string;
+  qty: number;
+  unitValue?: number | null;
+  reason?: string;
+  date: string;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  productionId?: string | null;
+};
+
 export type DemoLot = {
   id: string;
   name: string;
@@ -47,6 +60,7 @@ export type DemoStore = {
   transactions: DemoTransaction[];
   stock: DemoStock[];
   production: DemoProduction[];
+  stockMovements?: DemoStockMovement[];
   lots?: DemoLot[];
   events?: DemoEvent[];
 };
@@ -76,7 +90,8 @@ export const INITIAL_DEMO_STORE: DemoStore = {
   production: [
     { id: 1, animal: "Mimosa (B-001)", liters: 28, date: "Hoje" },
     { id: 2, animal: "Estrela (B-012)", liters: 31, date: "Hoje" }
-  ]
+  ],
+  stockMovements: []
 };
 
 export function cloneDemoStore(): DemoStore {

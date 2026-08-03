@@ -69,8 +69,22 @@ function animalCodeFromLabel(label: unknown) {
 
 function animalId(store: DemoStore, label: unknown) {
   const target = normalize(animalCodeFromLabel(label));
+  if (target.startsWith("demo-animal-")) {
+    const code = target.slice("demo-animal-".length);
+    const referenced = store.animals.find((item) => normalize(item.code) === code);
+    if (referenced) return `demo-animal-${referenced.code}`;
+  }
   const animal = store.animals.find((item) => normalize(item.code) === target || normalize(item.name) === target);
   return animal ? `demo-animal-${animal.code}` : null;
+}
+
+function stockItemId(item: { name: string }) {
+  return `demo-stock-${normalize(item.name)}`;
+}
+
+function stockItemName(store: DemoStore, itemId: unknown) {
+  const target = comparable(itemId);
+  return store.stock.find((item) => stockItemId(item) === target)?.name || target;
 }
 
 function tableRows(context: DemoContext, table: DemoTable): DemoRow[] {
@@ -83,8 +97,22 @@ function tableRows(context: DemoContext, table: DemoTable): DemoRow[] {
   if (table === TABLES.lotes) return (store.lots || []).map((item, index) => ({ id: item.id, fazenda_id: "demo", nome: item.name, descricao: item.description || "", ativo: item.active !== false, __index: index }));
   if (table === TABLES.ordenhas) return store.production.map((item, index) => ({ id: `demo-production-${item.id}`, fazenda_id: "demo", animal_id: animalId(store, item.animal), litros: item.liters, ordenhado_em: dateValue(item.date), turno: "manha", origem: "demo", __index: index }));
   if (table === TABLES.transacoesFinanceiras) return store.transactions.map((item, index) => ({ id: `demo-finance-${item.id}`, fazenda_id: "demo", tipo: item.positive ? "entrada" : "saida", valor: item.value, data_transacao: dateValue(item.date), categoria: item.label, descricao: item.label, origem: "demo", __index: index }));
-  if (table === TABLES.estoqueItens) return store.stock.map((item, index) => ({ id: `demo-stock-${normalize(item.name)}`, fazenda_id: "demo", nome: item.name, unidade_medida: item.unit, quantidade_atual: item.qty, quantidade_minima: item.min, ativo: true, __index: index }));
-  if (table === TABLES.estoqueMovimentacoes) return [];
+  if (table === TABLES.estoqueItens) return store.stock.map((item, index) => ({ id: stockItemId(item), fazenda_id: "demo", nome: item.name, unidade_medida: item.unit, quantidade_atual: item.qty, quantidade_minima: item.min, ativo: true, __index: index }));
+  if (table === TABLES.estoqueMovimentacoes) return (store.stockMovements || []).map((item, index) => ({
+    id: item.id,
+    fazenda_id: "demo",
+    item_id: stockItemId(store.stock.find((stock) => stock.name === item.item) || { name: item.item }),
+    tipo: item.type,
+    quantidade: item.qty,
+    valor_unitario: item.unitValue ?? null,
+    motivo: item.reason || "",
+    origem: "demo",
+    source_type: item.sourceType || null,
+    source_id: item.sourceId || null,
+    producao_id: item.productionId || null,
+    created_at: dateValue(item.date),
+    __index: index
+  }));
   if (table === TABLES.eventosAnimal) return (store.events || []).map((item, index) => ({ id: item.id, fazenda_id: "demo", animal_id: animalId(store, item.animal), tipo: item.type, data_evento: dateValue(item.date), descricao: item.notes || "", __index: index }));
   return [];
 }
@@ -115,30 +143,65 @@ function matches(row: DemoRow, filters: Filter[]) {
   });
 }
 
-function applyInsert(context: DemoContext, table: DemoTable, payload: AnyRecord) {
+function applyInsert(context: DemoContext, table: DemoTable, payload: AnyRecord): AnyRecord {
   const { store } = context;
   if (table === TABLES.whatsappSessoes) {
     context.session = {
       etapa: ["aguardando_dado", "aguardando_confirmacao"].includes(String(payload.etapa)) ? String(payload.etapa) as BotSession["etapa"] : "livre",
       dados: (payload.dados || {}) as AnyRecord
     };
-    return;
+    return payload;
   }
   if (table === TABLES.animais) {
-    store.animals.push({ name: String(payload.nome || payload.brinco || "Novo animal"), code: String(payload.brinco || payload.codigo || `demo-${store.animals.length + 1}`), category: String(payload.categoria || "outro"), phase: String(payload.fase || "") });
+    const code = String(payload.brinco || payload.codigo || `demo-${store.animals.length + 1}`);
+    store.animals.push({ name: String(payload.nome || code), code, category: String(payload.categoria || "outro"), phase: String(payload.fase || "") });
+    return { ...payload, id: String(payload.id || `demo-animal-${code}`), brinco: code };
   } else if (table === TABLES.lotes) {
     store.lots = store.lots || [];
-    store.lots.push({ id: String(payload.id || `demo-lot-${store.lots.length + 1}`), name: String(payload.nome || "Novo lote"), description: String(payload.descricao || ""), active: payload.ativo !== false });
+    const id = String(payload.id || `demo-lot-${store.lots.length + 1}`);
+    store.lots.push({ id, name: String(payload.nome || "Novo lote"), description: String(payload.descricao || ""), active: payload.ativo !== false });
+    return { ...payload, id };
   } else if (table === TABLES.estoqueItens) {
-    store.stock.push({ name: String(payload.nome || "Novo item"), qty: Number(payload.quantidade_atual || 0), unit: String(payload.unidade_medida || "unidade"), min: Number(payload.quantidade_minima || 0) });
+    const name = String(payload.nome || "Novo item");
+    const id = String(payload.id || `demo-stock-${normalize(name)}`);
+    store.stock.push({ name, qty: Number(payload.quantidade_atual || 0), unit: String(payload.unidade_medida || "unidade"), min: Number(payload.quantidade_minima || 0) });
+    return { ...payload, id, nome: name, unidade_medida: String(payload.unidade_medida || "unidade") };
   } else if (table === TABLES.ordenhas) {
-    store.production.push({ id: Date.now(), animal: String(payload.animal_id || "Animal"), liters: Number(payload.litros || 0), date: String(payload.ordenhado_em || "Hoje").slice(0, 10) });
+    const id = String(payload.id || `demo-production-${Date.now()}`);
+    const animalReference = store.animals.find((item) => `demo-animal-${item.code}` === String(payload.animal_id || ""));
+    const animal = animalReference ? `${animalReference.name} (${animalReference.code})` : String(payload.animal_codigo || payload.animal_id || "Animal");
+    store.production.push({ id: Date.now(), animal, liters: Number(payload.litros || 0), date: String(payload.ordenhado_em || "Hoje").slice(0, 10) });
+    return { ...payload, id };
   } else if (table === TABLES.transacoesFinanceiras) {
     store.transactions.push({ id: Date.now(), label: String(payload.descricao || payload.categoria || "Movimentação"), date: String(payload.data_transacao || "Hoje").slice(0, 10), value: Number(payload.valor || 0), positive: normalize(payload.tipo) === "entrada" });
   } else if (table === TABLES.eventosAnimal) {
     store.events = store.events || [];
-    store.events.push({ id: String(payload.id || `demo-event-${store.events.length + 1}`), animal: String(payload.animal_id || "Animal"), type: String(payload.tipo || "evento"), date: String(payload.data_evento || "Hoje").slice(0, 10), notes: String(payload.descricao || "") });
+    const id = String(payload.id || `demo-event-${store.events.length + 1}`);
+    store.events.push({ id, animal: String(payload.animal_codigo || payload.animal_id || "Animal"), type: String(payload.tipo || "evento"), date: String(payload.data_evento || "Hoje").slice(0, 10), notes: String(payload.descricao || "") });
+    return { ...payload, id };
+  } else if (table === TABLES.estoqueMovimentacoes) {
+    store.stockMovements = store.stockMovements || [];
+    const id = String(payload.id || `demo-stock-movement-${store.stockMovements.length + 1}`);
+    store.stockMovements.push({
+      id,
+      item: stockItemName(store, payload.item_id),
+      type: String(payload.tipo || "entrada"),
+      qty: Number(payload.quantidade || 0),
+      unitValue: payload.valor_unitario == null ? null : Number(payload.valor_unitario),
+      reason: String(payload.motivo || ""),
+      date: String(payload.created_at || "Hoje"),
+      sourceType: payload.source_type ? String(payload.source_type) : null,
+      sourceId: payload.source_id ? String(payload.source_id) : null,
+      productionId: payload.producao_id ? String(payload.producao_id) : null
+    });
+    const stockItem = store.stock.find((item) => stockItemId(item) === String(payload.item_id || ""));
+    if (stockItem) {
+      const quantity = Number(payload.quantidade || 0);
+      stockItem.qty += normalize(payload.tipo) === "saida" ? -quantity : quantity;
+    }
+    return { ...payload, id };
   }
+  return payload;
 }
 
 function applyUpdate(context: DemoContext, table: DemoTable, rows: DemoRow[], payload: AnyRecord) {
@@ -187,8 +250,8 @@ function buildQuery(context: DemoContext, table: DemoTable): DemoQuery {
       return Promise.resolve().then(() => {
         if (operation === "insert" || operation === "upsert") {
           const values = Array.isArray(payload) ? payload : [payload || {}];
-          values.forEach((item) => applyInsert(context, table, item));
-          return resolve({ data: single ? (values[0] || null) : values, error: null });
+          const inserted = values.map((item) => applyInsert(context, table, item));
+          return resolve({ data: single ? (inserted[0] || null) : inserted, error: null });
         }
         let rows = tableRows(context, table).filter((row) => matches(row, filters));
         if (operation === "update") {

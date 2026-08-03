@@ -30,6 +30,7 @@ function normalizeStore(value: unknown): DemoStore {
     transactions: collection("transactions"),
     stock: collection("stock"),
     production: collection("production"),
+    stockMovements: collection("stockMovements"),
     lots: collection("lots"),
     events: collection("events")
   } as DemoStore;

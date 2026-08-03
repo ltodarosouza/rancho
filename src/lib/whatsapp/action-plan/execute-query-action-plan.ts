@@ -616,6 +616,20 @@ function buildAggregations(rows: AnyRecord[], plan: QueryActionPlan, domain: Dom
   return { totals, ...(byMonth ? { byMonth } : {}), groups };
 }
 
+function resolveGroupLabel(group: AnyRecord, plan: QueryActionPlan, relations: AnyRecord) {
+  const raw = String(group.label ?? "");
+  if (!raw) return "Sem identificação";
+  const groupField = plan.groupBy?.[0];
+  if (groupField && /ref|_id/.test(groupField)) {
+    const key = String(group.values?.[groupField] ?? raw);
+    const animal = relations.animalsById?.get(key);
+    if (animal) return animalLabel(animal);
+    const employee = relations.employeesById?.get(key);
+    if (employee) return String(employee.nome || key);
+  }
+  return raw;
+}
+
 function money(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
     .format(Number(value || 0))
@@ -2032,6 +2046,38 @@ function buildResponse(
   relations: AnyRecord,
   pagination?: { offset: number; pageSize: number }
 ) {
+  if (metrics.groups?.length && plan.groupBy?.length && plan.aggregations?.length) {
+    const groups = metrics.groups as AnyRecord[];
+    const agg = plan.aggregations[0];
+    const metricKey = agg.as || `${agg.op}_${agg.field}`;
+    const dir = plan.orderBy?.direction === "asc" ? 1 : -1;
+    const sorted = [...groups].sort((a, b) => (Number(a.metrics?.[metricKey] || 0) - Number(b.metrics?.[metricKey] || 0)) * dir);
+    const limited = sorted.slice(0, plan.limit || sorted.length);
+    if (limited.length === 1 && plan.limit === 1) {
+      const top = limited[0];
+      const val = Number(top.metrics?.[metricKey] || 0);
+      const label = resolveGroupLabel(top, plan, relations);
+      const unit = metricKey.replace(/^total_/, "");
+      return `${label}: ${domain.domain === "financeiro" ? money(val) : numberText(val)} ${unit}.`;
+    }
+    const lines = limited.map((group, i) => {
+      const val = Number(group.metrics?.[metricKey] || 0);
+      const label = resolveGroupLabel(group, plan, relations);
+      return `${i + 1}. ${label} — ${domain.domain === "financeiro" ? money(val) : numberText(val)}`;
+    });
+    const period = periodText(plan);
+    const title = plan.limit === 1 ? "Resultado" : `Ranking${period ? ` ${period}` : ""}`;
+    return `${title}:\n${lines.join("\n")}`;
+  }
+
+  if (metrics.totals && plan.aggregations?.length && !plan.groupBy?.length && !["financeiro"].includes(domain.domain)) {
+    const agg = plan.aggregations[0];
+    const metricKey = agg.as || `${agg.op}_${agg.field}`;
+    const val = Number(metrics.totals[metricKey] || 0);
+    const period = periodText(plan);
+    return `Total${period ? ` ${period}` : ""}: ${numberText(val)}.`;
+  }
+
   if (domain.domain === "fazenda") {
     const fazenda = rows[0];
     if (!fazenda) return "Não encontrei os dados do seu rancho.";

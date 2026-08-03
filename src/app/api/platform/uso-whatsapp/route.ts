@@ -59,7 +59,9 @@ async function loadUsage(supabase: SupabaseAdmin, farm: { id: string; nome?: str
   const usageMonth = `${currentMonth()}-01`;
   const { data: usage, error: usageError } = await supabase
     .from(TABLES.whatsappUsoMensal)
-    .select("fazenda_id,mes,mensagens_enviadas")
+    // The database keeps the technical direction name for compatibility:
+    // `mensagens_recebidas` means messages received by the bot from the user.
+    .select("fazenda_id,mes,mensagens_recebidas")
     .eq("fazenda_id", farm.id)
     .eq("mes", usageMonth)
     .maybeSingle();
@@ -69,7 +71,7 @@ async function loadUsage(supabase: SupabaseAdmin, farm: { id: string; nome?: str
 
   const summaryWithReceived = usageSummary({
     month: usageMonth,
-    sent: usage?.mensagens_enviadas
+    sent: usage?.mensagens_recebidas
   });
   const summary = {
     month: summaryWithReceived.month,

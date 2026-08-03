@@ -137,7 +137,7 @@ export default function GerenciamentoUsoPage() {
       {error ? <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">{error}</div> : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Mensagens enviadas" value={numberFormatter.format(totals.sent)} hint="Respostas enviadas pelo bot" icon={Send} tone="green" loading={loading} />
+        <StatCard title="Mensagens enviadas" value={numberFormatter.format(totals.sent)} hint="Enviadas por você ao bot" icon={Send} tone="green" loading={loading} />
         <StatCard title="Faixa atual" value={usage?.band.label || "-"} hint={data?.month ? monthLabel(data.month) : "Mês atual"} icon={MessageSquareText} tone="lime" loading={loading} />
         <StatCard title="Acréscimo provisório" value={formatCurrency(totals.surcharge)} hint="Modelo de cobrança" icon={CircleDollarSign} tone="amber" loading={loading} />
         <StatCard title="Próxima faixa" value={usage?.nextBand?.label || "Maior faixa"} hint={usage?.nextBand ? `${numberFormatter.format(usage.nextBand.min - usage.total)} mensagem(ns)` : "Sem próxima faixa"} icon={ChartNoAxesCombined} tone="blue" loading={loading} />
@@ -168,7 +168,7 @@ export default function GerenciamentoUsoPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2"><ChartNoAxesCombined className="h-5 w-5 text-emerald-600" /><h2 className="text-[15px] font-semibold">Uso do meu rancho</h2></div>
-            <p className="mt-1 text-sm text-[var(--text-2)]">A contagem considera somente as mensagens enviadas pelo bot para este rancho.</p>
+            <p className="mt-1 text-sm text-[var(--text-2)]">A contagem considera somente as mensagens que você envia ao bot neste rancho.</p>
           </div>
           <Badge tone="default">{profile.fazenda?.nome || "Meu rancho"}</Badge>
         </div>
@@ -184,7 +184,7 @@ export default function GerenciamentoUsoPage() {
                     <p className="mt-1 text-sm text-[var(--text-2)]">Plano {rancho.plano} · {numberFormatter.format(rancho.usage.total)} mensagens no mês</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm lg:min-w-[300px]">
-                    <div><p className="text-xs text-[var(--text-2)]">Bot enviou</p><p className="mt-1 font-semibold">{numberFormatter.format(rancho.usage.sent)}</p></div>
+                    <div><p className="text-xs text-[var(--text-2)]">Você enviou</p><p className="mt-1 font-semibold">{numberFormatter.format(rancho.usage.sent)}</p></div>
                     <div><p className="text-xs text-[var(--text-2)]">Acréscimo</p><p className="mt-1 font-semibold">{formatCurrency(rancho.usage.band.additionalFee)}</p></div>
                   </div>
                 </div>

@@ -163,7 +163,7 @@ export async function saveStockRecord(ctx: SaveRecordHandlerContext): Promise<Sa
 
       if (pending.tipo === "ESTOQUE_ENTRADA" && dados.compra && isBotAdmin(owner)) {
         return {
-          response: `Não encontrei "${dados.item_nome || ""}" no estoque. Deseja criar o item de estoque ou registrar apenas como despesa?\n1 - Criar item de estoque\n2 - Registrar apenas despesa`,
+          response: `Não encontrei "${dados.item_nome || ""}" no estoque.\n\nA compra/despesa continuará aguardando sua escolha. Como você prefere registrar?\n1 - Criar o item no estoque e registrar a compra\n2 - Registrar somente a despesa, sem criar item\n\nResponda 1 ou 2.`,
           nextSession: { etapa: "aguardando_dado", dados: { pending, acao_pendente: "compra_item_nao_encontrado" } }
         };
       }

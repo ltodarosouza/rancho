@@ -85,7 +85,7 @@ export function milkStockAfterSaveText(parsed: ParsedRanchoMessage) {
     return "\nEstoque de leite: encontrei múltiplos itens compatíveis e não movimentei estoque automaticamente.";
   }
 
-  return "\nNão encontrei item de estoque compatível com leite. Registrei apenas a produção.";
+  return "\nA produção foi registrada, mas não encontrei no estoque um item compatível com leite. Nenhuma movimentação de estoque foi feita.";
 }
 
 export function isMilkStockUnit(unit: unknown) {
@@ -214,9 +214,8 @@ export function milkStockMissingItemNeedsDecision(parsed: ParsedRanchoMessage) {
 export function milkStockMissingItemDecisionQuestion(parsed: ParsedRanchoMessage) {
   const stock = parsed.dados?.estoque_leite as AnyRecord | undefined;
   const total = Number(stock?.total_litros || parsed.dados?.total_litros || 0);
-  return `Não encontrei um item de estoque compatível com leite. Deseja criar "Leite" em litros e adicionar ${formatNumber(total, " L")} ao estoque?
-1 - Criar item e adicionar ao estoque
-2 - Registrar apenas a produção`;
+  const amount = formatNumber(total, " L");
+  return `Não encontrei no estoque um item cadastrado em litros para o leite produzido.\n\nA produção de ${amount} está pronta para ser registrada. O que você prefere fazer com o estoque?\n1 - Criar o item "Leite" em litros e adicionar ${amount} ao estoque\n2 - Registrar somente a produção, sem alterar o estoque\n\nResponda 1 ou 2.`;
 }
 
 export function withMilkStockMissingItemDecision(parsed: ParsedRanchoMessage, shouldCreate: boolean) {
@@ -241,7 +240,9 @@ export function withMilkStockMissingItemDecision(parsed: ParsedRanchoMessage, sh
 export function milkStockDecisionQuestion(parsed: ParsedRanchoMessage) {
   const stock = parsed.dados?.estoque_leite as AnyRecord | undefined;
   const total = Number(stock?.total_litros || parsed.dados?.total_litros || parsed.dados?.litros || 0);
-  return `Deseja adicionar também ${formatNumber(total, " L")} ao estoque de ${stock?.item_leite_resolvido || "leite"}?\n1 - Sim\n2 - Não`;
+  const amount = formatNumber(total, " L");
+  const item = stock?.item_leite_resolvido || "leite";
+  return `A produção de ${amount} está pronta para ser registrada. Encontrei o item "${item}" no estoque.\n\nVocê quer lançar também essa quantidade no estoque?\n1 - Sim, adicionar ${amount} ao estoque\n2 - Não, registrar somente a produção\n\nResponda 1 ou 2.`;
 }
 
 export function withMilkStockMovementDecision(parsed: ParsedRanchoMessage, shouldMove: boolean) {
@@ -273,7 +274,8 @@ export function physicalSaleNeedsStockDecision(parsed: ParsedRanchoMessage) {
 export function physicalSaleStockDecisionQuestion(parsed: ParsedRanchoMessage) {
   const dados = parsed.dados || {};
   const item = dados.item_resolvido || dados.item_nome || "item";
-  return `Encontrei ${item} no estoque. Deseja dar baixa de ${formatStockAmount(Number(dados.quantidade || 0), dados.unidade)} desse item?\n1 - Sim\n2 - Não`;
+  const amount = formatStockAmount(Number(dados.quantidade || 0), dados.unidade);
+  return `A venda de ${amount} de ${item} será registrada como receita após sua confirmação.\n\nTambém encontrei esse item no estoque. Você quer retirar essa quantidade do estoque?\n1 - Sim, dar baixa de ${amount} no estoque\n2 - Não, registrar somente a receita\n\nResponda 1 ou 2.`;
 }
 
 export function normalizePhysicalSalePending(parsed: ParsedRanchoMessage) {

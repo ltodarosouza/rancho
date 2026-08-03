@@ -267,10 +267,10 @@ export function milkStockStatusText(parsed: ParsedRanchoMessage) {
   if (stock.status_resolucao === "ambiguous") {
     const options = Array.isArray(stock.opcoes) ?stock.opcoes as AnyRecord[] : [];
     const lines = options.slice(0, 5).map((option, index) => `${index + 1}. ${option.nome} (${option.unidade || "unidade não informada"})`).join("\n");
-    return `\n\nEncontrei mais de um item de estoque compatível com leite (${total}).${destino}\n${lines}\nNão vou movimentar estoque automaticamente; vou registrar apenas a produção.`;
+      return `\n\nEncontrei mais de um item de estoque compatível com leite (${total}).${destino}\n${lines}\nA produção será registrada, mas não vou movimentar o estoque até você escolher o item correto.`;
   }
 
-  return `\n\nNão encontrei item de estoque compatível com leite (${total}).${destino}\nVou registrar apenas a produção.`;
+  return `\n\nA produção foi registrada, mas não encontrei no estoque um item compatível com leite (${total}).${destino}\nNenhuma movimentação de estoque foi feita.`;
 }
 
 

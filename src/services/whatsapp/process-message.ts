@@ -3616,7 +3616,7 @@ async function stockCatalogPreflight(supabase: SupabaseAdmin, owner: WhatsAppOwn
       etapa: "aguardando_dado",
       dados: { pending: parsed, acao_pendente: "compra_item_nao_encontrado" }
     });
-    return `Não encontrei "${dados.item_nome || dados.item_extraido || ""}" no estoque. Deseja criar o item de estoque ou registrar apenas como despesa?\n1 - Criar item de estoque\n2 - Registrar apenas despesa`;
+    return `Não encontrei "${dados.item_nome || dados.item_extraido || ""}" no estoque.\n\nA compra/despesa continuará aguardando sua escolha. Como você prefere registrar?\n1 - Criar o item no estoque e registrar a compra\n2 - Registrar somente a despesa, sem criar item\n\nResponda 1 ou 2.`;
   }
 
   return null;
@@ -4533,7 +4533,7 @@ async function handleMissingData(
       return next.perguntas_faltantes.length ?composeMissingDataText(next) : confirmationText(next);
     }
 
-    return "Responda 1 para criar o item de estoque ou 2 para registrar apenas como despesa.";
+    return "Escolha uma opção para continuar:\n1 - Criar o item no estoque e registrar a compra\n2 - Registrar somente a despesa, sem criar item";
   }
 
   if (session.dados?.acao_pendente === "producao_leite_estoque_opcional") {
@@ -4548,7 +4548,7 @@ async function handleMissingData(
       await saveSession(supabase, owner, { etapa: "aguardando_confirmacao", dados: { pending: next } });
       return confirmationText(next);
     }
-    return "Responda 1 para adicionar ao estoque ou 2 para registrar apenas a produção.";
+    return "Escolha uma opção para continuar:\n1 - Adicionar a produção ao estoque\n2 - Registrar somente a produção, sem alterar o estoque";
   }
 
   if (session.dados?.acao_pendente === "producao_leite_item_nao_encontrado") {
@@ -4566,7 +4566,7 @@ async function handleMissingData(
       await saveSession(supabase, owner, { etapa: "aguardando_confirmacao", dados: { pending: next } });
       return confirmationText(next);
     }
-    return "Responda 1 para criar o item e adicionar ao estoque ou 2 para registrar apenas a producao.";
+    return "Escolha uma opção para continuar:\n1 - Criar o item \"Leite\" e adicionar a produção ao estoque\n2 - Registrar somente a produção, sem criar item";
   }
 
   if (session.dados?.acao_pendente === "venda_baixa_estoque_opcional") {
@@ -4586,7 +4586,7 @@ async function handleMissingData(
       return confirmationText(next);
     }
 
-    return "Responda 1 para dar baixa no estoque ou 2 para registrar apenas a receita.";
+    return "Escolha uma opção para continuar:\n1 - Dar baixa da quantidade vendida no estoque\n2 - Registrar somente a receita, sem alterar o estoque";
   }
 
   const semanticPatch = await handleSemanticPendingPatch(supabase, owner, session, text);

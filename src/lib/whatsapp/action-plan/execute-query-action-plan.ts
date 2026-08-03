@@ -549,6 +549,18 @@ function groupDescriptor(row: AnyRecord, fieldName: string, domain: DomainManife
     const employee = domain.domain === "funcionarios" ? row : relations.employeesById?.get(employeeId);
     return { key: employeeId || normalizedText(employee?.nome), value: employee?.nome || employeeId || "Funcionario" };
   }
+  if (fieldName === "pai_ref") {
+    const paiId = String(row.pai_id || "");
+    if (!paiId) return { key: "", value: "" };
+    const pai = relations.animalsById?.get(paiId);
+    return { key: paiId, value: pai ? animalLabel(pai) : paiId };
+  }
+  if (fieldName === "mae_ref") {
+    const maeId = String(row.mae_id || "");
+    if (!maeId) return { key: "", value: "" };
+    const mae = relations.animalsById?.get(maeId);
+    return { key: maeId, value: mae ? animalLabel(mae) : maeId };
+  }
   const value = rowValue(row, domain, fieldName, relations);
   return { key: normalizedText(value) || "sem_valor", value };
 }
@@ -2047,7 +2059,8 @@ function buildResponse(
   pagination?: { offset: number; pageSize: number }
 ) {
   if (metrics.groups?.length && plan.groupBy?.length && plan.aggregations?.length) {
-    const groups = metrics.groups as AnyRecord[];
+    const groups = (metrics.groups as AnyRecord[]).filter((g) => String(g.key || "").trim() !== "");
+    if (!groups.length) return `Não encontrei registros para essa consulta.`;
     const agg = plan.aggregations[0];
     const metricKey = agg.as || `${agg.op}_${agg.field}`;
     const dir = plan.orderBy?.direction === "asc" ? 1 : -1;

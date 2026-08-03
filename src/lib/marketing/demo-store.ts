@@ -27,11 +27,28 @@ export type DemoProduction = {
   date: string;
 };
 
+export type DemoLot = {
+  id: string;
+  name: string;
+  description?: string;
+  active?: boolean;
+};
+
+export type DemoEvent = {
+  id: string;
+  animal: string;
+  type: string;
+  date: string;
+  notes?: string;
+};
+
 export type DemoStore = {
   animals: DemoAnimal[];
   transactions: DemoTransaction[];
   stock: DemoStock[];
   production: DemoProduction[];
+  lots?: DemoLot[];
+  events?: DemoEvent[];
 };
 
 export const INITIAL_DEMO_STORE: DemoStore = {

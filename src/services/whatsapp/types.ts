@@ -1,6 +1,10 @@
 import type { AnyRecord } from "@/lib/types";
 import type { ParsedRanchoMessage } from "@/lib/whatsapp/nlp";
 import type { BotSession } from "@/services/whatsapp/session-service";
+import type { WhatsAppOwner } from "@/services/whatsapp/identity";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
+
+type SupabaseAdmin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
 export type ProcessWhatsappMessageInput = {
   telefone: string;
@@ -12,6 +16,11 @@ export type ProcessWhatsappMessageInput = {
   to?: string;
   phoneNumberId?: string;
   raw?: AnyRecord;
+  demo?: {
+    supabase: SupabaseAdmin;
+    owner: WhatsAppOwner;
+    session?: BotSession;
+  };
 };
 
 export type ProcessWhatsappMessageResult = {
@@ -25,4 +34,5 @@ export type ProcessWhatsappMessageResult = {
   eventoConfirmado: boolean;
   erro: string | null;
   debug?: AnyRecord | null;
+  pendingAction?: ParsedRanchoMessage | null;
 };

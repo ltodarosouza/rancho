@@ -5032,13 +5032,14 @@ function buildProcessResult(input: {
     camposFaltantes: detected?.perguntas_faltantes || [],
     eventoConfirmado: Boolean(input.eventConfirmed),
     erro: input.error || null,
-    debug: input.debug || null
+    debug: input.debug || null,
+    pendingAction: detected || null
   };
 }
 
 export async function processWhatsappMessage(input: ProcessWhatsappMessageInput): Promise<ProcessWhatsappMessageResult> {
   const processStartedAt = Date.now();
-  const supabase = getSupabaseAdmin();
+  const supabase = input.demo?.supabase || getSupabaseAdmin();
   if (!supabase) {
     return buildProcessResult({
       response: "Não consegui acessar as configurações do Rancho agora. Tente novamente em instantes.",
@@ -5065,7 +5066,9 @@ export async function processWhatsappMessage(input: ProcessWhatsappMessageInput)
   let suppressPreviousPending = false;
 
   try {
-    const resolvedOwner = await resolveWhatsAppOwner(supabase, input.telefone);
+    const resolvedOwner = input.demo
+      ? { owner: input.demo.owner }
+      : await resolveWhatsAppOwner(supabase, input.telefone);
     owner = resolvedOwner.owner;
 
     if (!input.modoTeste) {

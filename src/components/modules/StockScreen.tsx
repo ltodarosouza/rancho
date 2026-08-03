@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, PackageOpen, Pencil, Plus, RefreshCw, Scale, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Filter, PackageOpen, Pencil, Plus, RefreshCw, Scale, Trash2, X } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui/Badge";
@@ -246,6 +246,10 @@ export function StockScreen({ config }: { config: ModuleConfig }) {
   const [items, setItems] = useState<AnyRecord[]>([]);
   const [movements, setMovements] = useState<AnyRecord[]>([]);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("todos");
+  const [categoryFilter, setCategoryFilter] = useState("todos");
+  const [unitFilter, setUnitFilter] = useState("todos");
+  const [sortItems, setSortItems] = useState("attention");
   const [editing, setEditing] = useState<AnyRecord | null>(null);
   const [action, setAction] = useState<StockAction | null>(null);
   const [loading, setLoading] = useState(true);
@@ -300,17 +304,62 @@ export function StockScreen({ config }: { config: ModuleConfig }) {
     };
   }, [load]);
 
-  const searchableItems = useMemo(
-    () => items.map((item) => ({ item, text: JSON.stringify(item).toLowerCase() })),
+  const lastMovementByItem = useMemo(() => {
+    const entries = new Map<string, AnyRecord>();
+    movements.forEach((movement) => {
+      if (movement.item_id && !entries.has(movement.item_id)) entries.set(movement.item_id, movement);
+    });
+    return entries;
+  }, [movements]);
+
+  const categoryOptions = useMemo(
+    () => Array.from(new Set(items.map((item) => String(item.categoria || "").trim()).filter(Boolean))).sort(),
+    [items]
+  );
+  const unitOptions = useMemo(
+    () => Array.from(new Set(items.map((item) => String(item.unidade_medida || "").trim()).filter(Boolean))).sort(),
     [items]
   );
 
   const filteredItems = useMemo(() => {
     const term = deferredSearch.trim().toLowerCase();
-    if (!term) return items;
+    const filtered = items.filter((item) => {
+      const current = Number(item.quantidade_atual || 0);
+      const minimum = Number(item.quantidade_minima || 0);
+      const status = current <= 0 ? "zerado" : current <= minimum ? "atencao" : "normal";
+      const text = JSON.stringify(item).toLowerCase();
 
-    return searchableItems.filter((item) => item.text.includes(term)).map((item) => item.item);
-  }, [deferredSearch, items, searchableItems]);
+      if (term && !text.includes(term)) return false;
+      if (statusFilter !== "todos" && status !== statusFilter) return false;
+      if (categoryFilter !== "todos" && String(item.categoria || "") !== categoryFilter) return false;
+      if (unitFilter !== "todos" && String(item.unidade_medida || "") !== unitFilter) return false;
+      return true;
+    });
+
+    return [...filtered].sort((left, right) => {
+      const leftCurrent = Number(left.quantidade_atual || 0);
+      const rightCurrent = Number(right.quantidade_atual || 0);
+      const leftMinimum = Number(left.quantidade_minima || 0);
+      const rightMinimum = Number(right.quantidade_minima || 0);
+      const leftAttention = leftCurrent <= 0 ? 0 : leftCurrent <= leftMinimum ? 1 : 2;
+      const rightAttention = rightCurrent <= 0 ? 0 : rightCurrent <= rightMinimum ? 1 : 2;
+
+      if (sortItems === "attention" && leftAttention !== rightAttention) return leftAttention - rightAttention;
+      if (sortItems === "quantity_asc" && leftCurrent !== rightCurrent) return leftCurrent - rightCurrent;
+      if (sortItems === "quantity_desc" && leftCurrent !== rightCurrent) return rightCurrent - leftCurrent;
+      if (sortItems === "value_desc") {
+        const leftValue = leftCurrent * Number(left.valor_unitario || 0);
+        const rightValue = rightCurrent * Number(right.valor_unitario || 0);
+        if (leftValue !== rightValue) return rightValue - leftValue;
+      }
+      if (sortItems === "recent") {
+        const leftDate = String(lastMovementByItem.get(left.id)?.created_at || left.created_at || "");
+        const rightDate = String(lastMovementByItem.get(right.id)?.created_at || right.created_at || "");
+        if (leftDate !== rightDate) return rightDate.localeCompare(leftDate);
+      }
+      return String(left.nome || "").localeCompare(String(right.nome || ""), "pt-BR");
+    });
+  }, [categoryFilter, deferredSearch, items, lastMovementByItem, sortItems, statusFilter, unitFilter]);
 
   const visibleItems = useMemo(
     () => filteredItems.slice(0, visibleItemLimit),
@@ -319,7 +368,7 @@ export function StockScreen({ config }: { config: ModuleConfig }) {
 
   useEffect(() => {
     setVisibleItemLimit(STOCK_RENDER_BATCH_SIZE);
-  }, [deferredSearch, items.length]);
+  }, [categoryFilter, deferredSearch, items.length, sortItems, statusFilter, unitFilter]);
 
   const estimatedValue = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.quantidade_atual || 0) * Number(item.valor_unitario || 0), 0),
@@ -329,18 +378,21 @@ export function StockScreen({ config }: { config: ModuleConfig }) {
     () => items.filter((item) => Number(item.quantidade_atual || 0) <= Number(item.quantidade_minima || 0)).length,
     [items]
   );
-  const lastMovementByItem = useMemo(() => {
-    const entries = new Map<string, AnyRecord>();
-    movements.forEach((movement) => {
-      if (movement.item_id && !entries.has(movement.item_id)) entries.set(movement.item_id, movement);
-    });
-    return entries;
-  }, [movements]);
   const initialLoading = loading && !items.length;
   const initialError = Boolean(error && !items.length && !loading);
   const showPlaceholders = initialLoading;
   const canManage = canManageData(profile);
-  const hasSearch = Boolean(deferredSearch.trim());
+  const hasActiveFilters = Boolean(
+    deferredSearch.trim() || statusFilter !== "todos" || categoryFilter !== "todos" || unitFilter !== "todos"
+  );
+
+  function clearFilters() {
+    setSearch("");
+    setStatusFilter("todos");
+    setCategoryFilter("todos");
+    setUnitFilter("todos");
+    setSortItems("attention");
+  }
 
   function startEditing(item: AnyRecord) {
     setEditing(item);
@@ -466,6 +518,53 @@ export function StockScreen({ config }: { config: ModuleConfig }) {
           <input className="input md:max-w-sm" placeholder="Pesquisar item..." value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
 
+        <div className="mt-4 rounded-lg border border-[var(--border-light)] bg-[var(--bg)] p-3">
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--text-2)]">
+            <Filter className="h-4 w-4 text-pasture" />
+            Filtrar e ordenar estoque
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <label className="space-y-1.5 text-xs font-medium text-[var(--text-2)]">
+              <span>Situação</span>
+              <select className="input h-10" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <option value="todos">Todos os itens</option>
+                <option value="atencao">Abaixo do mínimo</option>
+                <option value="zerado">Sem estoque</option>
+                <option value="normal">Dentro do mínimo</option>
+              </select>
+            </label>
+            <label className="space-y-1.5 text-xs font-medium text-[var(--text-2)]">
+              <span>Categoria</span>
+              <select className="input h-10" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                <option value="todos">Todas as categorias</option>
+                {categoryOptions.map((category) => <option key={category} value={category}>{stockCategoryLabels[category] || category}</option>)}
+              </select>
+            </label>
+            <label className="space-y-1.5 text-xs font-medium text-[var(--text-2)]">
+              <span>Unidade</span>
+              <select className="input h-10" value={unitFilter} onChange={(event) => setUnitFilter(event.target.value)}>
+                <option value="todos">Todas as unidades</option>
+                {unitOptions.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+              </select>
+            </label>
+            <label className="space-y-1.5 text-xs font-medium text-[var(--text-2)]">
+              <span>Ordenar por</span>
+              <select className="input h-10" value={sortItems} onChange={(event) => setSortItems(event.target.value)}>
+                <option value="attention">Atenção primeiro</option>
+                <option value="quantity_asc">Menor quantidade</option>
+                <option value="quantity_desc">Maior quantidade</option>
+                <option value="value_desc">Maior valor em estoque</option>
+                <option value="recent">Movimentados recentemente</option>
+                <option value="name">Nome (A-Z)</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-3 flex flex-col gap-2 text-xs text-[var(--text-2)] sm:flex-row sm:items-center sm:justify-between">
+            <span>{filteredItems.length} {filteredItems.length === 1 ? "item encontrado" : "itens encontrados"}</span>
+            {hasActiveFilters ? <button type="button" onClick={clearFilters} className="font-semibold text-pasture hover:underline sm:text-right">Limpar filtros</button> : null}
+          </div>
+        </div>
+
         <div className="mt-5 grid gap-4 xl:grid-cols-2">
           {showPlaceholders ? Array.from({ length: 4 }).map((_, index) => <StockItemSkeleton key={`stock-skeleton-${index}`} />) : filteredItems.length ? visibleItems.map((item) => {
             const current = Number(item.quantidade_atual || 0);
@@ -530,8 +629,8 @@ export function StockScreen({ config }: { config: ModuleConfig }) {
           }) : (
             <EmptyState
               className="xl:col-span-2"
-              title={hasSearch ? "Nenhum item encontrado para esta busca." : "Voce ainda nao cadastrou itens no estoque."}
-              message={hasSearch ? "Limpe a busca ou pesquise por outro nome, categoria ou fornecedor." : "Cadastre o primeiro item para acompanhar saldo, entradas, saidas e estoque minimo."}
+              title={hasActiveFilters ? "Nenhum item encontrado com esses filtros." : "Voce ainda nao cadastrou itens no estoque."}
+              message={hasActiveFilters ? "Limpe os filtros ou ajuste a busca para ver mais resultados." : "Cadastre o primeiro item para acompanhar saldo, entradas, saidas e estoque minimo."}
             />
           )}
         </div>

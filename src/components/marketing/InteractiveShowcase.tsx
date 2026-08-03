@@ -114,6 +114,9 @@ const BOT_EXAMPLES: BotExample[] = [
 
 type ChatMessage = { role: "user" | "bot"; text: string };
 
+const DEMO_FREE_USES = 5;
+const DEMO_FREE_USES_STORAGE_KEY = "rancho-landing-demo-free-uses";
+
 function DatabasePanel({ expanded, onToggle, store }: { expanded: boolean; onToggle: () => void; store: DemoStore }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.04]">
@@ -160,7 +163,8 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
     { role: "bot", text: "Olá! Sou o bot demonstrativo do Rancho. Você pode me enviar mensagens sobre produção, estoque, financeiro, reprodução e muito mais. Use os dados da fazenda ao lado como referência." }
   ]);
   const [input, setInput] = useState("");
-  const [freeUses, setFreeUses] = useState(3);
+  const [freeUses, setFreeUses] = useState(DEMO_FREE_USES);
+  const [usageLoaded, setUsageLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dbExpanded, setDbExpanded] = useState(false);
   const [pendingAction, setPendingAction] = useState<Record<string, unknown> | null>(null);
@@ -176,6 +180,27 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(DEMO_FREE_USES_STORAGE_KEY);
+      const parsed = stored === null ? DEMO_FREE_USES : Number(stored);
+      setFreeUses(Number.isInteger(parsed) && parsed >= 0 && parsed <= DEMO_FREE_USES ? parsed : DEMO_FREE_USES);
+    } catch {
+      setFreeUses(DEMO_FREE_USES);
+    } finally {
+      setUsageLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!usageLoaded) return;
+    try {
+      window.localStorage.setItem(DEMO_FREE_USES_STORAGE_KEY, String(freeUses));
+    } catch {
+      // A blocked browser storage should not prevent the demo from working.
+    }
+  }, [freeUses, usageLoaded]);
+
   const availableSuggestions = useMemo(
     () => BOT_EXAMPLES.filter((ex) => !messages.some((m) => m.role === "user" && m.text === ex.text)),
     [messages]
@@ -183,7 +208,7 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
 
   async function sendMessage(text: string, countUse: boolean) {
     const replyingToPendingAction = Boolean(pendingAction);
-    if (!text.trim() || busy || (countUse && freeUses <= 0 && !replyingToPendingAction)) return;
+    if (!usageLoaded || !text.trim() || busy || (countUse && freeUses <= 0 && !replyingToPendingAction)) return;
     setInput("");
     if (countUse && !replyingToPendingAction) setFreeUses((n) => n - 1);
     setMessages((prev) => [...prev, { role: "user", text }]);
@@ -212,7 +237,6 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
 
   function reset() {
     setMessages([{ role: "bot", text: "Demonstração reiniciada. Envie uma mensagem para testar o bot." }]);
-    setFreeUses(3);
     setInput("");
     setPendingAction(null);
     onStoreChange(JSON.parse(JSON.stringify(INITIAL_DEMO_STORE)) as DemoStore);
@@ -262,7 +286,7 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-medium text-slate-400 lg:hidden">{freeUses}/3 livres</span>
+                <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-medium text-slate-400 lg:hidden">{freeUses}/{DEMO_FREE_USES} livres</span>
                 <button type="button" onClick={reset} aria-label="Reiniciar" className="rounded-md p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white">
                   <RotateCcw className="h-3.5 w-3.5" />
                 </button>
@@ -301,7 +325,7 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
                       key={ex.text}
                       type="button"
                       onClick={() => sendSuggested(ex)}
-                      disabled={busy || (freeUses <= 0 && !pendingAction)}
+                      disabled={!usageLoaded || busy || (freeUses <= 0 && !pendingAction)}
                       className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-200 transition hover:bg-emerald-400/20 disabled:opacity-50"
                     >
                       {ex.label}: &ldquo;{ex.text.length > 25 ? `${ex.text.slice(0, 25)}…` : ex.text}&rdquo;
@@ -318,14 +342,14 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  disabled={(freeUses <= 0 && !pendingAction) || busy}
+                  disabled={!usageLoaded || (freeUses <= 0 && !pendingAction) || busy}
                   placeholder={freeUses > 0 ? `Escreva sua mensagem (${freeUses} restante${freeUses > 1 ? "s" : ""})...` : pendingAction ? "Confirme ou cancele a ação acima..." : "Mensagens livres esgotadas"}
                   className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-[13px] text-white outline-none placeholder:text-slate-500 focus:border-emerald-400/40 disabled:cursor-not-allowed disabled:opacity-50"
                   maxLength={300}
                 />
                 <button
                   type="submit"
-                  disabled={!input.trim() || (freeUses <= 0 && !pendingAction) || busy}
+                  disabled={!usageLoaded || !input.trim() || (freeUses <= 0 && !pendingAction) || busy}
                   aria-label="Enviar"
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white transition hover:bg-emerald-500 disabled:opacity-40"
                 >

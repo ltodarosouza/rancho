@@ -4,174 +4,809 @@ import {
   ArrowRight,
   BarChart3,
   Bot,
-  Boxes,
-  CheckCircle2,
+  ChevronDown,
   ChevronRight,
+  Database,
   Droplets,
-  Filter,
+  Home,
   Leaf,
+  Loader2,
   MessageCircle,
+  Minus,
+  PackageOpen,
   PawPrint,
+  Plus,
+  RotateCcw,
   Search,
   Send,
+  Trash2,
   TrendingUp,
   Wallet,
   X
 } from "lucide-react";
-import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type ShowcaseKey = "dashboard" | "rebanho" | "producao" | "financeiro" | "whatsapp";
+/* ═══════════════════════════════════════════════════════
+   DEMO DATA
+   ═══════════════════════════════════════════════════════ */
 
-type ShowcaseTab = {
-  key: ShowcaseKey;
-  label: string;
-  icon: typeof BarChart3;
-};
+type DemoAnimal = { name: string; code: string; category: string; phase: string };
+type DemoTransaction = { id: number; label: string; date: string; value: number; positive: boolean };
+type DemoStock = { name: string; qty: number; unit: string; min: number };
 
-const showcaseTabs: ShowcaseTab[] = [
-  { key: "dashboard", label: "Painel", icon: BarChart3 },
-  { key: "rebanho", label: "Rebanho", icon: PawPrint },
-  { key: "producao", label: "Produção", icon: Droplets },
-  { key: "financeiro", label: "Financeiro", icon: Wallet },
-  { key: "whatsapp", label: "WhatsApp", icon: MessageCircle }
+const INITIAL_ANIMALS: DemoAnimal[] = [
+  { name: "Mimosa", code: "B-001", category: "Vaca", phase: "Lactação" },
+  { name: "Branquinha", code: "V-403", category: "Vaca", phase: "Pré-parto" },
+  { name: "Imperador", code: "T-007", category: "Touro", phase: "Reprodução" },
+  { name: "Aurora", code: "C-396", category: "Bezerra", phase: "Crescimento" },
+  { name: "Estrela", code: "B-012", category: "Vaca", phase: "Lactação" },
+  { name: "Luna", code: "N-401", category: "Novilha", phase: "Recria" }
 ];
 
-const animals = [
-  { name: "Mimosa", code: "B-001", category: "Vaca", phase: "Lactação", status: "Ativo" },
-  { name: "Branquinha", code: "V-403", category: "Vaca", phase: "Pré-parto", status: "Ativo" },
-  { name: "Touro T-07", code: "T-007", category: "Touro", phase: "Reprodução", status: "Ativo" },
-  { name: "Aurora", code: "C-396", category: "Bezerra", phase: "Crescimento", status: "Ativo" }
+const INITIAL_TRANSACTIONS: DemoTransaction[] = [
+  { id: 1, label: "Venda de leite", date: "Hoje", value: 1280, positive: true },
+  { id: 2, label: "Compra de ração", date: "Ontem", value: 960, positive: false },
+  { id: 3, label: "Vacina clostridial", date: "28/07", value: 180, positive: false },
+  { id: 4, label: "Venda de bezerro", date: "25/07", value: 3200, positive: true },
+  { id: 5, label: "Sal mineral", date: "22/07", value: 240, positive: false }
 ];
 
-const transactions = [
-  { label: "Venda de leite", date: "Hoje", value: "R$ 1.280,00", positive: true },
-  { label: "Compra de ração", date: "Ontem", value: "R$ 960,00", positive: false },
-  { label: "Vacina clostridial", date: "28/07", value: "R$ 180,00", positive: false }
+const INITIAL_STOCK: DemoStock[] = [
+  { name: "Ração bovina", qty: 45, unit: "sacos", min: 10 },
+  { name: "Sal mineral", qty: 12, unit: "pacotes", min: 5 },
+  { name: "Vacina clostridial", qty: 8, unit: "doses", min: 3 },
+  { name: "Vermífugo", qty: 15, unit: "doses", min: 5 }
 ];
 
-const botExamples = [
-  { label: "Produção", text: "Mimosa deu 28 litros hoje", answer: "Registrei 28 litros para Mimosa e atualizei a produção de hoje." },
-  { label: "Estoque", text: "Comprei 12 sacos de ração por 960 reais", answer: "Encontrei a ração no estoque. Posso registrar a entrada de 12 sacos e a despesa de R$ 960,00." },
-  { label: "Reprodução", text: "A vaca B-001 pariu uma bezerra hoje", answer: "Identifiquei o parto da B-001. Posso cadastrar a cria e vincular a genealogia após sua confirmação." }
+const PRODUCTION_DATA = [
+  { animal: "Mimosa (B-001)", liters: 28 },
+  { animal: "Estrela (B-012)", liters: 31 }
 ];
 
-function MiniSidebar({ active }: { active: ShowcaseKey }) {
+const CATEGORIES = ["Todos", "Vaca", "Touro", "Bezerra", "Novilha", "Bezerro"];
+
+/* ═══════════════════════════════════════════════════════
+   BOT DEMO — suggested messages with pre-computed answers
+   ═══════════════════════════════════════════════════════ */
+
+type BotExample = { label: string; text: string; answer: string };
+
+const BOT_EXAMPLES: BotExample[] = [
+  {
+    label: "Produção",
+    text: "Mimosa deu 28 litros hoje",
+    answer: "Entendi: registrar 28 litros de leite para Mimosa (B-001) hoje.\n\n1 - Confirmar  2 - Corrigir"
+  },
+  {
+    label: "Estoque",
+    text: "comprei 10 sacos de ração por 800 reais",
+    answer: "Encontrei a ração no estoque. Vou registrar a entrada de 10 sacos e a despesa de R$ 800,00.\n\n1 - Confirmar  2 - Corrigir"
+  },
+  {
+    label: "Reprodução",
+    text: "a vaca Mimosa pariu uma bezerra hoje",
+    answer: "Registrando parto da Mimosa (B-001). Qual o identificador da cria? Exemplo: B-050"
+  },
+  {
+    label: "Financeiro",
+    text: "qual o saldo do mês?",
+    answer: "Financeiro do mês:\n• Entradas: R$ 8.420,00\n• Saídas: R$ 4.140,00\n• Saldo: R$ 4.280,00"
+  },
+  {
+    label: "Consulta",
+    text: "quantos litros produziram hoje?",
+    answer: "Produção de hoje: 59 litros\n• Mimosa (B-001): 28L\n• Estrela (B-012): 31L"
+  }
+];
+
+/* ═══════════════════════════════════════════════════════
+   BOT LANDING DEMO
+   ═══════════════════════════════════════════════════════ */
+
+type ChatMessage = { role: "user" | "bot"; text: string };
+
+function DatabasePanel({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
   return (
-    <aside className="hidden w-36 shrink-0 border-r border-slate-200 bg-white p-3 sm:block">
-      <div className="flex items-center gap-1.5 px-1 pb-5 text-[11px] font-bold text-slate-800">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-700 text-white"><Leaf className="h-3.5 w-3.5" /></span>
-        Rancho
-      </div>
-      <div className="space-y-1 text-[10px] font-semibold text-slate-500">
-        {[
-          ["dashboard", "Dashboard"],
-          ["rebanho", "Rebanho"],
-          ["producao", "Produção"],
-          ["financeiro", "Financeiro"],
-          ["whatsapp", "WhatsApp"]
-        ].map(([key, label]) => (
-          <div key={key} className={`rounded-md px-2 py-2 ${active === key ? "bg-emerald-50 text-emerald-800" : ""}`}>
-            {label}
+    <div className="rounded-xl border border-white/10 bg-white/[0.04]">
+      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-xs font-semibold text-slate-300 lg:cursor-default">
+        <span className="flex items-center gap-2"><Database className="h-3.5 w-3.5 text-emerald-400" /> Dados da fazenda demonstrativa</span>
+        <ChevronDown className={`h-3.5 w-3.5 transition lg:hidden ${expanded ? "rotate-180" : ""}`} />
+      </button>
+      <div className={`overflow-hidden transition-all duration-300 ${expanded ? "max-h-[500px]" : "max-h-0 lg:max-h-[500px]"}`}>
+        <div className="space-y-3 border-t border-white/10 px-4 py-3 text-[11px]">
+          <div>
+            <p className="mb-1.5 font-semibold text-emerald-300">Animais (6)</p>
+            <div className="space-y-1 text-slate-400">
+              {INITIAL_ANIMALS.map((a) => (
+                <p key={a.code}><span className="text-slate-200">{a.name}</span> ({a.code}) · {a.category} · {a.phase}</p>
+              ))}
+            </div>
           </div>
-        ))}
+          <div>
+            <p className="mb-1.5 font-semibold text-emerald-300">Estoque</p>
+            <div className="space-y-1 text-slate-400">
+              {INITIAL_STOCK.map((s) => (
+                <p key={s.name}><span className="text-slate-200">{s.name}</span> · {s.qty} {s.unit}</p>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1.5 font-semibold text-emerald-300">Produção de hoje</p>
+            <p className="text-slate-400">Mimosa 28L · Estrela 31L · <span className="text-slate-200">Total 59L</span></p>
+          </div>
+          <div>
+            <p className="mb-1.5 font-semibold text-emerald-300">Financeiro</p>
+            <p className="text-slate-400">Saldo: <span className="text-slate-200">R$ 4.280</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function BotLandingDemo() {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { role: "bot", text: "Olá! Sou o bot demonstrativo do Rancho. Você pode me enviar mensagens sobre produção, estoque, financeiro, reprodução e muito mais. Use os dados da fazenda ao lado como referência." }
+  ]);
+  const [input, setInput] = useState("");
+  const [freeUses, setFreeUses] = useState(3);
+  const [busy, setBusy] = useState(false);
+  const [dbExpanded, setDbExpanded] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+  const availableSuggestions = useMemo(
+    () => BOT_EXAMPLES.filter((ex) => !messages.some((m) => m.role === "user" && m.text === ex.text)),
+    [messages]
+  );
+
+  async function sendFreeMessage(text: string) {
+    if (!text.trim() || busy || freeUses <= 0) return;
+    setInput("");
+    setFreeUses((n) => n - 1);
+    setMessages((prev) => [...prev, { role: "user", text }]);
+    setBusy(true);
+
+    try {
+      const res = await fetch("/api/demo/bot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json().catch(() => ({}));
+      setMessages((prev) => [...prev, { role: "bot", text: data.response || "Não consegui processar. Tente uma mensagem sugerida." }]);
+    } catch {
+      setMessages((prev) => [...prev, { role: "bot", text: "Erro de conexão. Tente novamente." }]);
+    } finally {
+      setBusy(false);
+      inputRef.current?.focus();
+    }
+  }
+
+  function sendSuggested(example: BotExample) {
+    if (busy) return;
+    setMessages((prev) => [...prev, { role: "user", text: example.text }]);
+    setBusy(true);
+    setTimeout(() => {
+      setMessages((prev) => [...prev, { role: "bot", text: example.answer }]);
+      setBusy(false);
+    }, 600);
+  }
+
+  function reset() {
+    setMessages([{ role: "bot", text: "Demonstração reiniciada. Envie uma mensagem para testar o bot." }]);
+    setFreeUses(3);
+    setInput("");
+  }
+
+  return (
+    <section className="bg-[#0f1a14] px-4 py-14 text-white sm:px-8 sm:py-20" data-marketing-section="demo-bot" data-section-label="Demo do bot">
+      <div className="mx-auto max-w-6xl">
+        <div className="reveal-on-scroll mx-auto mb-8 max-w-2xl text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-300">
+            <Bot className="h-3.5 w-3.5" /> Teste o bot
+          </span>
+          <h2 className="mt-4 text-2xl font-semibold sm:text-3xl">
+            Envie uma mensagem e veja o que o bot faria.
+          </h2>
+          <p className="mt-3 text-base text-slate-300">
+            Experimente mensagens prontas ou escreva as suas. Dados fictícios, sem cadastro.
+          </p>
+        </div>
+
+        <div className="reveal-on-scroll grid gap-4 lg:grid-cols-[0.38fr_0.62fr] lg:items-start">
+          {/* Database panel */}
+          <div className="space-y-3">
+            <DatabasePanel expanded={dbExpanded} onToggle={() => setDbExpanded(!dbExpanded)} />
+            <div className="hidden items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4 lg:flex">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-300">
+                <MessageCircle className="h-4 w-4" />
+              </span>
+              <div className="text-sm">
+                <p className="font-semibold">{freeUses} {freeUses === 1 ? "mensagem livre restante" : "mensagens livres restantes"}</p>
+                <p className="text-xs text-slate-400">Mensagens sugeridas são ilimitadas</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Chat */}
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1a2421] shadow-2xl shadow-black/30">
+            {/* Chat header */}
+            <div className="flex items-center justify-between border-b border-white/10 bg-[#202c29] px-4 py-3">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-white">
+                  <Bot className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">Rancho Bot</p>
+                  <p className="text-[10px] text-emerald-300">Demonstração · dados fictícios</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-medium text-slate-400 lg:hidden">{freeUses}/3 livres</span>
+                <button type="button" onClick={reset} aria-label="Reiniciar" className="rounded-md p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="flex h-[320px] flex-col gap-2.5 overflow-y-auto p-4 sm:h-[370px] [scrollbar-width:thin]">
+              {messages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[88%] whitespace-pre-line rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
+                    msg.role === "user"
+                      ? "rounded-br-md bg-emerald-700 text-white"
+                      : "rounded-bl-md bg-white/10 text-slate-200"
+                  }`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+              {busy ? (
+                <div className="flex justify-start">
+                  <div className="flex items-center gap-2 rounded-2xl rounded-bl-md bg-white/10 px-3.5 py-2.5 text-[13px] text-slate-400">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Processando...
+                  </div>
+                </div>
+              ) : null}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Suggestions + input */}
+            <div className="border-t border-white/10 bg-[#202c29] p-3">
+              {availableSuggestions.length > 0 ? (
+                <div className="mb-2.5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+                  {availableSuggestions.map((ex) => (
+                    <button
+                      key={ex.text}
+                      type="button"
+                      onClick={() => sendSuggested(ex)}
+                      disabled={busy}
+                      className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-200 transition hover:bg-emerald-400/20 disabled:opacity-50"
+                    >
+                      {ex.label}: &ldquo;{ex.text.length > 25 ? `${ex.text.slice(0, 25)}…` : ex.text}&rdquo;
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <form
+                onSubmit={(e) => { e.preventDefault(); sendFreeMessage(input); }}
+                className="flex items-center gap-2"
+              >
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  disabled={freeUses <= 0 || busy}
+                  placeholder={freeUses > 0 ? `Escreva sua mensagem (${freeUses} restante${freeUses > 1 ? "s" : ""})...` : "Mensagens livres esgotadas"}
+                  className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-[13px] text-white outline-none placeholder:text-slate-500 focus:border-emerald-400/40 disabled:cursor-not-allowed disabled:opacity-50"
+                  maxLength={300}
+                />
+                <button
+                  type="submit"
+                  disabled={!input.trim() || freeUses <= 0 || busy}
+                  aria-label="Enviar"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white transition hover:bg-emerald-500 disabled:opacity-40"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </form>
+
+              {freeUses <= 0 ? (
+                <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
+                  <span>As mensagens sugeridas continuam funcionando.</span>
+                  <div className="flex items-center gap-3">
+                    <Link href="/login" className="inline-flex items-center gap-1 font-semibold text-emerald-300 transition hover:text-emerald-200">
+                      Entrar no sistema <ArrowRight className="h-3 w-3" />
+                    </Link>
+                    <button type="button" onClick={reset} className="text-slate-500 transition hover:text-white">
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   INTERACTIVE PRODUCT SHOWCASE
+   ═══════════════════════════════════════════════════════ */
+
+type ShowcaseTab = "dashboard" | "rebanho" | "financeiro" | "estoque";
+
+const TABS: { key: ShowcaseTab; label: string; icon: typeof Home }[] = [
+  { key: "dashboard", label: "Dashboard", icon: Home },
+  { key: "rebanho", label: "Rebanho", icon: PawPrint },
+  { key: "financeiro", label: "Financeiro", icon: Wallet },
+  { key: "estoque", label: "Estoque", icon: PackageOpen }
+];
+
+function Sidebar({ active, onNavigate }: { active: ShowcaseTab; onNavigate: (tab: ShowcaseTab) => void }) {
+  return (
+    <aside className="hidden w-48 shrink-0 flex-col border-r border-[#1e2620] bg-[#141C17] sm:flex">
+      {/* Logo */}
+      <div className="flex items-center gap-2 px-3 pb-4 pt-4">
+        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#16803C] text-white"><PawPrint className="h-3.5 w-3.5" /></span>
+        <div>
+          <p className="text-[12px] font-semibold text-[#E8EDE9]">Rancho</p>
+          <p className="text-[9px] text-[#A3B0A7]">Gestão agropecuária</p>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 space-y-0.5 px-2">
+        <p className="px-2 pb-1 pt-3 text-[9px] font-semibold uppercase tracking-wider text-[#A3B0A7]/50">Principal</p>
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = active === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => onNavigate(tab.key)}
+              className={`relative flex w-full items-center gap-2 rounded-[5px] px-2 py-[7px] text-[12px] font-medium transition ${
+                isActive
+                  ? "bg-[#16803C]/[0.15] text-emerald-300"
+                  : "text-[#A3B0A7] hover:bg-white/[0.06] hover:text-[#D0D7D2]"
+              }`}
+            >
+              {isActive ? <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r bg-[#16803C]" /> : null}
+              <Icon className={`h-3.5 w-3.5 ${isActive ? "opacity-100" : "opacity-70"}`} />
+              {tab.label}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* User */}
+      <div className="flex items-center gap-2 border-t border-[#1e2620] px-3 py-3">
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#16803C]/30 text-[10px] font-semibold text-emerald-300">A</span>
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-medium text-[#D0D7D2]">Administrador</p>
+          <p className="truncate text-[9px] text-[#A3B0A7]">Fazenda Modelo</p>
+        </div>
       </div>
     </aside>
   );
 }
 
-function PreviewHeader() {
+function ShowcaseHeader({ tab }: { tab: ShowcaseTab }) {
+  const labels: Record<ShowcaseTab, [string, string]> = {
+    dashboard: ["Principal", "Dashboard"],
+    rebanho: ["Rebanho", "Animais"],
+    financeiro: ["Financeiro", "Transações"],
+    estoque: ["Estoque", "Visão do estoque"]
+  };
+  const [group, page] = labels[tab];
   return (
-    <div className="flex items-center justify-between border-b border-slate-200 bg-white px-3 py-2.5 sm:px-4">
-      <div className="flex min-w-0 items-center gap-2 text-[10px] font-semibold text-slate-800 sm:text-[11px]">
-        <span className="sm:hidden flex h-6 w-6 items-center justify-center rounded-md bg-emerald-700 text-white"><Leaf className="h-3.5 w-3.5" /></span>
-        <span className="truncate">Visão geral da fazenda</span>
+    <div className="flex h-[42px] items-center justify-between border-b border-[#E2E4EA] bg-white px-3 sm:px-4">
+      <div className="flex items-center gap-1.5 text-[11px]">
+        <span className="text-[#9CA3AF]">{group}</span>
+        <ChevronRight className="h-3 w-3 text-[#9CA3AF]" />
+        <span className="font-semibold text-[#111318]">{page}</span>
       </div>
-      <div className="flex items-center gap-2 text-slate-400"><Search className="h-3.5 w-3.5" /><span className="hidden text-[10px] sm:inline">Administrador</span><span className="h-5 w-5 rounded-full bg-emerald-100" /></div>
+      <div className="flex items-center gap-1.5">
+        <span className="hidden rounded-md border border-[#E2E4EA] px-2 py-1 text-[10px] text-[#9CA3AF] sm:inline-flex"><Search className="mr-1 inline h-3 w-3" /> Buscar</span>
+        <span className="h-6 w-6 rounded-md border border-[#E2E4EA] bg-white" />
+      </div>
     </div>
   );
 }
 
-function Metric({ label, value, helper, tone = "green" }: { label: string; value: string; helper: string; tone?: "green" | "blue" | "amber" | "slate" }) {
-  const colors = {
-    green: "bg-emerald-50 text-emerald-700",
-    blue: "bg-blue-50 text-blue-700",
-    amber: "bg-amber-50 text-amber-700",
-    slate: "bg-slate-100 text-slate-700"
-  };
-  return <div className="rounded-lg border border-slate-200 bg-white p-3"><p className="text-[10px] font-semibold text-slate-500">{label}</p><p className="mt-2 text-base font-bold text-slate-900 sm:text-lg">{value}</p><span className={`mt-2 inline-flex rounded px-1.5 py-0.5 text-[9px] font-semibold ${colors[tone]}`}>{helper}</span></div>;
+function MetricCard({ label, value, badge, tone = "green" }: { label: string; value: string; badge: string; tone?: "green" | "blue" | "amber" | "red" }) {
+  const colors = { green: "bg-emerald-50 text-emerald-700", blue: "bg-blue-50 text-blue-700", amber: "bg-amber-50 text-amber-700", red: "bg-red-50 text-red-700" };
+  return (
+    <div className="rounded-lg border border-[#E2E4EA] bg-white p-3">
+      <p className="text-[10px] font-medium text-[#9CA3AF]">{label}</p>
+      <p className="mt-1.5 text-base font-bold tabular-nums text-[#111318] sm:text-lg">{value}</p>
+      <span className={`mt-1.5 inline-flex rounded px-1.5 py-0.5 text-[9px] font-semibold ${colors[tone]}`}>{badge}</span>
+    </div>
+  );
 }
 
-function DashboardPreview() {
-  return <div className="space-y-3 p-3 sm:p-5">
-    <div className="rounded-lg bg-[#0f1a14] p-4 text-white sm:p-5"><div className="flex items-start justify-between gap-4"><div><p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-300">Resumo da fazenda</p><h3 className="mt-2 text-base font-semibold sm:text-xl">Tudo em um só lugar.</h3><p className="mt-1 max-w-md text-[10px] leading-relaxed text-slate-300 sm:text-xs">Acompanhe os números mais importantes da rotina sem abrir várias planilhas.</p></div><TrendingUp className="h-5 w-5 shrink-0 text-emerald-300" /></div></div>
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><Metric label="Animais ativos" value="42" helper="+3 este mês" /><Metric label="Produção hoje" value="286 L" helper="+8,4%" tone="blue" /><Metric label="Saldo do mês" value="R$ 4.280" helper="Atualizado hoje" tone="green" /><Metric label="Alertas" value="3" helper="Ver agora" tone="amber" /></div>
-    <div className="grid gap-3 sm:grid-cols-[1.3fr_0.7fr]"><div className="rounded-lg border border-slate-200 bg-white p-3 sm:p-4"><div className="flex items-center justify-between"><p className="text-[11px] font-bold text-slate-800">Produção por dia</p><span className="text-[9px] text-slate-400">Últimos 7 dias</span></div><div className="mt-5 flex h-24 items-end gap-2">{[42, 58, 49, 68, 57, 78, 91].map((height, index) => <div key={index} className="flex flex-1 flex-col items-center gap-1"><div className="w-full rounded-t bg-emerald-400" style={{ height: `${height}%` }} /><span className="text-[8px] text-slate-400">{index + 1}</span></div>)}</div></div><div className="rounded-lg border border-amber-200 bg-amber-50 p-3 sm:p-4"><p className="text-[11px] font-bold text-amber-900">Atenção</p><p className="mt-2 text-[10px] leading-relaxed text-amber-800">3 itens do estoque estão próximos do mínimo.</p><button type="button" className="mt-4 inline-flex items-center gap-1 text-[10px] font-bold text-amber-900">Ver estoque <ChevronRight className="h-3 w-3" /></button></div></div>
-  </div>;
-}
+/* ── Dashboard ── */
 
-function HerdPreview() {
-  return <div className="p-3 sm:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold text-slate-900 sm:text-base">Rebanho</p><p className="mt-1 text-[10px] text-slate-500">42 animais ativos cadastrados</p></div><div className="flex items-center gap-2"><button type="button" className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-[10px] font-semibold text-slate-600"><Filter className="h-3 w-3" /> Filtrar</button><button type="button" className="rounded-md bg-emerald-700 px-2.5 py-1.5 text-[10px] font-semibold text-white">Adicionar</button></div></div><div className="mt-4 flex gap-2 overflow-x-auto pb-1 text-[10px] font-semibold"><span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-800">Todos · 42</span><span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-slate-500">Vacas · 18</span><span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-slate-500">Touros · 4</span></div><div className="mt-3 overflow-hidden rounded-lg border border-slate-200"><div className="grid grid-cols-[1.2fr_0.8fr_0.8fr] gap-2 bg-slate-50 px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-400"><span>Animal</span><span>Categoria</span><span>Fase</span></div>{animals.map((animal) => <div key={animal.code} className="grid grid-cols-[1.2fr_0.8fr_0.8fr] items-center gap-2 border-t border-slate-100 px-3 py-2.5 text-[10px] text-slate-600"><div><p className="font-semibold text-slate-800">{animal.name}</p><p className="text-[9px] text-slate-400">{animal.code}</p></div><span>{animal.category}</span><span className="flex items-center gap-1"><i className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{animal.phase}</span></div>)}</div></div>;
-}
-
-function ProductionPreview() {
-  return <div className="space-y-3 p-3 sm:p-5"><div className="flex items-center justify-between"><div><p className="text-sm font-bold text-slate-900 sm:text-base">Produção de leite</p><p className="mt-1 text-[10px] text-slate-500">Acompanhe volume e desempenho por animal.</p></div><button type="button" className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[10px] font-semibold text-slate-600">Período: mês</button></div><div className="grid grid-cols-3 gap-2"><Metric label="Total" value="6.842 L" helper="Este mês" tone="blue" /><Metric label="Média diária" value="228 L" helper="30 dias" /><Metric label="Melhor animal" value="Mimosa" helper="32 L hoje" tone="amber" /></div><div className="rounded-lg border border-slate-200 bg-white p-3 sm:p-4"><div className="flex items-center justify-between"><p className="text-[11px] font-bold text-slate-800">Produção por animal</p><BarChart3 className="h-4 w-4 text-blue-600" /></div><div className="mt-4 space-y-3">{[["Mimosa (B-001)", "92%", "32 L"], ["Branquinha (V-403)", "76%", "26 L"], ["Luna (N-401)", "64%", "22 L"]].map(([name, width, value]) => <div key={name}><div className="flex justify-between text-[10px] font-semibold text-slate-600"><span>{name}</span><span>{value}</span></div><div className="mt-1 h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-500" style={{ width }} /></div></div>)}</div></div></div>;
-}
-
-function FinancePreview() {
-  return <div className="space-y-3 p-3 sm:p-5"><div className="flex items-center justify-between"><div><p className="text-sm font-bold text-slate-900 sm:text-base">Financeiro</p><p className="mt-1 text-[10px] text-slate-500">Receitas, despesas e resultado do período.</p></div><button type="button" className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[10px] font-semibold text-slate-600">Julho de 2026</button></div><div className="grid grid-cols-3 gap-2"><Metric label="Entradas" value="R$ 8.420" helper="12 registros" /><Metric label="Saídas" value="R$ 4.140" helper="18 registros" tone="amber" /><Metric label="Resultado" value="R$ 4.280" helper="+12,2%" tone="blue" /></div><div className="rounded-lg border border-slate-200 bg-white p-3 sm:p-4"><div className="flex items-center justify-between"><p className="text-[11px] font-bold text-slate-800">Movimentações recentes</p><button type="button" className="text-[10px] font-semibold text-emerald-700">Ver tudo</button></div><div className="mt-2 divide-y divide-slate-100">{transactions.map((transaction) => <div key={transaction.label} className="flex items-center justify-between gap-3 py-2.5 text-[10px]"><div><p className="font-semibold text-slate-700">{transaction.label}</p><p className="text-[9px] text-slate-400">{transaction.date}</p></div><span className={`font-bold ${transaction.positive ? "text-emerald-700" : "text-slate-700"}`}>{transaction.positive ? "+" : "-"}{transaction.value}</span></div>)}</div></div></div>;
-}
-
-function WhatsAppPreview() {
-  return <div className="flex min-h-[315px] flex-col bg-[#efeae2] p-3 sm:min-h-[360px] sm:p-5"><div className="flex items-center gap-2 rounded-t-lg bg-[#075e54] px-3 py-2 text-white"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-200 text-emerald-900"><Bot className="h-3.5 w-3.5" /></span><div><p className="text-[10px] font-bold">Rancho</p><p className="text-[8px] text-emerald-100">bot de gestão</p></div></div><div className="flex flex-1 flex-col justify-end gap-2 rounded-b-lg bg-[#e5ddd5] p-3"><div className="max-w-[82%] self-end rounded-lg rounded-tr-sm bg-[#d9fdd3] px-3 py-2 text-[10px] text-slate-700 shadow-sm">Mimosa deu 28 litros hoje <span className="ml-1 text-[8px] text-slate-400">08:41 ✓✓</span></div><div className="max-w-[85%] rounded-lg rounded-tl-sm bg-white px-3 py-2 text-[10px] text-slate-700 shadow-sm"><p>Entendi: registrar 28 litros para Mimosa hoje.</p><p className="mt-1 font-semibold text-emerald-800">1 - Confirmar &nbsp; 2 - Corrigir</p><span className="mt-1 block text-[8px] text-slate-400">08:41</span></div><div className="flex items-center gap-2 rounded-md bg-white/80 px-3 py-2 text-[9px] text-slate-400"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Mensagem confirmada antes de salvar</div></div></div>;
-}
-
-function PreviewContent({ active }: { active: ShowcaseKey }) {
-  if (active === "rebanho") return <HerdPreview />;
-  if (active === "producao") return <ProductionPreview />;
-  if (active === "financeiro") return <FinancePreview />;
-  if (active === "whatsapp") return <WhatsAppPreview />;
-  return <DashboardPreview />;
-}
-
-export function InteractiveProductShowcase() {
-  const [active, setActive] = useState<ShowcaseKey>("dashboard");
-  const currentTab = showcaseTabs.find((tab) => tab.key === active) || showcaseTabs[0];
-
-  return <section className="bg-[var(--surface)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="produto" data-section-label="Produto">
-    <div className="mx-auto max-w-6xl">
-      <div className="reveal-on-scroll mx-auto max-w-2xl text-center"><span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5" /> Produto em movimento</span><h2 className="mt-4 text-2xl font-semibold sm:text-3xl">Clique e explore o Rancho por dentro.</h2><p className="mt-3 text-base leading-relaxed text-[var(--text-2)]">Uma visão rápida do painel atualizado, com os dados organizados para a rotina da fazenda.</p></div>
-      <div className="reveal-on-scroll mt-10 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-[0_18px_50px_rgba(15,26,20,0.12)]">
-        <div className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white p-2 [scrollbar-width:none]">{showcaseTabs.map((tab) => { const Icon = tab.icon; return <button key={tab.key} type="button" onClick={() => setActive(tab.key)} className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-[11px] font-semibold transition sm:px-4 ${active === tab.key ? "bg-emerald-700 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"}`} aria-pressed={active === tab.key}><Icon className="h-3.5 w-3.5" />{tab.label}</button>; })}</div>
-        <div className="flex min-h-[390px] sm:min-h-[455px]"><MiniSidebar active={active} /><div className="min-w-0 flex-1"><PreviewHeader /><div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] text-slate-500 sm:px-5"><span className="font-semibold text-slate-800">{currentTab.label}</span> <span className="mx-1">·</span> dados demonstrativos do novo painel</div><PreviewContent active={active} /></div></div>
+function DashboardView({ animalCount, totalIncome, totalExpense }: { animalCount: number; totalIncome: number; totalExpense: number }) {
+  const balance = totalIncome - totalExpense;
+  return (
+    <div className="space-y-3 p-3 sm:p-4">
+      <div className="rounded-lg bg-[#0f1a14] p-4 text-white">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-300">Resumo da fazenda</p>
+            <h3 className="mt-1.5 text-base font-semibold sm:text-lg">Tudo em um só lugar.</h3>
+          </div>
+          <TrendingUp className="h-4 w-4 shrink-0 text-emerald-300" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <MetricCard label="Animais ativos" value={String(animalCount)} badge={`${animalCount} cadastrados`} />
+        <MetricCard label="Produção hoje" value="59 L" badge="+8,4%" tone="blue" />
+        <MetricCard label="Saldo do mês" value={`R$ ${(balance / 1000).toFixed(1).replace(".", ",")}k`} badge="Atualizado" tone="green" />
+        <MetricCard label="Itens baixos" value={String(INITIAL_STOCK.filter((s) => s.qty <= s.min * 2).length)} badge="Ver estoque" tone="amber" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-[1.3fr_0.7fr]">
+        <div className="rounded-lg border border-[#E2E4EA] bg-white p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold text-[#111318]">Produção — últimos 7 dias</p>
+            <Droplets className="h-3.5 w-3.5 text-blue-500" />
+          </div>
+          <div className="mt-4 flex h-20 items-end gap-1.5">
+            {[42, 58, 49, 68, 57, 78, 59].map((h, i) => (
+              <div key={i} className="flex flex-1 flex-col items-center gap-1">
+                <div className="w-full rounded-t bg-emerald-400 transition-all duration-500" style={{ height: `${h}%` }} />
+                <span className="text-[8px] text-[#9CA3AF]">{["S", "T", "Q", "Q", "S", "S", "D"][i]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <p className="text-[11px] font-bold text-amber-900">Atenção</p>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-amber-800">{INITIAL_STOCK.filter((s) => s.qty <= s.min * 2).length} itens do estoque estão próximos do mínimo.</p>
+          <button type="button" className="mt-3 inline-flex items-center gap-1 text-[10px] font-bold text-amber-900">Ver estoque <ChevronRight className="h-3 w-3" /></button>
+        </div>
       </div>
     </div>
-  </section>;
+  );
 }
 
-export function BotLandingDemo() {
-  const [messages, setMessages] = useState<{ role: "user" | "bot"; text: string }[]>([]);
-  const [input, setInput] = useState("");
-  const [uses, setUses] = useState(3);
-  const [busy, setBusy] = useState(false);
+/* ── Rebanho ── */
 
-  const suggested = useMemo(() => botExamples.filter((example) => !messages.some((message) => message.role === "user" && message.text === example.text)), [messages]);
+function RebanhoView({ animals, onAdd, onRemove }: { animals: DemoAnimal[]; onAdd: (a: DemoAnimal) => void; onRemove: (code: string) => void }) {
+  const [filter, setFilter] = useState("Todos");
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ name: "", code: "", category: "Vaca", phase: "Crescimento" });
+  const [justAdded, setJustAdded] = useState<string | null>(null);
 
-  function sendMessage(value = input) {
-    const text = value.trim();
-    if (!text || uses <= 0 || busy) return;
-    const example = botExamples.find((item) => item.text === text);
-    const answer = example?.answer || "Posso ajudar com rebanho, produção, estoque e financeiro. Experimente uma das mensagens sugeridas.";
-    setInput("");
-    setUses((current) => current - 1);
-    setMessages((current) => [...current, { role: "user", text }, { role: "bot", text: answer }]);
-    setBusy(true);
-    window.setTimeout(() => setBusy(false), 420);
+  const filtered = filter === "Todos" ? animals : animals.filter((a) => a.category === filter);
+  const counts = useMemo(() => {
+    const map: Record<string, number> = { Todos: animals.length };
+    for (const a of animals) map[a.category] = (map[a.category] || 0) + 1;
+    return map;
+  }, [animals]);
+
+  function handleAdd() {
+    if (!form.name.trim() || !form.code.trim()) return;
+    onAdd({ ...form, name: form.name.trim(), code: form.code.trim() });
+    setJustAdded(form.code.trim());
+    setForm({ name: "", code: "", category: "Vaca", phase: "Crescimento" });
+    setAdding(false);
+    setTimeout(() => setJustAdded(null), 2000);
   }
 
-  return <section className="bg-[#0f1a14] px-5 py-16 text-white sm:px-8 sm:py-20" data-marketing-section="demo-bot" data-section-label="Demo do bot">
-    <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center"><div className="reveal-on-scroll"><span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-300"><Bot className="h-3.5 w-3.5" /> Teste rápido</span><h2 className="mt-4 text-2xl font-semibold sm:text-3xl">Veja como o bot conversa com a equipe.</h2><p className="mt-4 max-w-md text-base leading-relaxed text-slate-300">Use até três mensagens para experimentar respostas do Rancho. Esta demonstração usa dados fictícios e não salva nada.</p><div className="mt-6 flex items-center gap-3 text-sm text-slate-300"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-300"><MessageCircle className="h-4 w-4" /></span><span><strong className="text-white">{uses} {uses === 1 ? "teste restante" : "testes restantes"}</strong><br /><span className="text-xs text-slate-400">Sem cadastro para começar</span></span></div></div>
-      <div className="reveal-on-scroll overflow-hidden rounded-xl border border-white/10 bg-[#202c29] shadow-2xl shadow-black/30"><div className="flex items-center justify-between border-b border-white/10 px-4 py-3"><div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white"><Bot className="h-4 w-4" /></span><div><p className="text-sm font-semibold">Rancho Bot</p><p className="text-[10px] text-emerald-300">Demonstração protegida</p></div></div><span className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-slate-400">{uses}/3</span></div><div className="min-h-[250px] space-y-3 bg-[#17211f] p-4 sm:min-h-[280px]">{messages.length === 0 ? <div className="flex h-56 flex-col items-center justify-center text-center text-slate-400"><Bot className="h-8 w-8 text-emerald-400/70" /><p className="mt-3 text-sm">Escolha uma mensagem para começar.</p></div> : messages.map((message, index) => <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}><div className={`max-w-[86%] rounded-lg px-3 py-2 text-xs leading-relaxed ${message.role === "user" ? "rounded-tr-sm bg-emerald-700 text-white" : "rounded-tl-sm bg-white/10 text-slate-200"}`}>{message.text}</div></div>)}{busy ? <div className="flex justify-start"><div className="rounded-lg rounded-tl-sm bg-white/10 px-3 py-2 text-xs text-slate-400">Consultando demonstração...</div></div> : null}</div><div className="border-t border-white/10 bg-[#202c29] p-3"><div className="mb-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{suggested.map((example) => <button key={example.text} type="button" onClick={() => sendMessage(example.text)} disabled={uses <= 0 || busy} className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-200 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50">{example.label}</button>)}</div><form onSubmit={(event) => { event.preventDefault(); sendMessage(); }} className="flex items-center gap-2"><input value={input} onChange={(event) => setInput(event.target.value)} disabled={uses <= 0 || busy} placeholder={uses > 0 ? "Escreva uma mensagem..." : "Demonstração encerrada"} className="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none placeholder:text-slate-500 focus:border-emerald-400/60 disabled:cursor-not-allowed disabled:opacity-60" /><button type="submit" aria-label="Enviar mensagem" disabled={!input.trim() || uses <= 0 || busy} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald-600 text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"><Send className="h-3.5 w-3.5" /></button></form>{uses === 0 ? <div className="mt-3 flex items-center justify-between gap-3 text-[10px] text-slate-400"><span>Quer continuar conhecendo o sistema?</span><Link href="/login" className="inline-flex items-center gap-1 font-semibold text-emerald-300">Entrar <ArrowRight className="h-3 w-3" /></Link><button type="button" aria-label="Limpar demonstração" onClick={() => { setMessages([]); setUses(3); }} className="text-slate-500 transition hover:text-white"><X className="h-3.5 w-3.5" /></button></div> : <p className="mt-2 text-[10px] text-slate-500">Respostas demonstrativas · nenhuma informação real será alterada.</p>}</div></div>
+  return (
+    <div className="p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-[#111318]">Rebanho</p>
+          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">{animals.length} animais ativos cadastrados</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setAdding(!adding)}
+          className="inline-flex items-center gap-1 rounded-md bg-[#16803C] px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-emerald-600"
+        >
+          {adding ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+          {adding ? "Cancelar" : "Adicionar"}
+        </button>
+      </div>
+
+      {/* Add form */}
+      {adding ? (
+        <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+          <p className="mb-2 text-[10px] font-semibold text-emerald-800">Novo animal</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Código (ex: B-050)" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none">
+              {CATEGORIES.slice(1).map((c) => <option key={c}>{c}</option>)}
+            </select>
+            <button type="button" onClick={handleAdd} disabled={!form.name.trim() || !form.code.trim()} className="rounded-md bg-[#16803C] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50">
+              Salvar
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Filter pills */}
+      <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
+        {CATEGORIES.filter((c) => c === "Todos" || (counts[c] || 0) > 0).map((cat) => (
+          <button
+            key={cat}
+            type="button"
+            onClick={() => setFilter(cat)}
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold transition ${
+              filter === cat ? "bg-emerald-100 text-emerald-800" : "bg-[#F3F4F6] text-[#9CA3AF] hover:text-[#5F6577]"
+            }`}
+          >
+            {cat} · {counts[cat] || 0}
+          </button>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div className="mt-3 overflow-hidden rounded-lg border border-[#E2E4EA]">
+        <div className="grid grid-cols-[1.3fr_0.7fr_0.7fr_auto] gap-2 bg-[#F3F4F6] px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-[#9CA3AF]">
+          <span>Animal</span><span>Categoria</span><span>Fase</span><span />
+        </div>
+        {filtered.length === 0 ? (
+          <div className="px-3 py-6 text-center text-[11px] text-[#9CA3AF]">Nenhum animal nesta categoria.</div>
+        ) : filtered.map((animal) => (
+          <div
+            key={animal.code}
+            className={`grid grid-cols-[1.3fr_0.7fr_0.7fr_auto] items-center gap-2 border-t border-[#E2E4EA] px-3 py-2 text-[10px] text-[#5F6577] transition-colors ${
+              justAdded === animal.code ? "bg-emerald-50" : ""
+            }`}
+          >
+            <div>
+              <p className="font-semibold text-[#111318]">{animal.name}</p>
+              <p className="text-[9px] text-[#9CA3AF]">{animal.code}</p>
+            </div>
+            <span>{animal.category}</span>
+            <span className="flex items-center gap-1">
+              <i className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              {animal.phase}
+            </span>
+            <button
+              type="button"
+              onClick={() => onRemove(animal.code)}
+              className="rounded p-1 text-[#9CA3AF] transition hover:bg-red-50 hover:text-red-500"
+              aria-label={`Remover ${animal.name}`}
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
-  </section>;
+  );
+}
+
+/* ── Financeiro ── */
+
+function FinanceiroView({ transactions, onAdd, onRemove }: { transactions: DemoTransaction[]; onAdd: (t: DemoTransaction) => void; onRemove: (id: number) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ label: "", value: "", positive: true });
+
+  const income = transactions.filter((t) => t.positive).reduce((sum, t) => sum + t.value, 0);
+  const expense = transactions.filter((t) => !t.positive).reduce((sum, t) => sum + t.value, 0);
+  const balance = income - expense;
+
+  function handleAdd() {
+    const value = parseFloat(form.value.replace(",", "."));
+    if (!form.label.trim() || isNaN(value) || value <= 0) return;
+    onAdd({ id: Date.now(), label: form.label.trim(), date: "Agora", value, positive: form.positive });
+    setForm({ label: "", value: "", positive: true });
+    setAdding(false);
+  }
+
+  function fmt(v: number) { return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}`; }
+
+  return (
+    <div className="space-y-3 p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-[#111318]">Financeiro</p>
+          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">Receitas, despesas e resultado do período.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setAdding(!adding)}
+          className="inline-flex items-center gap-1 rounded-md bg-[#16803C] px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-emerald-600"
+        >
+          {adding ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+          {adding ? "Cancelar" : "Nova transação"}
+        </button>
+      </div>
+
+      {/* Add form */}
+      {adding ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+          <p className="mb-2 text-[10px] font-semibold text-emerald-800">Nova transação</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Descrição" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <input value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder="Valor (ex: 500)" type="text" inputMode="decimal" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <div className="flex gap-1">
+              <button type="button" onClick={() => setForm({ ...form, positive: true })} className={`flex-1 rounded-md px-2 py-1.5 text-[10px] font-semibold transition ${form.positive ? "bg-emerald-600 text-white" : "border border-emerald-200 bg-white text-[#5F6577]"}`}>Receita</button>
+              <button type="button" onClick={() => setForm({ ...form, positive: false })} className={`flex-1 rounded-md px-2 py-1.5 text-[10px] font-semibold transition ${!form.positive ? "bg-red-500 text-white" : "border border-emerald-200 bg-white text-[#5F6577]"}`}>Despesa</button>
+            </div>
+            <button type="button" onClick={handleAdd} disabled={!form.label.trim() || !form.value.trim()} className="rounded-md bg-[#16803C] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50">
+              Salvar
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Metrics */}
+      <div className="grid grid-cols-3 gap-2">
+        <MetricCard label="Entradas" value={fmt(income)} badge={`${transactions.filter((t) => t.positive).length} registros`} />
+        <MetricCard label="Saídas" value={fmt(expense)} badge={`${transactions.filter((t) => !t.positive).length} registros`} tone="amber" />
+        <MetricCard label="Resultado" value={fmt(balance)} badge={balance >= 0 ? "Positivo" : "Negativo"} tone={balance >= 0 ? "blue" : "red"} />
+      </div>
+
+      {/* Transaction list */}
+      <div className="rounded-lg border border-[#E2E4EA] bg-white p-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-bold text-[#111318]">Movimentações recentes</p>
+          <BarChart3 className="h-3.5 w-3.5 text-[#9CA3AF]" />
+        </div>
+        <div className="mt-2 divide-y divide-[#E2E4EA]">
+          {transactions.map((t) => (
+            <div key={t.id} className="flex items-center justify-between gap-2 py-2 text-[10px]">
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-[#111318]">{t.label}</p>
+                <p className="text-[9px] text-[#9CA3AF]">{t.date}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`font-bold tabular-nums ${t.positive ? "text-emerald-700" : "text-[#111318]"}`}>
+                  {t.positive ? "+" : "-"}R$ {t.value.toLocaleString("pt-BR")}
+                </span>
+                <button type="button" onClick={() => onRemove(t.id)} className="rounded p-0.5 text-[#9CA3AF] transition hover:text-red-500" aria-label="Remover">
+                  <Minus className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Estoque ── */
+
+function EstoqueView() {
+  const [stock, setStock] = useState(INITIAL_STOCK);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ name: "", qty: "", unit: "sacos" });
+
+  function handleAdd() {
+    const qty = parseInt(form.qty, 10);
+    if (!form.name.trim() || isNaN(qty) || qty <= 0) return;
+    setStock((prev) => [...prev, { name: form.name.trim(), qty, unit: form.unit, min: Math.floor(qty * 0.2) }]);
+    setForm({ name: "", qty: "", unit: "sacos" });
+    setAdding(false);
+  }
+
+  return (
+    <div className="p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-[#111318]">Estoque</p>
+          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">{stock.length} itens cadastrados</p>
+        </div>
+        <button type="button" onClick={() => setAdding(!adding)} className="inline-flex items-center gap-1 rounded-md bg-[#16803C] px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-emerald-600">
+          {adding ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+          {adding ? "Cancelar" : "Novo item"}
+        </button>
+      </div>
+
+      {adding ? (
+        <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+          <p className="mb-2 text-[10px] font-semibold text-emerald-800">Novo item de estoque</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome do item" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <input value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} placeholder="Quantidade" type="text" inputMode="numeric" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none">
+              <option>sacos</option><option>pacotes</option><option>doses</option><option>litros</option><option>kg</option>
+            </select>
+            <button type="button" onClick={handleAdd} disabled={!form.name.trim() || !form.qty.trim()} className="rounded-md bg-[#16803C] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50">Salvar</button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {stock.map((item) => {
+          const low = item.qty <= item.min * 1.5;
+          return (
+            <div key={item.name} className={`rounded-lg border p-3 ${low ? "border-amber-200 bg-amber-50" : "border-[#E2E4EA] bg-white"}`}>
+              <div className="flex items-center justify-between">
+                <p className={`text-[11px] font-bold ${low ? "text-amber-900" : "text-[#111318]"}`}>{item.name}</p>
+                {low ? <span className="rounded px-1.5 py-0.5 text-[8px] font-semibold bg-amber-200 text-amber-900">Baixo</span> : null}
+              </div>
+              <p className="mt-1 text-lg font-bold tabular-nums text-[#111318]">{item.qty} <span className="text-[11px] font-normal text-[#9CA3AF]">{item.unit}</span></p>
+              <p className="mt-0.5 text-[9px] text-[#9CA3AF]">Mínimo: {item.min} {item.unit}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ── Main showcase ── */
+
+export function InteractiveProductShowcase() {
+  const [active, setActive] = useState<ShowcaseTab>("dashboard");
+  const [animals, setAnimals] = useState<DemoAnimal[]>(INITIAL_ANIMALS);
+  const [transactions, setTransactions] = useState<DemoTransaction[]>(INITIAL_TRANSACTIONS);
+
+  const addAnimal = useCallback((a: DemoAnimal) => setAnimals((prev) => [a, ...prev]), []);
+  const removeAnimal = useCallback((code: string) => setAnimals((prev) => prev.filter((a) => a.code !== code)), []);
+  const addTransaction = useCallback((t: DemoTransaction) => setTransactions((prev) => [t, ...prev]), []);
+  const removeTransaction = useCallback((id: number) => setTransactions((prev) => prev.filter((t) => t.id !== id)), []);
+
+  const totalIncome = transactions.filter((t) => t.positive).reduce((s, t) => s + t.value, 0);
+  const totalExpense = transactions.filter((t) => !t.positive).reduce((s, t) => s + t.value, 0);
+
+  return (
+    <section className="bg-[var(--surface)] px-4 py-14 sm:px-8 sm:py-20" data-marketing-section="produto" data-section-label="Produto">
+      <div className="mx-auto max-w-6xl">
+        <div className="reveal-on-scroll mx-auto mb-8 max-w-2xl text-center">
+          <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <PawPrint className="h-3.5 w-3.5" /> Sistema interativo
+          </span>
+          <h2 className="mt-4 text-2xl font-semibold sm:text-3xl">Clique, adicione e explore o Rancho por dentro.</h2>
+          <p className="mt-3 text-base text-[var(--text-2)]">Interaja com os módulos reais do sistema. Adicione animais, registre transações e veja tudo se conectar.</p>
+        </div>
+
+        <div className="reveal-on-scroll overflow-hidden rounded-xl border border-[#E2E4EA] shadow-[0_18px_50px_rgba(15,26,20,0.10)] dark:border-[#2D3039]">
+          {/* Mobile tabs */}
+          <div className="flex gap-1 overflow-x-auto border-b border-[#E2E4EA] bg-[#141C17] p-1.5 sm:hidden [scrollbar-width:none]">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActive(tab.key)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-[11px] font-semibold transition ${
+                    active === tab.key ? "bg-[#16803C] text-white" : "text-[#A3B0A7] hover:bg-white/10"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />{tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Desktop layout */}
+          <div className="flex min-h-[420px] sm:min-h-[470px]">
+            <Sidebar active={active} onNavigate={setActive} />
+            <div className="min-w-0 flex-1 bg-[#F3F4F6]">
+              <ShowcaseHeader tab={active} />
+              {active === "dashboard" ? <DashboardView animalCount={animals.length} totalIncome={totalIncome} totalExpense={totalExpense} /> : null}
+              {active === "rebanho" ? <RebanhoView animals={animals} onAdd={addAnimal} onRemove={removeAnimal} /> : null}
+              {active === "financeiro" ? <FinanceiroView transactions={transactions} onAdd={addTransaction} onRemove={removeTransaction} /> : null}
+              {active === "estoque" ? <EstoqueView /> : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }

@@ -24,7 +24,6 @@ import {
 import {
   CONTACT_HREF,
   founders,
-  homeExamples,
   homeFaq,
   marketingStructuredData,
   solutionPages,
@@ -228,13 +227,6 @@ function Footer() {
 
 /* ─── HOME PAGE ─── */
 
-const whatsappExamples = [
-  { msg: "B-002 deu 32 litros hoje", tag: "Produção" },
-  { msg: "vendi 4 sacos de milho por 320 reais", tag: "Financeiro" },
-  { msg: "a vaca B-5 pariu uma bezerra hoje", tag: "Reprodução" },
-  { msg: "apliquei vacina clostridial na B-001", tag: "Saúde" },
-];
-
 const modules = [
   { icon: "paw" as MarketingIcon, name: "Rebanho", desc: "Animais, lotes, fases e ficha individual" },
   { icon: "droplets" as MarketingIcon, name: "Produção", desc: "Ordenhas, litros e destino do leite" },
@@ -321,60 +313,9 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        {/* ── WhatsApp: o diferencial ── */}
-        <section className="bg-[#0f1a14] px-5 py-16 text-white sm:px-8 sm:py-20" data-marketing-section="whatsapp" data-section-label="WhatsApp">
-          <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center">
-            <div className="reveal-on-scroll">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-300">
-                <MessageCircle className="h-3.5 w-3.5" />
-                Diferencial
-              </div>
-              <h2 className="text-2xl font-semibold sm:text-3xl">A equipe registra como já conversa.</h2>
-              <p className="mt-4 text-base leading-relaxed text-gray-300">
-                Ninguém precisa aprender um sistema novo. O funcionário manda uma mensagem simples no WhatsApp e o Rancho transforma em registro organizado — produção, estoque, financeiro, tudo no lugar certo.
-              </p>
-              <div className="mt-8 space-y-3">
-                {whatsappExamples.map((ex) => (
-                  <div key={ex.msg} className="reveal-on-scroll flex items-start gap-3 rounded-lg border border-white/8 bg-white/5 p-3">
-                    <span className="mt-0.5 shrink-0 rounded bg-emerald-600/30 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-300">{ex.tag}</span>
-                    <p className="text-sm text-gray-200">&ldquo;{ex.msg}&rdquo;</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="reveal-on-scroll rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-2xl shadow-black/30 sm:p-6">
-              <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
-                    <Bot className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">Rancho</p>
-                    <p className="text-xs text-gray-400">Bot de gestão no WhatsApp</p>
-                  </div>
-                </div>
-                <span className="flex items-center gap-1.5 text-xs text-emerald-300">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" /> online
-                </span>
-              </div>
-              <div className="space-y-3 text-sm">
-                <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-emerald-600 px-4 py-3 text-white">
-                  A vaca Mimosa produziu 19,7 litros hoje.
-                </div>
-                <div className="max-w-[88%] rounded-2xl rounded-bl-md bg-white/10 px-4 py-3 text-gray-200">
-                  Entendi. Vou registrar a produção de leite da Mimosa. Está correto?
-                  <div className="mt-2 text-xs font-semibold text-emerald-300">1 - Confirmar &nbsp; 2 - Corrigir</div>
-                </div>
-                <div className="flex items-center gap-2 border-t border-white/10 pt-4 text-xs text-gray-400">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                  A ação só é salva depois da confirmação.
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <BotLandingDemo />
+
+        <InteractiveProductShowcase />
 
         {/* ── Módulos ── */}
         <section className="bg-[var(--bg)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="modulos" data-section-label="Módulos">
@@ -400,29 +341,6 @@ export function MarketingHomePage() {
                   </div>
                 );
               })}
-            </div>
-          </div>
-        </section>
-
-        <InteractiveProductShowcase />
-
-        {/* ── Exemplos ── */}
-        <section className="bg-[var(--bg)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="exemplos" data-section-label="Exemplos">
-          <div className="mx-auto max-w-6xl">
-            <div className="reveal-on-scroll mx-auto mb-10 max-w-2xl text-center">
-              <h2 className="text-2xl font-semibold sm:text-3xl">Mensagem simples, registro completo.</h2>
-              <p className="mt-3 text-base text-[var(--text-2)]">
-                O funcionário escreve como fala. O Rancho entende, confirma e salva no módulo certo.
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {homeExamples.slice(0, 4).map((ex) => (
-                <div key={ex.text} className="marketing-spotlight reveal-on-scroll rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{ex.area}</span>
-                  <p className="mt-3 rounded-lg bg-gray-900 px-3 py-2.5 text-sm font-medium text-white dark:bg-gray-800">&ldquo;{ex.text}&rdquo;</p>
-                  <p className="mt-3 text-sm leading-relaxed text-[var(--text-2)]">{ex.result}</p>
-                </div>
-              ))}
             </div>
           </div>
         </section>

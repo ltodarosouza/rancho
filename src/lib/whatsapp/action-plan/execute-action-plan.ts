@@ -1030,7 +1030,8 @@ export async function executeActionPlan(input: ExecuteActionPlanInput): Promise<
         plan: queryPlan,
         supabase: input.supabase,
         owner: input.owner,
-        currentDate: input.currentDate
+        currentDate: input.currentDate,
+        originalText: input.text
       });
       if (!result.ok) {
         return {
@@ -1106,6 +1107,7 @@ export async function executeActionPlan(input: ExecuteActionPlanInput): Promise<
       supabase: input.supabase,
       owner: input.owner,
       currentDate: input.currentDate,
+      originalText: input.text,
       pagination
     });
     if (!result.ok) {

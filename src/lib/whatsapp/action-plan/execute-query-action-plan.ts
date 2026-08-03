@@ -41,6 +41,7 @@ export type ExecuteQueryActionPlanInput = {
   supabase?: ActionPlanSupabaseLike | null;
   owner: ActionPlanOwnerContext;
   currentDate?: string;
+  originalText?: string;
   pagination?: { offset: number; pageSize?: number };
 };
 
@@ -214,6 +215,9 @@ function genericEventReportMode(plan: QueryActionPlan) {
 
 function shouldUseGeneralEventReport(plan: QueryActionPlan) {
   if (!["saude_sanitario", "reproducao", "observacoes", "agenda_tarefas"].includes(plan.domain)) return false;
+  const isGeneralEventSummary = plan.operation === "eventos_gerais"
+    && ["eventos", "relatorio"].includes(semanticReportType(plan) || "");
+  if (isSummaryQuery(plan) && !isGeneralEventSummary) return false;
   if (plan.filters.some((filter) => ["animal_ref", "lote_ref", "funcionario_ref", "item_ref", "evento", "tipo", "status_reprodutivo"].includes(filter.field))) return false;
   const semantic = plan.semantic;
   const reportType = semanticReportType(plan);
@@ -1414,6 +1418,23 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
       return true;
     });
 
+  if (isSummaryQuery(plan) && !input.pagination?.offset) {
+    const relations = { animalsById };
+    const summary = buildStructuredSummary(domain, rows, buildAggregations(rows, plan, domain, relations), plan, relations);
+    const parsed = finalizeActionPlanParsed(QUERY_INTENT_BY_DOMAIN[domain.domain] || "CONSULTA_REGISTROS_HOJE", {
+      consulta: true,
+      action_plan_response: summary.response,
+      resultado: {
+        registros: rows.length,
+        filters: plan.filters,
+        resumo: summary.data,
+        linhas_pagina: querySample(domain, rows.slice(0, 10), relations),
+        pagina: { offset: 0, pageSize: 10, total: rows.length }
+      }
+    }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
+    return { ok: true, parsed, response: summary.response, rows };
+  }
+
   if (plan.groupBy?.length && plan.aggregations?.length) {
     const groupField = plan.groupBy[0];
     const isAnimalGroup = groupField === "animal_ref" || groupField === "animal_id";
@@ -1652,6 +1673,23 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
       : filteredMovements;
     const movementLimit = Math.min(plan.limit || domain.maxLimit, domain.maxLimit);
     const rows = orderedMovements.slice(0, movementLimit);
+    const summary = isSummaryQuery(plan) && !input.pagination?.offset
+      ? buildStructuredSummary(domain, rows, buildAggregations(rows, plan, domain, { itemsById: itemById }), plan, { itemsById: itemById })
+      : null;
+    if (summary) {
+      const parsed = finalizeActionPlanParsed("CONSULTA_ESTOQUE_GERAL", {
+        consulta: true,
+        action_plan_response: summary.response,
+        resultado: {
+          registros: rows.length,
+          filters: plan.filters,
+          resumo: summary.data,
+          linhas_pagina: querySample(domain, rows.slice(0, 10), { itemsById: itemById }),
+          pagina: { offset: 0, pageSize: 10, total: rows.length }
+        }
+      }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
+      return { ok: true, parsed, response: summary.response, rows };
+    }
     const pageSize = Math.max(1, input.pagination?.pageSize || 10);
     const offset = Math.max(0, input.pagination?.offset || 0);
     const shownMovements = rows.slice(offset, offset + pageSize);
@@ -1693,6 +1731,23 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
   }
 
   rows = rows.slice(0, Math.min(plan.limit || domain.maxLimit, domain.maxLimit));
+  const summary = isSummaryQuery(plan) && !input.pagination?.offset
+    ? buildStructuredSummary(domain, rows, buildAggregations(rows, plan, domain, { itemsById: itemById }), plan, { itemsById: itemById })
+    : null;
+  if (summary) {
+    const parsed = finalizeActionPlanParsed("CONSULTA_ESTOQUE_GERAL", {
+      consulta: true,
+      action_plan_response: summary.response,
+      resultado: {
+        registros: rows.length,
+        filters: plan.filters,
+        resumo: summary.data,
+        linhas_pagina: querySample(domain, rows.slice(0, 10), { itemsById: itemById }),
+        pagina: { offset: 0, pageSize: 10, total: rows.length }
+      }
+    }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
+    return { ok: true, parsed, response: summary.response, rows };
+  }
   const pageSize = Math.max(1, input.pagination?.pageSize || 10);
   const offset = Math.max(0, input.pagination?.offset || 0);
   const pageRows = rows.slice(offset, offset + pageSize);
@@ -1726,6 +1781,8 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
 }
 
 function periodText(plan: QueryActionPlan) {
+  const semantic = normalizedText(semanticPeriod(plan)).replace(/_/g, " ");
+  if (/\b(?:mes passado|mes anterior|ultimo mes)\b/.test(semantic)) return "do mês anterior";
   const filter = plan.filters.find((item) => ["last_months", "last_days", "previous_month", "current_month", "current_week", "current_year", "since", "between", "gte", "lte"].includes(item.op));
   if (!filter) return "";
   if (filter.op === "last_months") return `dos últimos ${filter.value} meses`;
@@ -1937,6 +1994,209 @@ function queryDetailLevel(plan: QueryActionPlan) {
 
 function wantsDetailedList(plan: QueryActionPlan) {
   return /\b(?:lista|listar|listagem|detalhado|detalhada|detalhes|completo|completa|transacoes|movimentacoes|registros)\b/.test(queryDetailLevel(plan));
+}
+
+/**
+ * Resumo e ranking sao apresentacoes diferentes da mesma consulta.
+ * O ranking responde a uma comparacao explicita; o resumo precisa preservar
+ * contexto, totais e os registros mais recentes para o produtor entender o
+ * estado da area sem precisar fazer uma segunda pergunta.
+ */
+function isSummaryQuery(plan: QueryActionPlan) {
+  if (wantsDetailedList(plan)) return false;
+  // `report.type` and `detailLevel` also describe ordinary reports and are
+  // sometimes normalized by the ActionPlan for list queries. They cannot, by
+  // themselves, turn a specific query into a summary. Use the explicit
+  // operation/intent emitted for the user's request instead.
+  const explicitText = normalizedText([
+    plan.operation,
+    plan.semantic?.operation,
+    plan.semantic?.intent,
+    plan.userQuestion
+  ].filter(Boolean).join(" "));
+  if (/\b(?:resumo|resumir|relatorio|balanco|fechamento|sintese|overview)\b/.test(explicitText)) return true;
+
+  // A model may put the summary noun only in report.type. Accept that only
+  // when the field is itself an explicit summary label, never for the generic
+  // `relatorio` value used by other query modes.
+  const reportType = normalizedText(plan.semantic?.report?.type);
+  return /^(?:resumo|resumir|balanco|fechamento|sintese|overview)(?:_|\b)/.test(reportType);
+}
+
+function summaryDomainLabel(domain: DomainManifestEntry) {
+  const labels: Record<string, string> = {
+    financeiro: "financeiro",
+    producao_leite: "produção de leite",
+    animais: "rebanho",
+    estoque: "estoque",
+    lotes: "lotes",
+    reproducao: "reprodução",
+    saude_sanitario: "saúde e sanidade",
+    funcionarios: "funcionários",
+    ponto_funcionario: "ponto dos funcionários",
+    genealogia: "genealogia",
+    observacoes: "observações",
+    agenda_tarefas: "tarefas"
+  };
+  return labels[domain.domain] || domain.label.toLowerCase();
+}
+
+function summaryPeriodText(plan: QueryActionPlan) {
+  const period = periodText(plan);
+  if (period) return period;
+  const otherFilters = plan.filters
+    .filter((filter) => !["data", "data_transacao", "data_evento", "ordenhado_em", "created_at", "registrado_em"].includes(filter.field))
+    .map((filter) => `${filter.field.replace(/_/g, " ")}: ${String(filter.value || "")}`)
+    .filter(Boolean);
+  return otherFilters.length ? `com filtro ${otherFilters.join(", ")}` : "de todos os registros";
+}
+
+function summaryRecentLine(domain: DomainManifestEntry, row: AnyRecord, index: number, relations: AnyRecord) {
+  if (domain.domain === "financeiro") return financeLine(row, index);
+  if (domain.domain === "producao_leite") return productionLine(row, index, relations);
+  if (domain.domain === "animais") {
+    const lot = relations.lotsById?.get(String(row.lote_id || ""))?.nome;
+    return `${index}. ${animalLabel(row)} - ${row.categoria || "animal"} - ${row.status || "ativo"}${lot ? ` - lote ${lot}` : ""}`;
+  }
+  if (domain.domain === "reproducao" || domain.domain === "saude_sanitario" || domain.domain === "observacoes") {
+    const animal = relations.animalsById?.get(String(row.animal_id || ""));
+    const date = shortDate(row.data_evento || row.created_at);
+    const type = eventTypeLabel(row.tipo || row.evento);
+    const detail = [row.medicamento, row.descricao, row.observacoes].filter(Boolean).join(" - ");
+    return `${index}. ${date} - ${animal ? animalLabel(animal) : "Animal não identificado"} - ${type}${detail ? ` - ${detail}` : ""}`;
+  }
+  if (domain.domain === "funcionarios") return `${index}. ${employeeLabel(row)} - ${employeeStatus(row)}`;
+  if (domain.domain === "ponto_funcionario") {
+    const employee = relations.employeesById?.get(String(row.funcionario_id || ""));
+    return `${index}. ${employee?.nome || "Funcionário não identificado"} - ${row.tipo || "registro"} - ${pointTime(row.registrado_em)}`;
+  }
+  if (domain.domain === "genealogia") {
+    const father = row.pai_id ? relations.animalsById?.get(String(row.pai_id)) : null;
+    const mother = row.mae_id ? relations.animalsById?.get(String(row.mae_id)) : null;
+    const parents = [father ? `pai ${animalLabel(father)}` : "", mother ? `mãe ${animalLabel(mother)}` : ""].filter(Boolean).join(", ");
+    return `${index}. ${animalLabel(row)}${parents ? ` - ${parents}` : ""}`;
+  }
+  if (domain.domain === "estoque") {
+    if (row.tipo) {
+      const item = relations.itemsById?.get(String(row.item_id || ""));
+      return `${index}. ${shortDate(row.created_at)} - ${item?.nome || "Item"} - ${row.tipo} de ${stockAmount(row.quantidade, item?.unidade_medida)}${row.motivo ? ` - ${row.motivo}` : ""}`;
+    }
+    const unit = row.unidade_medida || row.unidade || "unidade(s)";
+    const current = stockAmount(row.quantidade_atual, unit);
+    const minimum = Number(row.quantidade_minima || 0) > 0 ? ` - mínimo ${stockAmount(row.quantidade_minima, unit)}` : "";
+    const alert = Number(row.quantidade_minima || 0) > 0 && Number(row.quantidade_atual || 0) <= Number(row.quantidade_minima || 0) ? " - atenção: abaixo do mínimo" : "";
+    return `${index}. ${row.nome || row.item_nome || "Item"} - saldo ${current}${minimum}${alert}`;
+  }
+  const clean = sanitizeRowForUser(row, relations);
+  const parts = Object.entries(clean)
+    .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "")
+    .slice(0, 5)
+    .map(([key, value]) => `${key.replace(/_/g, " ")}: ${String(value)}`);
+  return `${index}. ${parts.join(", ")}`;
+}
+
+function summaryGeneralLines(domain: DomainManifestEntry, rows: AnyRecord[], metrics: AnyRecord) {
+  if (domain.domain === "financeiro") {
+    const entradas = rows.filter((row) => normalizeFinanceType(row.tipo) === "entrada").reduce((sum, row) => sum + Number(row.valor || 0), 0);
+    const saidas = rows.filter((row) => normalizeFinanceType(row.tipo) === "saida").reduce((sum, row) => sum + Number(row.valor || 0), 0);
+    return [`Registros: ${rows.length}.`, `Entradas: ${money(entradas)}.`, `Saídas: ${money(saidas)}.`, `Saldo: ${money(entradas - saidas)}.`];
+  }
+  if (domain.domain === "producao_leite") {
+    const total = productionTotal(rows);
+    return [`Registros: ${rows.length}.`, `Total produzido: ${numberText(total)} litros.`, `Média por registro: ${numberText(rows.length ? total / rows.length : 0)} litros.`];
+  }
+  if (domain.domain === "animais") {
+    const active = rows.filter((row) => normalizedText(row.status || "ativo") === "ativo").length;
+    const categories = countByText(rows, (row) => row.categoria || "sem categoria");
+    return [`Animais encontrados: ${rows.length}.`, `Ativos: ${active}.`, `Inativos: ${rows.length - active}.`, `Categorias: ${categories || "sem dados"}.`];
+  }
+  if (domain.domain === "funcionarios") {
+    const active = rows.filter((row) => employeeStatus(row) === "ativo").length;
+    return [`Funcionários encontrados: ${rows.length}.`, `Ativos: ${active}.`, `Inativos: ${rows.length - active}.`, `Funções: ${countByText(rows, (row) => row.funcao || "sem função") || "sem dados"}.`];
+  }
+  if (domain.domain === "ponto_funcionario") {
+    return [`Registros: ${rows.length}.`, `Entradas: ${rows.filter((row) => normalizedText(row.tipo) === "entrada").length}.`, `Saídas: ${rows.filter((row) => normalizedText(row.tipo) === "saida").length}.`];
+  }
+  if (domain.domain === "lotes") {
+    const active = rows.filter((row) => row.ativo !== false).length;
+    return [`Lotes encontrados: ${rows.length}.`, `Ativos: ${active}.`, `Inativos: ${rows.length - active}.`];
+  }
+  if (domain.domain === "genealogia") {
+    return [`Registros encontrados: ${rows.length}.`, `Com pai informado: ${rows.filter((row) => row.pai_id).length}.`, `Com mãe informada: ${rows.filter((row) => row.mae_id).length}.`];
+  }
+  if (domain.domain === "estoque") {
+    const movementRows = rows.filter((row) => Boolean(row.tipo));
+    if (movementRows.length) {
+      return [
+        `Movimentações encontradas: ${movementRows.length}.`,
+        `Entradas: ${movementRows.filter((row) => normalizedText(row.tipo) === "entrada").length}.`,
+        `Saídas: ${movementRows.filter((row) => normalizedText(row.tipo) === "saida").length}.`
+      ];
+    }
+    const belowMinimum = rows.filter((row) => Number(row.quantidade_minima || 0) > 0 && Number(row.quantidade_atual || 0) <= Number(row.quantidade_minima || 0)).length;
+    return [`Itens encontrados: ${rows.length}.`, `Itens abaixo do mínimo: ${belowMinimum}.`];
+  }
+  const typeKey = domain.domain === "reproducao" || domain.domain === "saude_sanitario" || domain.domain === "observacoes" ? "tipo" : "status";
+  return [`Registros encontrados: ${rows.length}.`, `${typeKey === "tipo" ? "Tipos" : "Status"}: ${countByText(rows, (row) => row[typeKey] || "sem informação") || "sem dados"}.`, metrics?.totals ? `Métricas calculadas: ${Object.values(metrics.totals).map((value) => numberText(Number(value))).join(", ")}.` : ""] .filter(Boolean);
+}
+
+function summaryObservationLines(domain: DomainManifestEntry, rows: AnyRecord[]) {
+  const includeDescription = ["reproducao", "saude_sanitario", "observacoes", "agenda_tarefas", "genealogia"].includes(domain.domain);
+  const values = rows.flatMap((row) => [
+    row.observacoes,
+    row.observacao,
+    row.motivo,
+    ...(includeDescription ? [row.descricao] : [])
+  ])
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  return Array.from(new Set(values)).slice(0, 4);
+}
+
+function buildStructuredSummary(
+  domain: DomainManifestEntry,
+  rows: AnyRecord[],
+  metrics: AnyRecord,
+  plan: QueryActionPlan,
+  relations: AnyRecord
+) {
+  const label = summaryDomainLabel(domain);
+  const period = summaryPeriodText(plan);
+  const dateFields = ["data_transacao", "ordenhado_em", "data_producao", "data_evento", "data_registro", "created_at", "registrado_em", "updated_at"];
+  const recentRows = rows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) => {
+      const leftDate = dateFields.map((field) => String(left.row[field] || "")).find(Boolean) || "";
+      const rightDate = dateFields.map((field) => String(right.row[field] || "")).find(Boolean) || "";
+      return rightDate.localeCompare(leftDate) || left.index - right.index;
+    })
+    .slice(0, 5)
+    .map(({ row }) => row);
+  const observations = summaryObservationLines(domain, rows);
+  const general = summaryGeneralLines(domain, rows, metrics);
+  const recent = recentRows.map((row, index) => summaryRecentLine(domain, row, index + 1, relations));
+  const response = [
+    `Resumo ${label} ${period}:`,
+    "",
+    "Resumo geral:",
+    ...general,
+    "",
+    "Últimas movimentações:",
+    ...(recent.length ? recent : ["Nenhuma movimentação ou registro encontrado no recorte consultado."]),
+    "",
+    "Observações:",
+    ...(observations.length ? observations.map((value) => `- ${value}`) : ["Nenhuma observação registrada no recorte consultado."])
+  ].join("\n");
+  return {
+    response,
+    data: {
+      dominio: domain.domain,
+      periodo: period,
+      geral: general,
+      ultimas_movimentacoes: querySample(domain, recentRows, relations),
+      observacoes: observations
+    }
+  };
 }
 
 function financeDetailPlan(plan: QueryActionPlan): QueryActionPlan {
@@ -2176,6 +2436,17 @@ function buildResponse(
   relations: AnyRecord,
   pagination?: { offset: number; pageSize: number }
 ) {
+  if (isSummaryQuery(plan) && !pagination?.offset) {
+    return buildStructuredSummary(domain, rows, metrics, plan, relations).response;
+  }
+
+  // Produção possui uma apresentação própria para totais, filtros por animal
+  // e rankings. O agrupamento mensal do ActionPlan não deve cair no ranking
+  // genérico, porque isso remove o nome do animal e o período da resposta.
+  if (domain.domain === "producao_leite") {
+    return buildProductionResponse(rows, metrics, plan, relations, pagination);
+  }
+
   if (metrics.groups?.length && plan.groupBy?.length && plan.aggregations?.length) {
     const groups = (metrics.groups as AnyRecord[]).filter((g) => String(g.key || "").trim() !== "");
     if (!groups.length) return `Não encontrei registros para essa consulta.`;
@@ -2201,11 +2472,13 @@ function buildResponse(
       return `${i + 1}. ${label} — ${domain.domain === "financeiro" ? money(val) : numberText(val)}`;
     });
     const period = periodText(plan);
-    const title = plan.limit === 1 ? "Resultado" : `Ranking${period ? ` ${period}` : ""}`;
+    const title = domain.domain === "financeiro"
+      ? `Relatório financeiro${period ? ` ${period}` : ""}`
+      : plan.limit === 1 ? "Resultado" : `Ranking${period ? ` ${period}` : ""}`;
     return `${title}:\n${lines.join("\n")}`;
   }
 
-  if (metrics.totals && plan.aggregations?.length && !plan.groupBy?.length && !["financeiro"].includes(domain.domain)) {
+  if (metrics.totals && plan.aggregations?.length && !plan.groupBy?.length && !["financeiro", "producao_leite", "animais"].includes(domain.domain)) {
     const agg = plan.aggregations[0];
     const metricKey = agg.as || `${agg.op}_${agg.field}`;
     const val = Number(metrics.totals[metricKey] || 0);
@@ -2269,10 +2542,6 @@ function buildResponse(
       `Saldo: ${money(entradas - saidas)}.`,
       aggregateText
     ].filter(Boolean).join("\n");
-  }
-
-  if (domain.domain === "producao_leite") {
-    return buildProductionResponse(rows, metrics, plan, relations, pagination);
   }
 
   if (domain.domain === "animais") {
@@ -2483,6 +2752,15 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   }
 
   let plan = validation.value as QueryActionPlan;
+  // O plano validado pode trazer uma pergunta auxiliar desatualizada (por
+  // exemplo, "relatorio financeiro") depois de uma mensagem composta ou de
+  // uma continuacao. O texto recebido na entrada e a fonte mais fiel para
+  // decidir o modo de exibicao, sem substituir filtros, agregacoes ou limites
+  // que ja foram interpretados pelo ActionPlan.
+  const originalText = String(input.originalText || "").trim();
+  if (originalText) {
+    plan = { ...plan, userQuestion: originalText };
+  }
   if (!canQueryBotDomain(input.owner.papel_bot, plan.domain)) {
     return {
       ok: false,
@@ -2599,7 +2877,10 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   const metrics = buildAggregations(rows, plan, domain, relationContext);
   const pageSize = Math.max(1, input.pagination?.pageSize || queryPaginationPageSize(domain, plan) || 10);
   const offset = Math.max(0, input.pagination?.offset || 0);
-  const response = buildResponse(domain, rows, metrics, plan, relationContext, { offset, pageSize });
+  const structuredSummary = isSummaryQuery(plan) && !offset
+    ? buildStructuredSummary(domain, rows, metrics, plan, relationContext)
+    : null;
+  const response = structuredSummary?.response || buildResponse(domain, rows, metrics, plan, relationContext, { offset, pageSize });
   const displayTotal = paginationTotal(domain, rows);
   const nextOffset = Math.min(displayTotal, offset + pageSize);
   const financeSummaryCanOpenDetails = domain.domain === "financeiro" && !wantsDetailedList(plan) && rows.length > 0;
@@ -2640,6 +2921,7 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
       // Linhas exatamente da pagina respondida. Diferente de amostra, que
       // sempre parte da primeira linha e corrompe paginas seguintes.
       linhas_pagina: querySample(domain, rows.slice(offset, offset + pageSize), relationContext),
+      ...(structuredSummary?.data ? { resumo: structuredSummary.data } : {}),
       pagina: { offset, pageSize, total: displayTotal }
     }
   }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });

@@ -5873,7 +5873,7 @@ test("ActionPlan lista transacoes com BRL periodo e paginacao", async () => {
   assert(result.parsed.dados?.action_plan_pagination?.offset === 10, "lista financeira deveria guardar pagina seguinte");
 });
 
-test("ActionPlan financeiro mantem resumo curto e abre detalhes sob demanda", async () => {
+test("ActionPlan financeiro estrutura resumo e abre detalhes sob demanda", async () => {
   const transactions = Array.from({ length: 13 }, (_, index) => ({
     id: `finance-summary-${index + 1}`,
     fazenda_id: ADMIN_OWNER.fazenda_id,
@@ -5900,7 +5900,14 @@ test("ActionPlan financeiro mantem resumo curto e abre detalhes sob demanda", as
     supabase: createActionPlanSupabase({ [TABLES.transacoesFinanceiras]: transactions })
   });
   assert(first.ok, `resumo financeiro deveria executar: ${first.reason}`);
-  assert(/(?:Resumo|Relat[oó]rio) financeiro/.test(first.response) && !/\bMovimento \d+\b/.test(first.response), `resumo nao deveria mostrar exemplos de registros: ${first.response}`);
+  assert(
+    /(?:Resumo|Relat[oó]rio) financeiro/.test(first.response)
+      && /Resumo geral:/.test(first.response)
+      && /Últimas movimentações:/.test(first.response)
+      && /Observações:/.test(first.response)
+      && /Movimento 1/.test(first.response),
+    `resumo deveria trazer blocos estruturados e movimentacoes recentes: ${first.response}`
+  );
   const pagination = first.parsed.dados?.action_plan_pagination;
   assert(pagination?.offset === 0 && pagination?.plan?.semantic?.report?.detailLevel === "detalhado", "resumo deveria guardar contexto para abrir detalhes");
 

@@ -556,7 +556,12 @@ const FILTER_OPERATOR_ALIASES: Record<string, FilterPlan["op"]> = {
   this_year: "current_year",
   current_year: "current_year",
   desde: "since",
-  since: "since"
+  since: "since",
+  is_null: "is_null",
+  nulo: "is_null",
+  vazio: "is_null",
+  sem_valor: "is_null",
+  null: "is_null"
 };
 
 function normalizeFilterOperator(rawOperator: unknown, field: string, domain: DomainManifestEntry, value: unknown) {

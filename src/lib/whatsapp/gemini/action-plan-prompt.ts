@@ -7,7 +7,7 @@ import {
 import { ACTION_PLAN_CAPABILITIES } from "@/lib/whatsapp/gemini/action-plan-capabilities";
 import { ACTION_PLAN_DESIGN_MEMORY } from "@/lib/whatsapp/gemini/action-plan-memory";
 
-export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v25";
+export const ACTION_PLAN_PROMPT_VERSION = "rancho-gemini-action-plan-v26";
 
 const EXAMPLES = [
   {
@@ -321,6 +321,117 @@ const EXAMPLES = [
     }
   },
   {
+    user: "qual vaca teve mais partos?",
+    plan: {
+      action: "query", domain: "reproducao", confidence: 0.94,
+      semantic: {
+        intent: "ranking_por_contagem_evento",
+        scope: "rebanho",
+        attributes: { evento: "parto", metrica: "contagem", ordenacao: "desc" },
+        report: { type: "ranking", detailLevel: "primeiro" }
+      },
+      filters: [{ field: "evento", op: "eq", value: "parto" }],
+      aggregations: [{ field: "id", op: "count", as: "total_partos" }],
+      groupBy: ["animal_ref"],
+      orderBy: { field: "total_partos", direction: "desc" },
+      limit: 1, requiresConfirmation: false
+    }
+  },
+  {
+    user: "qual foi o ultimo parto da 090?",
+    plan: {
+      action: "query", domain: "reproducao", confidence: 0.94,
+      semantic: {
+        intent: "consultar_evento_mais_recente",
+        scope: "animal",
+        entities: { animal: "090" },
+        attributes: { evento: "parto", selecao: "ultimo" }
+      },
+      filters: [
+        { field: "animal_ref", op: "eq", value: "090" },
+        { field: "evento", op: "eq", value: "parto" }
+      ],
+      orderBy: { field: "data", direction: "desc" },
+      limit: 1, requiresConfirmation: false
+    }
+  },
+  {
+    user: "quantas vezes a 082 foi inseminada?",
+    plan: {
+      action: "query", domain: "reproducao", confidence: 0.94,
+      semantic: {
+        intent: "contar_eventos_reprodutivos",
+        scope: "animal",
+        entities: { animal: "082" },
+        report: { type: "contagem" }
+      },
+      filters: [
+        { field: "animal_ref", op: "eq", value: "082" },
+        { field: "evento", op: "eq", value: "inseminacao" }
+      ],
+      aggregations: [{ field: "id", op: "count", as: "total_inseminacoes" }],
+      limit: 100, requiresConfirmation: false
+    }
+  },
+  {
+    user: "qual touro possui mais filhos?",
+    plan: {
+      action: "query", domain: "genealogia", confidence: 0.94,
+      semantic: {
+        intent: "ranking_por_quantidade_crias",
+        scope: "rebanho",
+        attributes: { papel: "pai", metrica: "contagem", ordenacao: "desc" },
+        report: { type: "ranking", detailLevel: "primeiro" }
+      },
+      filters: [],
+      aggregations: [{ field: "id", op: "count", as: "total_filhos" }],
+      groupBy: ["pai_ref"],
+      orderBy: { field: "total_filhos", direction: "desc" },
+      limit: 1, requiresConfirmation: false
+    }
+  },
+  {
+    user: "quantos filhos machos o T-003 teve?",
+    plan: {
+      action: "query", domain: "genealogia", confidence: 0.94,
+      semantic: {
+        intent: "contar_crias",
+        scope: "animal",
+        entities: { pai: "T-003" },
+        report: { type: "contagem" }
+      },
+      filters: [
+        { field: "pai_ref", op: "eq", value: "T-003" },
+        { field: "sexo_cria", op: "eq", value: "macho" }
+      ],
+      aggregations: [{ field: "id", op: "count", as: "total_filhos_machos" }],
+      limit: 100, requiresConfirmation: false
+    }
+  },
+  {
+    user: "quantos partos aconteceram em 2024?",
+    plan: {
+      action: "query", domain: "reproducao", confidence: 0.94,
+      semantic: { intent: "contar_eventos_por_periodo", scope: "geral", report: { type: "contagem" } },
+      filters: [
+        { field: "evento", op: "eq", value: "parto" },
+        { field: "data", op: "between", value: { from: "2024-01-01", to: "2024-12-31" } }
+      ],
+      aggregations: [{ field: "id", op: "count", as: "total_partos" }],
+      limit: 100, requiresConfirmation: false
+    }
+  },
+  {
+    user: "quem foi contratado em 2025?",
+    plan: {
+      action: "query", domain: "funcionarios", confidence: 0.94,
+      filters: [
+        { field: "data_admissao", op: "between", value: { from: "2025-01-01", to: "2025-12-31" } }
+      ],
+      limit: 100, requiresConfirmation: false
+    }
+  },
+  {
     user: "comprei 10 sacos de racao por 500 reais",
     plan: {
       action: "execute", capability: "registrar_movimento_estoque", operation: "compra_estoque", confidence: 0.92,
@@ -558,6 +669,8 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Pedido destrutivo, SQL, delete ou update em massa deve usar block com safety.risk=high.",
     "Lancamento financeiro puro sem item fisico usa create domain=financeiro. Entrada, entrou, recebi, receita e ganhei viram tipo=entrada/receita. Saida, saiu, paguei, gastei e despesa viram tipo=saida/despesa.",
     "Consultas financeiras com termo, como 'quanto gastei com racao esse mes', devem preservar tipo=despesa quando houver gasto/paguei e filtro descricao/categoria contains com o termo mencionado.",
+    "Consultas de lucro, resultado ou balanco financeiro devem consultar domain=financeiro SEM filtro de tipo, agregando sum(valor) agrupado por tipo (groupBy=['tipo']). O backend calcula receita, despesa e lucro. Nao filtre tipo=receita quando o usuario pedir lucro; lucro depende de ambos.",
+    "Consultas de compra ou historico de compras de um item, como 'quanto de sal mineral comprei esse ano', usam domain=financeiro com tipo=despesa e filtro descricao/categoria contains com o item mencionado, mais filtro de periodo. Se nao houver verbo financeiro mas sim quantidade, use domain=estoque com tipo_movimento=entrada.",
     "Em qualquer consulta, quando o usuario pedir todos/todas, lista, detalhes, historico, registros, lancamentos, movimentacoes ou resultado completo, use semantic.report.detailLevel=detalhado e operation=listar. Preserve todos os filtros de periodo, tipo, categoria, pessoa, animal, item ou descricao; nao transforme uma lista pedida em mero resumo. Quando o usuario pedir resumo, use detailLevel=resumo e operation=resumir; nao acrescente exemplos de registros sem esse pedido.",
     "Se o contexto de sessao tiver consulta_paginacao e a nova mensagem pedir para continuar, mostrar mais, ver os restantes, abrir os registros/detalhes ou a proxima pagina, retorne action=query no mesmo dominio com semantic.operation=continuar_consulta. Nao crie novos filtros nem transforme a consulta em relatorio geral; o backend reutiliza o plano anterior validado. Sem consulta_paginacao ativa, um pedido isolado de mostrar mais deve usar clarify, nunca animais por padrao.",
     "Compra ou venda de item fisico com quantidade, unidade, item e valor deve usar domain=estoque, gera_financeiro=true. Compra vira entrada de estoque + despesa; venda vira saida de estoque + receita. Nao use somente financeiro nesses casos.",
@@ -567,19 +680,27 @@ export function buildActionPlanPromptFragment(input: { manifest?: DomainManifest
     "Consulta coletiva de animais usa domain=animais com categoria; animal_ref e so para uma entidade identificada, nunca para plural ou coletivo. Perguntas de quantidade, como 'quantos animais tem' ou 'quantas vacas existem', tambem sao query no dominio animais: deixe filters vazio quando nao houver recorte e use aggregation count em id. Para uma categoria, como touros ativos, use filters categoria=touro e status=ativo, mais aggregation count em id.",
     "Consultas de um animal especifico com brinco/codigo/nome claro, como dados da vaca B-001, ficha da Mimosa ou historico do animal 120, usam action=query domain=animais com filtro animal_ref. Nao transforme isso em consulta coletiva. Se a pergunta pedir um campo da ficha, preserve esse campo em select, por exemplo lote_ref, data_nascimento, peso, fase ou status; a referencia identifica o animal e select define a informacao a responder.",
     "Perguntas sobre ha quanto tempo, desde quando ou quantos dias um animal esta em um estado reprodutivo usam action=query domain=reproducao com animal_ref e status_reprodutivo/evento. Nao aplique filtro de periodo: a data do evento que iniciou o estado precisa permanecer na consulta para o backend calcular a duracao. Isso vale para qualquer animal e estado reprodutivo suportado.",
-    "Para listar eventos reprodutivos ocorridos em um periodo, use domain=reproducao, filtro evento/tipo e filtro data do periodo. Isso consulta cada evento ocorrido, nao o estado atual dos animais. Estados atuais, como vacas paridas ou em protocolo agora, podem usar status_reprodutivo sem filtro de periodo.",
+    "Para listar eventos reprodutivos ocorridos em um periodo, use domain=reproducao, filtro evento/tipo e filtro data do periodo. Isso consulta cada evento ocorrido, nao o estado atual dos animais.",
+    "IMPORTANTE: Perguntas sobre estado atual dos animais, como 'quais vacas estao prenhas', 'quem esta em protocolo', 'vacas paridas', usam status_reprodutivo SEM filtro de periodo e com limit alto. O backend retorna somente o estado vigente de cada animal, nao o historico. Nunca use filtro evento para estado atual; evento e para historico de ocorrencias.",
     "Quando o usuario pedir todas, historico, lista ou registros de um evento reprodutivo de um animal, use domain=reproducao, filtro animal_ref e filtro evento (nunca somente status_reprodutivo), operation=listar e semantic.report.detailLevel=detalhado. Isso representa ocorrencias historicas, inclusive inseminacoes, partos, protocolos, retestes e cio.",
     "Quando uma consulta depender de um marco anterior do mesmo animal, como producao depois do ultimo parto, use o dominio do dado pedido, mantenha animal_ref e declare semantic.temporalAnchor={sourceDomain, event, occurrence:'latest' ou 'first', direction:'after', 'since' ou 'before'}. O backend encontra a data real desse evento e aplica o periodo com seguranca. Para pedir total e cada registro, use operation=listar, report.detailLevel=detalhado e uma agregacao adequada.",
-    "Comparacoes, rankings, maior, menor, primeiro, ultimo ou top por entidade usam aggregations + groupBy na entidade + orderBy na metrica. Para producao por animal, agrupe por animal_ref, agregue litros com sum e ordene litros desc para maior ou asc para menor; use limit=1 quando a pergunta pedir somente qual animal e um limite maior quando pedir ranking/lista.",
+    "Comparacoes, rankings, maior, menor ou top por entidade usam aggregations + groupBy na entidade + orderBy na metrica. Para producao por animal, agrupe por animal_ref, agregue litros com sum e ordene litros desc para maior ou asc para menor; use limit=1 quando a pergunta pedir somente qual animal e um limite maior quando pedir ranking/lista. O mesmo padrao vale para qualquer dominio: mais partos usa groupBy animal_ref + count + orderBy desc; mais filhos usa genealogia com groupBy pai_ref ou mae_ref + count + orderBy desc.",
+    "Primeiro, ultimo, mais recente ou mais antigo de UM animal especifico nao e ranking entre entidades: e uma selecao temporal. Use orderBy em data com direction desc para ultimo/mais recente ou asc para primeiro/mais antigo, e limit=1. Exemplos: ultimo parto da 090 => filters animal_ref+evento=parto, orderBy data desc, limit=1. Primeira inseminacao da 084 => filters animal_ref+evento=inseminacao, orderBy data asc, limit=1. Quando a 084 entrou em protocolo pela primeira vez => filters animal_ref+evento=protocolo, orderBy data asc, limit=1.",
     "Em consultas de producao por categoria, como vaca, novilha ou outro tipo de animal, use animal_categoria. animal_ref e somente para nome, brinco ou codigo de um animal especifico. Nao gere subquery ou filtro aninhado.",
     "Resumo, historico ou total de producao de um animal especifico deve manter filtro animal_ref e nunca virar total do rebanho. O valor de animal_ref pode conter a forma natural completa, como 'vaca 090'; o backend resolve nome ou brinco.",
     "Diferencie periodos de calendario: este mes/agora usa current_month; esta semana ou essa semana usa current_week; este ano usa current_year; mes passado ou mes anterior usa previous_month; ultimos N meses usa last_months com value=N; ultimos N dias usa last_days com value=N. previous_month, current_week e current_year nao recebem value.",
     "Em consulta, periodo citado pelo usuario precisa virar filtro em data. Em registro e o oposto: data ausente significa hoje, entao registre com data=hoje e nunca use clarify so porque a data nao foi dita.",
     "Para um mes nomeado ou YYYY-MM, como fevereiro ou 2026-02, use op=between e value={month:'fevereiro'} ou {month:'2026-02'}. Nunca use since para um mes, pois since significa somente desde uma data.",
+    "Para um ano especifico como 'em 2024' ou 'em 2025', use op=between com value={from:'2024-01-01', to:'2024-12-31'}. Nao use current_year para anos passados; current_year e somente para o ano corrente.",
+    "Para um mes com ano, como 'em abril de 2026', use op=between com value={month:'2026-04'}. Para um intervalo entre meses, como 'entre janeiro e junho de 2026', use op=between com value={from:'2026-01-01', to:'2026-06-30'}.",
+    "Consultas de contratacao, admissao ou demissao de funcionarios filtram pelo campo data_admissao, nao por data. Exemplo: 'contratados em 2025' => domain=funcionarios, filter data_admissao between {from:'2025-01-01', to:'2025-12-31'}.",
     "\"Ultimo mes\" e \"esse ultimo mes\" na fala do produtor significam o mes corrente, entao use current_month. Somente \"mes passado\" e \"mes anterior\" viram previous_month. A mesma leitura vale para ultima semana, que e a semana corrente.",
     "Dados de pessoas da equipe usam domain=funcionarios; presenca, entrada e saida usam domain=ponto_funcionario.",
     "Ao cadastrar funcionario com WhatsApp, papel_bot representa o perfil de acesso e so pode ser funcionario, veterinario, contador, gerente ou admin. Se o usuario informar o perfil, preserve-o; se nao informar, use funcionario, que tem menor privilegio.",
     "Consultas de genealogia, ascendencia, pais ou crias usam action=query domain=genealogia. Para perguntar crias de um pai ou mae, filtre pai_ref ou mae_ref; para genealogia de um animal, filtre animal_ref ou filho_ref. Nunca use UUID ou ID interno como referencia nem como resposta ao usuario.",
+    "Para consultas de ausencia, como 'crias sem pai cadastrado', 'animais sem mae', use op=is_null no campo correspondente. Exemplo: crias sem pai => domain=genealogia, filter pai_ref is_null. O operador is_null nao recebe value.",
+    "Consultas que pedem animais que NUNCA tiveram um evento, como 'vacas que nunca pariram', usam domain=animais com semantic.intent descrevendo a exclusao e semantic.attributes.excluir_com_evento='parto'. O backend faz a consulta cruzada. Nao use clarify para essas perguntas.",
+    "Consultas de todos os eventos de um animal especifico, como 'todos os eventos da 099' ou 'historico da 090', usam domain=reproducao com animal_ref e operation=listar, detailLevel=detalhado, SEM filtro de evento e SEM filtro de periodo. O backend retorna todos os tipos de evento.",
     "Cadastro de animal: nao use a mesma palavra solta como nome e brinco/codigo. Se a mensagem disser apenas 'criar vaca Felipe', trate Felipe como nome e deixe brinco/codigo faltando. So preencha brinco/codigo quando houver marcador explicito (brinco, codigo, numero) ou formato claro de codigo com numero/hifen.",
     "Consulta generica do que aconteceu no periodo, sem area definida, usa domain=observacoes com operation=eventos_gerais e requiresConfirmation=false.",
     "Nao classifique consulta generica de eventos como saude_sanitario ou reproducao. Use saude_sanitario apenas quando houver vacina, tratamento, medicamento, vermifugo, antibiotico, doenca, morte, saude ou sanitario; use reproducao apenas quando houver parto, prenhez, inseminacao, protocolo, reteste ou cio.",

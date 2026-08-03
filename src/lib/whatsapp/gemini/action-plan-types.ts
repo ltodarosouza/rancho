@@ -22,7 +22,8 @@ export type FilterOperator =
   | "current_month"
   | "current_week"
   | "current_year"
-  | "since";
+  | "since"
+  | "is_null";
 
 export type AggregationOperator = "sum" | "avg" | "count" | "min" | "max";
 
@@ -238,7 +239,8 @@ export const FILTER_OPERATORS: readonly FilterOperator[] = [
   "current_month",
   "current_week",
   "current_year",
-  "since"
+  "since",
+  "is_null"
 ];
 
 export const AGGREGATION_OPERATORS: readonly AggregationOperator[] = [

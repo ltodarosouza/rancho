@@ -450,6 +450,11 @@ function filterMatches(row: AnyRecord, domain: DomainManifestEntry, filter: Filt
     return values.some((item) => filterMatches(row, domain, { ...filter, op: "eq", value: item }, relations, baseDate));
   }
 
+  if (filter.op === "is_null") {
+    if (relationCandidateValues(row, domain, filter.field, relations).length > 0) return false;
+    return value === null || value === undefined || value === "";
+  }
+
   if (domain.domain === "animais" && filter.field === "categoria") {
     if (filter.op === "eq") return animalCategoryMatches(row, filter.value);
     if (filter.op === "neq") return !animalCategoryMatches(row, filter.value);

@@ -121,7 +121,7 @@ export default function AdminInternoPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/platform/ranchos", { headers });
+      const response = await fetch("/api/platform/ranchos", { headers, cache: "no-store" });
       const data = await response.json().catch(() => ({})) as ApiResult;
       if (!response.ok) throw new Error(data.error || "Não foi possível carregar os ranchos.");
       setRows(data.ranchos || []);

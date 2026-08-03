@@ -8,6 +8,11 @@ import { currentMonth, slug } from "@/lib/utils";
 import { usageSummary } from "@/lib/whatsapp/usage";
 
 export const dynamic = "force-dynamic";
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+  Pragma: "no-cache",
+  Expires: "0"
+};
 
 type SupabaseAdmin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -256,7 +261,7 @@ export async function GET(request: NextRequest) {
         ? permission.supabase.from(TABLES.convites).select("id,fazenda_id,email,nome,papel,status,expires_at,accepted_at,created_at").eq("papel", "dono").in("fazenda_id", farmIds).order("created_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
       farmIds.length
-        ? permission.supabase.from(TABLES.whatsappUsoMensal).select("fazenda_id,mes,mensagens_recebidas,mensagens_enviadas").eq("mes", usageMonth).in("fazenda_id", farmIds)
+        ? permission.supabase.from(TABLES.whatsappUsoMensal).select("fazenda_id,mes,mensagens_recebidas").eq("mes", usageMonth).in("fazenda_id", farmIds)
         : Promise.resolve({ data: [], error: null })
     ]);
 
@@ -317,7 +322,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ ok: true, ranchos: payload });
+    return NextResponse.json({ ok: true, ranchos: payload }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error("[Platform ranchos GET]", error);
     return platformAdminError(platformErrorMessage(error), 500);

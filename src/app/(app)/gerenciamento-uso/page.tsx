@@ -110,6 +110,24 @@ export default function GerenciamentoUsoPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!canAccess || !session?.access_token) return;
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    const interval = window.setInterval(refreshWhenVisible, 15000);
+
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [canAccess, load, session?.access_token]);
+
   const totals = data?.totals || { sent: 0, total: 0, surcharge: 0 };
   const rancho = data?.rancho;
   const usage = rancho?.usage;

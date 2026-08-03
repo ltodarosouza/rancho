@@ -9,6 +9,11 @@ export const dynamic = "force-dynamic";
 type SupabaseAdmin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
 const USAGE_FORBIDDEN_MESSAGE = "Voc\u00ea n\u00e3o tem permiss\u00e3o para acessar seu consumo do WhatsApp.";
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+  Pragma: "no-cache",
+  Expires: "0"
+};
 
 function shouldIgnoreOptionalTableError(error: { message?: string } | null) {
   return Boolean(error?.message && /relation .* does not exist|column .* does not exist|schema cache/i.test(error.message));
@@ -19,7 +24,7 @@ function errorMessage(error: unknown) {
 }
 
 function usageError(message: string, status = 403) {
-  return NextResponse.json({ ok: false, error: message }, { status });
+  return NextResponse.json({ ok: false, error: message }, { status, headers: NO_STORE_HEADERS });
 }
 
 async function requireUsageUser(request: NextRequest) {
@@ -110,7 +115,7 @@ export async function GET(request: NextRequest) {
     const permission = await requireUsageUser(request);
     if (!permission.ok) return permission.response;
 
-    return NextResponse.json({ ok: true, ...(await loadUsage(permission.supabase, permission.farm)) });
+    return NextResponse.json({ ok: true, ...(await loadUsage(permission.supabase, permission.farm)) }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error("[whatsapp usage self-service]", error);
     return usageError(errorMessage(error) || "N\u00e3o foi poss\u00edvel carregar seu consumo do WhatsApp.", 500);

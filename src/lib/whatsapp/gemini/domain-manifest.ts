@@ -141,7 +141,7 @@ export const RANCHO_DOMAIN_MANIFEST = {
       filho_ref: field("relation", { relationDomain: "animais" }),
       cria_codigo: field("string"),
       cria_nome: field("string"),
-      sexo_cria: field("enum", { enumValues: ["femea", "macho", "nao_informado"] }),
+      sexo_cria: field("enum", { enumValues: ["femea", "macho", "nao_informado"], sourceField: "sexo" }),
       data_nascimento: field("date"),
       data_parto: field("date"),
       observacoes: field("string")

@@ -69,7 +69,7 @@ const SAFE_SELECT_FIELDS: Record<string, string[]> = {
   funcionarios: ["id", "nome", "funcao", "cpf", "salario_base", "data_admissao", "contato_whatsapp", "ativo", "deleted_at", "created_at"],
   ponto_funcionario: ["id", "funcionario_id", "tipo", "registrado_em", "observacao", "created_at"],
   observacoes: ["id", "animal_id", "tipo", "data_evento", "descricao", "created_at"],
-  genealogia: ["id", "brinco", "nome", "pai_id", "mae_id", "data_nascimento", "observacoes"],
+  genealogia: ["id", "brinco", "nome", "sexo", "categoria", "pai_id", "mae_id", "data_nascimento", "observacoes"],
   agenda_tarefas: ["id", "titulo", "mensagem", "created_at"]
 };
 
@@ -181,6 +181,26 @@ function eventReportPeriod(plan: QueryActionPlan) {
   if (dateFilter?.op === "last_days" && Number(dateFilter.value) === 1) return { period: "hoje" };
   if (dateFilter?.op === "last_days" && Number(dateFilter.value)) return { period: `ultimos_${Number(dateFilter.value)}`, days: Number(dateFilter.value) };
   if (dateFilter?.op === "eq" && String(dateFilter.value || "").toLowerCase() === "ontem") return { period: "ontem" };
+  if (dateFilter?.op === "between") {
+    const raw = dateFilter.value as AnyRecord | unknown[];
+    const explicitMonth = !Array.isArray(raw) && raw?.month ? String(raw.month).match(/^(\d{4})-(\d{2})$/) : null;
+    if (explicitMonth) return { period: `${explicitMonth[1]}-${explicitMonth[2]}` };
+    const monthIdx = !Array.isArray(raw) && raw?.month ? monthIndex(raw.month) : -1;
+    if (monthIdx >= 0) {
+      const year = new Date().getFullYear();
+      return { period: `${year}-${String(monthIdx + 1).padStart(2, "0")}` };
+    }
+    const from = Array.isArray(raw) ? raw[0] : raw?.from;
+    const to = Array.isArray(raw) ? raw[1] : raw?.to;
+    if (from && to) return { period: `${String(from)}_a_${String(to)}`, from: String(from), to: String(to) };
+  }
+  if (dateFilter?.op === "since") {
+    const month = monthIndex(dateFilter.value);
+    if (month >= 0) {
+      const year = new Date().getFullYear();
+      return { period: `${year}-${String(month + 1).padStart(2, "0")}` };
+    }
+  }
   return { period: "hoje" };
 }
 
@@ -213,7 +233,8 @@ function shouldUseGeneralEventReport(plan: QueryActionPlan) {
 }
 
 function executeGeneralEventReportQuery(input: ExecuteQueryActionPlanInput, plan: QueryActionPlan): ExecuteQueryActionPlanResult {
-  const { period, days } = eventReportPeriod(plan);
+  const periodResult = eventReportPeriod(plan);
+  const { period, days } = periodResult;
   const mode = genericEventReportMode(plan);
   const reportType = semanticReportType(plan);
   const consultaRegistros = reportType === "eventos"
@@ -227,6 +248,7 @@ function executeGeneralEventReportQuery(input: ExecuteQueryActionPlanInput, plan
     data_referencia: period,
     periodo: period,
     ...(days ? { dias: days } : {}),
+    ...("from" in periodResult && periodResult.from ? { data_inicio: periodResult.from, data_fim: periodResult.to } : {}),
     ...(mode ? { relatorio_modo: mode } : {})
   }, [], plan.confidence, plan, {
     interpreterFinal: "action_plan_query_normalized",
@@ -1036,7 +1058,7 @@ async function resolveTemporalAnchorPlan(
   const [{ data: animalData, error: animalError }, { data: eventData, error: eventError }] = await Promise.all([
     input.supabase
       .from(TABLES.animais)
-      .select("id,brinco,nome")
+      .select("id,brinco,nome,data_nascimento")
       .eq("fazenda_id", input.owner.fazenda_id)
       .limit(3000),
     input.supabase
@@ -1046,8 +1068,12 @@ async function resolveTemporalAnchorPlan(
       .order("data_evento", { ascending: false })
       .limit(3000)
   ]);
-  if (animalError) throw new Error(animalError.message);
-  if (eventError) throw new Error(eventError.message);
+  if (animalError) {
+    return { ok: false, reason: "temporal_anchor_db_error", message: "Erro ao buscar dados dos animais para essa consulta." };
+  }
+  if (eventError) {
+    return { ok: false, reason: "temporal_anchor_db_error", message: "Erro ao buscar eventos para essa consulta." };
+  }
 
   const animals = (animalData || []) as AnyRecord[];
   const matchingAnimals = animals.filter((animal) => referenceMatches([animal.brinco, animal.nome, animal.id].filter(Boolean), animalFilter.value));
@@ -1057,6 +1083,27 @@ async function resolveTemporalAnchorPlan(
       reason: "temporal_anchor_animal_not_found",
       message: `Nao encontrei o animal ${String(animalFilter.value)} no rebanho.`
     };
+  }
+
+  const normalizedExpected = normalizedText(expectedEvent);
+  if (normalizedExpected === "nascimento") {
+    const animal = matchingAnimals[0];
+    const birthDate = parseDate(animal.data_nascimento);
+    if (!birthDate) {
+      return {
+        ok: false,
+        reason: "temporal_anchor_event_not_found",
+        message: `Nao encontrei data de nascimento registrada para ${animalLabel(animal)}.`
+      };
+    }
+    const dateField = domain.dateFields.includes("data") ? "data" : domain.dateFields[0];
+    if (!dateField) return { ok: true, plan };
+    const filter: FilterPlan = {
+      field: dateField,
+      op: direction === "before" ? "lte" : "gte",
+      value: dateOnly(birthDate)
+    };
+    return { ok: true, plan: { ...plan, filters: [...plan.filters, filter] } };
   }
 
   const animalIds = new Set(matchingAnimals.map((animal) => String(animal.id)));
@@ -1309,8 +1356,14 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
       .eq("fazenda_id", input.owner.fazenda_id)
       .limit(3000)
   ]);
-  if (eventError) throw new Error(eventError.message);
-  if (animalError) throw new Error(animalError.message);
+  if (eventError || animalError) {
+    return {
+      ok: false,
+      status: "clarify",
+      reason: "reproduction_query_db_error",
+      message: "Erro ao buscar dados reprodutivos. Tente novamente."
+    };
+  }
 
   const animals = (animalData || []) as AnyRecord[];
   const animalsById = new Map(animals.map((animal) => [String(animal.id), animal]));
@@ -1441,8 +1494,10 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
   }
 
   const subject = reproductionSubject(plan);
+  const orderedAsc = plan.orderBy?.direction === "asc";
   const title = eventHistory
     ? kinds.length === 1 && kind === "parto" ? `Partos registrados de ${subject.toLowerCase()}` : "Eventos reprodutivos registrados"
+    : orderedAsc && kind === "parto" ? `${subject} por tempo desde último parto`
     : reproductionTitleForKinds(kinds, subject);
   const singleAnimal = specificAnimalFilter && matchingAnimals.length === 1 ? matchingAnimals[0] : undefined;
   const pageSize = Math.max(1, input.pagination?.pageSize || 12);
@@ -1553,8 +1608,14 @@ async function executeStockQuery(input: ExecuteQueryActionPlanInput, plan: Query
       .order("created_at", { ascending: false })
       .limit(1000)
   ]);
-  if (itemError) throw new Error(itemError.message);
-  if (movementError) throw new Error(movementError.message);
+  if (itemError || movementError) {
+    return {
+      ok: false,
+      status: "clarify",
+      reason: "stock_query_db_error",
+      message: "Erro ao buscar dados do estoque. Tente novamente."
+    };
+  }
 
   const movements = (movementData || []) as AnyRecord[];
   const items = ((itemData || []) as AnyRecord[])
@@ -2521,7 +2582,14 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
   query = query.order(orderBy, { ascending: plan.orderBy?.direction === "asc" });
 
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) {
+    return {
+      ok: false,
+      status: "clarify",
+      reason: "query_db_error",
+      message: "Erro ao buscar os dados para essa consulta. Tente novamente."
+    };
+  }
 
   const relationContext = await loadRelationContext(input.supabase, input.owner, plan);
   const baseDate = currentDate(input.currentDate);

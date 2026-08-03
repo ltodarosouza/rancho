@@ -69,17 +69,19 @@ async function loadUsage(supabase: SupabaseAdmin, farm: { id: string; nome?: str
   const usageAvailable = !usageError;
   if (usageError && !shouldIgnoreOptionalTableError(usageError)) throw new Error(usageError.message);
 
-  const summaryWithReceived = usageSummary({
+  const summaryWithUserMessages = usageSummary({
     month: usageMonth,
+    // The legacy database column stores messages received by the bot from users.
+    // From the customer's perspective these are the messages they sent.
     sent: usage?.mensagens_recebidas
   });
   const summary = {
-    month: summaryWithReceived.month,
-    sent: summaryWithReceived.sent,
-    total: summaryWithReceived.total,
-    band: summaryWithReceived.band,
-    nextBand: summaryWithReceived.nextBand,
-    percentToNextBand: summaryWithReceived.percentToNextBand
+    month: summaryWithUserMessages.month,
+    sent: summaryWithUserMessages.sent,
+    total: summaryWithUserMessages.total,
+    band: summaryWithUserMessages.band,
+    nextBand: summaryWithUserMessages.nextBand,
+    percentToNextBand: summaryWithUserMessages.percentToNextBand
   };
   const rancho = {
     id: String(farm.id),

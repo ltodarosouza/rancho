@@ -299,8 +299,10 @@ export async function GET(request: NextRequest) {
           available: usageAvailable,
           ...usageSummary({
             month: usageMonth,
-            received: usageByFarmId.get(String(farm.id))?.mensagens_recebidas,
-            sent: usageByFarmId.get(String(farm.id))?.mensagens_enviadas
+            // The legacy column name is kept in the database for compatibility.
+            // It stores messages received by the bot from users, which are the
+            // only messages that count toward the ranch usage.
+            sent: usageByFarmId.get(String(farm.id))?.mensagens_recebidas
           })
         },
         owner_invite: ownerInvite ? {

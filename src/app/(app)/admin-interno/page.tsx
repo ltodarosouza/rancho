@@ -103,10 +103,9 @@ export default function AdminInternoPage() {
   const [inviteLink, setInviteLink] = useState("");
 
   const usageTotals = useMemo(() => rows.reduce((totals, row) => ({
-    received: totals.received + (row.usage?.received || 0),
     sent: totals.sent + (row.usage?.sent || 0),
-    total: totals.total + (row.usage?.total || 0)
-  }), { received: 0, sent: 0, total: 0 }), [rows]);
+    ranchos: totals.ranchos + (row.usage?.sent ? 1 : 0)
+  }), { sent: 0, ranchos: 0 }), [rows]);
 
   const headers = useMemo(() => ({
     "Content-Type": "application/json",
@@ -289,22 +288,18 @@ export default function AdminInternoPage() {
           <div>
             <Badge tone="default">Uso mensal do WhatsApp</Badge>
             <h2 className="mt-3 text-[15px] font-semibold">Mensagens por rancho</h2>
-            <p className="mt-1 text-sm text-[var(--text-2)]">Contagem do mês atual, separando mensagens recebidas e respostas enviadas pelo bot.</p>
+            <p className="mt-1 text-sm text-[var(--text-2)]">Contagem do mês atual das mensagens enviadas pelos usuários aos bots.</p>
           </div>
           <span className="text-sm font-semibold text-[var(--text-2)]">Mês atual</span>
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-2)]">Recebidas</p>
-            <p className="mt-2 text-2xl font-semibold">{usageTotals.received.toLocaleString("pt-BR")}</p>
-          </div>
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-2)]">Enviadas pelo bot</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-2)]">Mensagens enviadas pelos usuários</p>
             <p className="mt-2 text-2xl font-semibold">{usageTotals.sent.toLocaleString("pt-BR")}</p>
           </div>
           <div className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-2)]">Total contabilizado</p>
-            <p className="mt-2 text-2xl font-semibold">{usageTotals.total.toLocaleString("pt-BR")}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-2)]">Ranchos com uso no mês</p>
+            <p className="mt-2 text-2xl font-semibold">{usageTotals.ranchos.toLocaleString("pt-BR")}</p>
           </div>
         </div>
         <p className="mt-4 text-xs text-[var(--text-2)]">Faixas e valores abaixo são apenas um modelo provisório para visualização e não alteram a mensalidade.</p>
@@ -423,10 +418,9 @@ export default function AdminInternoPage() {
                       {row.usage?.available ? (
                         <>
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <strong>Uso no mês: {row.usage.total.toLocaleString("pt-BR")} mensagens</strong>
+                          <strong>Uso no mês: {row.usage.sent.toLocaleString("pt-BR")} mensagens enviadas pelos usuários</strong>
                             <Badge tone="success">{row.usage.band.label}</Badge>
                           </div>
-                          <p className="mt-1 text-[var(--text-2)]">Recebidas: {row.usage.received.toLocaleString("pt-BR")} · Enviadas pelo bot: {row.usage.sent.toLocaleString("pt-BR")}</p>
                           <p className="mt-1 text-[var(--text-2)]">Acréscimo provisório: <strong>{formatCurrency(row.usage.band.additionalFee)}</strong></p>
                           {row.usage.nextBand ? <p className="mt-1 text-xs text-[var(--text-2)]">Próxima faixa a partir de {row.usage.nextBand.min.toLocaleString("pt-BR")} mensagens.</p> : null}
                         </>

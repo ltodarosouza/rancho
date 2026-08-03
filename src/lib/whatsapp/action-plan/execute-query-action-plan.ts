@@ -1231,7 +1231,9 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
   const range = dateFilter ? dateRangeFor(dateFilter, baseDate) : null;
   const kinds = targetReproductionKinds(plan);
   const kind = kinds.length === 1 ? kinds[0] : undefined;
-  const eventHistory = reproductionEventHistoryRequested(plan, domain);
+  const hasGroupBy = Boolean(plan.groupBy?.length && plan.aggregations?.length);
+  const hasAggregation = Boolean(plan.aggregations?.length);
+  const eventHistory = hasGroupBy || hasAggregation || reproductionEventHistoryRequested(plan, domain);
   const limit = eventHistory || wantsDetailedList(plan)
     ? domain.maxLimit
     : Math.min(plan.limit || domain.maxLimit, domain.maxLimit);
@@ -1305,6 +1307,68 @@ async function executeReproductionQuery(input: ExecuteQueryActionPlanInput, plan
       seenRows.add(key);
       return true;
     });
+
+  if (plan.groupBy?.length && plan.aggregations?.length) {
+    const groupField = plan.groupBy[0];
+    const isAnimalGroup = groupField === "animal_ref" || groupField === "animal_id";
+    const grouped = new Map<string, AnyRecord[]>();
+    for (const row of rows) {
+      const key = isAnimalGroup ? String(row.animal_id || "") : String((row as AnyRecord)[groupField] ?? "");
+      if (!key) continue;
+      grouped.set(key, [...(grouped.get(key) || []), row]);
+    }
+    const agg = plan.aggregations[0];
+    const metricKey = agg.as || `${agg.op}_${agg.field}`;
+    let ranking = Array.from(grouped.entries()).map(([key, groupRows]) => {
+      const metricValue = agg.op === "count" ? groupRows.length
+        : agg.op === "sum" ? groupRows.reduce((s, r) => s + Number(r[agg.field] || 0), 0)
+        : groupRows.length;
+      const animal = isAnimalGroup ? animalsById.get(key) : undefined;
+      return { key, label: animal ? animalLabel(animal) : key, value: metricValue, rows: groupRows };
+    });
+    const dir = plan.orderBy?.direction === "asc" ? 1 : -1;
+    ranking.sort((a, b) => (a.value - b.value) * dir);
+    const rankLimit = Math.min(plan.limit || 10, ranking.length);
+    ranking = ranking.slice(0, rankLimit);
+    const kindLabel = kind ? reproductiveEventLabel(kind as Parameters<typeof reproductiveEventLabel>[0]).toLowerCase() : "eventos";
+    const lines = ranking.map((item, i) => `${i + 1}. ${item.label} — ${item.value} ${kindLabel}${item.value !== 1 ? "s" : ""}`);
+    const title = rankLimit === 1 && ranking.length ? ranking[0].label : `Ranking por ${kindLabel}s`;
+    const response = rankLimit === 1 && ranking.length
+      ? `${ranking[0].label} é quem teve mais ${kindLabel}s: ${ranking[0].value} registrado${ranking[0].value !== 1 ? "s" : ""}.`
+      : `${title}:\n${lines.join("\n")}`;
+    const parsed = finalizeActionPlanParsed(QUERY_INTENT_BY_DOMAIN[domain.domain] || "CONSULTA_REGISTROS_HOJE", {
+      consulta: true,
+      action_plan_response: response,
+      resultado: {
+        registros: ranking.length,
+        metrics: { [metricKey]: ranking[0]?.value ?? 0 },
+        groups: ranking.map((item) => ({ label: item.label, values: { [groupField]: item.key }, metrics: { [metricKey]: item.value }, registros: item.rows.length })),
+        filters: plan.filters
+      }
+    }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
+    return { ok: true, parsed, response, rows };
+  }
+
+  if (!plan.groupBy?.length && plan.aggregations?.length) {
+    const agg = plan.aggregations[0];
+    const metricKey = agg.as || `${agg.op}_${agg.field}`;
+    const total = agg.op === "count" ? rows.length
+      : agg.op === "sum" ? rows.reduce((s, r) => s + Number(r[agg.field] || 0), 0)
+      : rows.length;
+    const kindLabel = kind ? reproductiveEventLabel(kind as Parameters<typeof reproductiveEventLabel>[0]).toLowerCase() : "evento";
+    const animalFilter = plan.filters.find((f) => f.field === "animal_ref");
+    const animalName = animalFilter ? String(animalFilter.value || "") : null;
+    const targetAnimal = animalName && matchingAnimals.length === 1 ? animalLabel(matchingAnimals[0]) : animalName;
+    const response = targetAnimal
+      ? `${targetAnimal} teve ${total} ${kindLabel}${total !== 1 ? "s" : ""} registrada${total !== 1 ? "s" : ""}.`
+      : `Total: ${total} ${kindLabel}${total !== 1 ? "s" : ""} registrado${total !== 1 ? "s" : ""}.`;
+    const parsed = finalizeActionPlanParsed(QUERY_INTENT_BY_DOMAIN[domain.domain] || "CONSULTA_REGISTROS_HOJE", {
+      consulta: true,
+      action_plan_response: response,
+      resultado: { registros: rows.length, metrics: { [metricKey]: total }, filters: plan.filters }
+    }, [], plan.confidence, plan, { interpreterFinal: "action_plan_query" });
+    return { ok: true, parsed, response, rows };
+  }
 
   // A consulta chega ordenada da mais recente para a mais antiga. Sem honrar o
   // orderBy do plano, "os primeiros partos do ano" devolvia justamente os

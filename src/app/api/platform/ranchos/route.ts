@@ -8,6 +8,7 @@ import { currentMonth, slug } from "@/lib/utils";
 import { usageSummary } from "@/lib/whatsapp/usage";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate",
   Pragma: "no-cache",

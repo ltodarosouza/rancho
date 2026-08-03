@@ -5,6 +5,7 @@ import { currentMonth } from "@/lib/utils";
 import { PROVISIONAL_WHATSAPP_USAGE_BANDS, usageSummary } from "@/lib/whatsapp/usage";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 type SupabaseAdmin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 

@@ -110,7 +110,7 @@ export default function GerenciamentoUsoPage() {
     setError("");
 
     try {
-      const response = await fetch("/api/platform/uso-whatsapp", {
+      const response = await fetch(`/api/platform/uso-whatsapp?_t=${Date.now()}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
         cache: "no-store"
       });

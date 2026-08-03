@@ -3,19 +3,16 @@
 import {
   ChartNoAxesCombined,
   CircleDollarSign,
-  Inbox,
   Loader2,
   MessageSquareText,
   RefreshCw,
-  Send,
-  ShieldCheck
+  Send
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatCard } from "@/components/ui/StatCard";
 import { useAuth } from "@/lib/auth-context";
-import { PLATFORM_ADMIN_FORBIDDEN_MESSAGE, canAccessPlatformAdmin } from "@/lib/platform-admin";
 import { formatCurrency } from "@/lib/utils";
 
 type UsageBand = {
@@ -26,11 +23,6 @@ type UsageBand = {
   additionalFee: number;
 };
 
-type UsageBandOverview = UsageBand & {
-  ranchos: number;
-  messages: number;
-};
-
 type RanchoUsage = {
   id: string;
   nome: string;
@@ -39,7 +31,6 @@ type RanchoUsage = {
   ativa: boolean;
   usage: {
     available: boolean;
-    received: number;
     sent: number;
     total: number;
     band: UsageBand;
@@ -53,9 +44,9 @@ type UsageResponse = {
   error?: string;
   usageAvailable?: boolean;
   month?: string;
-  totals?: { received: number; sent: number; total: number; surcharge: number };
-  bands?: UsageBandOverview[];
-  ranchos?: RanchoUsage[];
+  totals?: { sent: number; total: number; surcharge: number };
+  bands?: UsageBand[];
+  rancho?: RanchoUsage;
 };
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
@@ -87,7 +78,7 @@ function statusTone(status: string): "success" | "danger" | "warning" {
 
 export default function GerenciamentoUsoPage() {
   const { profile, session } = useAuth();
-  const canAccess = canAccessPlatformAdmin(profile);
+  const canAccess = Boolean(profile?.ativo && profile.fazenda_id);
   const [data, setData] = useState<UsageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -119,22 +110,13 @@ export default function GerenciamentoUsoPage() {
     void load();
   }, [load]);
 
-  const totals = data?.totals || { received: 0, sent: 0, total: 0, surcharge: 0 };
-  const ranchos = data?.ranchos || [];
+  const totals = data?.totals || { sent: 0, total: 0, surcharge: 0 };
+  const rancho = data?.rancho;
+  const usage = rancho?.usage;
   const bands = data?.bands || [];
-  const average = useMemo(() => ranchos.length ? Math.round(totals.total / ranchos.length) : 0, [ranchos.length, totals.total]);
 
-  if (!canAccess) {
-    return (
-      <div className="mx-auto max-w-2xl animate-fade-in rounded-lg border border-amber-200 bg-amber-50 p-6 text-amber-900 shadow-sm dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
-        <div className="flex items-center gap-3">
-          <ShieldCheck className="h-6 w-6" />
-          <h1 className="text-[15px] font-semibold">Gerenciamento de uso</h1>
-        </div>
-        <p className="mt-3 text-sm font-bold">{PLATFORM_ADMIN_FORBIDDEN_MESSAGE}</p>
-        <a className="btn btn-secondary mt-5" href="/dashboard">Voltar ao dashboard</a>
-      </div>
-    );
+  if (!profile || !session?.access_token) {
+    return <div className="flex min-h-[40vh] items-center justify-center text-sm text-[var(--text-2)]">Carregando seu acesso...</div>;
   }
 
   return (
@@ -142,9 +124,9 @@ export default function GerenciamentoUsoPage() {
       <section className="rounded-lg bg-slate-950 p-6 text-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <Badge tone="success">Área interna</Badge>
+            <Badge tone="success">Meu uso</Badge>
             <h1 className="mt-5 text-3xl font-semibold tracking-tight md:text-5xl">Gerenciamento de uso</h1>
-            <p className="mt-3 max-w-2xl text-slate-300">Acompanhe as mensagens do WhatsApp por rancho e visualize o acréscimo provisório do mês.</p>
+            <p className="mt-3 max-w-2xl text-slate-300">Acompanhe o consumo do WhatsApp do seu rancho e visualize o acréscimo provisório do mês.</p>
           </div>
           <button className="btn bg-white text-slate-950" type="button" onClick={() => void load()} disabled={loading}>
             <RefreshCw className="h-4 w-4" /> Atualizar
@@ -155,10 +137,10 @@ export default function GerenciamentoUsoPage() {
       {error ? <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">{error}</div> : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Mensagens recebidas" value={numberFormatter.format(totals.received)} hint="Enviadas pelos usuários" icon={Inbox} tone="blue" loading={loading} />
-        <StatCard title="Respostas enviadas" value={numberFormatter.format(totals.sent)} hint="Enviadas pelo bot" icon={Send} tone="green" loading={loading} />
-        <StatCard title="Total contabilizado" value={numberFormatter.format(totals.total)} hint={data?.month ? monthLabel(data.month) : "Mês atual"} icon={MessageSquareText} tone="lime" loading={loading} />
-        <StatCard title="Acréscimo provisório" value={formatCurrency(totals.surcharge)} hint={`${numberFormatter.format(ranchos.length)} rancho(s) · média ${numberFormatter.format(average)}/mês`} icon={CircleDollarSign} tone="amber" loading={loading} />
+        <StatCard title="Mensagens enviadas" value={numberFormatter.format(totals.sent)} hint="Respostas enviadas pelo bot" icon={Send} tone="green" loading={loading} />
+        <StatCard title="Faixa atual" value={usage?.band.label || "-"} hint={data?.month ? monthLabel(data.month) : "Mês atual"} icon={MessageSquareText} tone="lime" loading={loading} />
+        <StatCard title="Acréscimo provisório" value={formatCurrency(totals.surcharge)} hint="Modelo de cobrança" icon={CircleDollarSign} tone="amber" loading={loading} />
+        <StatCard title="Próxima faixa" value={usage?.nextBand?.label || "Maior faixa"} hint={usage?.nextBand ? `${numberFormatter.format(usage.nextBand.min - usage.total)} mensagem(ns)` : "Sem próxima faixa"} icon={ChartNoAxesCombined} tone="blue" loading={loading} />
       </section>
 
       <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
@@ -173,10 +155,10 @@ export default function GerenciamentoUsoPage() {
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {loading ? Array.from({ length: 4 }).map((_, index) => <div key={`band-skeleton-${index}`} className="rounded-lg border border-[var(--border)] p-4"><Skeleton className="h-5 w-24" /><Skeleton className="mt-3 h-4 w-40" /><Skeleton className="mt-5 h-7 w-28" /></div>) : bands.map((band) => (
             <div key={band.key} className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4">
-              <div className="flex items-center justify-between gap-2"><p className="font-semibold">{band.label}</p><Badge tone="default">{band.ranchos} rancho(s)</Badge></div>
+              <div className="flex items-center justify-between gap-2"><p className="font-semibold">{band.label}</p><Badge tone="default">Modelo</Badge></div>
               <p className="mt-2 text-sm text-[var(--text-2)]">{rangeLabel(band)}</p>
               <p className="mt-4 text-xl font-semibold">{formatCurrency(band.additionalFee)}</p>
-              <p className="mt-1 text-xs text-[var(--text-2)]">Acréscimo provisório · {numberFormatter.format(band.messages)} mensagens na faixa</p>
+              <p className="mt-1 text-xs text-[var(--text-2)]">Acréscimo provisório do modelo</p>
             </div>
           ))}
         </div>
@@ -185,15 +167,15 @@ export default function GerenciamentoUsoPage() {
       <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2"><ChartNoAxesCombined className="h-5 w-5 text-emerald-600" /><h2 className="text-[15px] font-semibold">Uso por rancho</h2></div>
-            <p className="mt-1 text-sm text-[var(--text-2)]">Recebidas e respostas do bot ficam separadas para facilitar a futura cobrança.</p>
+            <div className="flex items-center gap-2"><ChartNoAxesCombined className="h-5 w-5 text-emerald-600" /><h2 className="text-[15px] font-semibold">Uso do meu rancho</h2></div>
+            <p className="mt-1 text-sm text-[var(--text-2)]">A contagem considera somente as mensagens enviadas pelo bot para este rancho.</p>
           </div>
-          <Badge tone="default">{numberFormatter.format(ranchos.length)} cliente(s)</Badge>
+          <Badge tone="default">{profile.fazenda?.nome || "Meu rancho"}</Badge>
         </div>
 
         <div className="mt-5 space-y-3">
-          {loading ? Array.from({ length: 4 }).map((_, index) => <div key={`rancho-skeleton-${index}`} className="rounded-lg border border-[var(--border)] p-4"><Skeleton className="h-5 w-48" /><Skeleton className="mt-3 h-4 w-full" /><Skeleton className="mt-4 h-2 w-full" /></div>) : ranchos.length ? ranchos.map((rancho) => {
-            const progress = rancho.usage.percentToNextBand ?? 100;
+          {loading ? <div className="rounded-lg border border-[var(--border)] p-4"><Skeleton className="h-5 w-48" /><Skeleton className="mt-3 h-4 w-full" /><Skeleton className="mt-4 h-2 w-full" /></div> : rancho ? (() => {
+            const progress = usage?.percentToNextBand ?? 100;
             return (
               <article key={rancho.id} className="rounded-lg border border-[var(--border)] p-4 transition-colors hover:border-[var(--text-3)]">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -201,8 +183,7 @@ export default function GerenciamentoUsoPage() {
                     <div className="flex flex-wrap items-center gap-2"><h3 className="text-base font-semibold">{rancho.nome}</h3><Badge tone={statusTone(rancho.status)}>{statusLabel(rancho.status)}</Badge><Badge tone="default">{rancho.usage.band.label}</Badge></div>
                     <p className="mt-1 text-sm text-[var(--text-2)]">Plano {rancho.plano} · {numberFormatter.format(rancho.usage.total)} mensagens no mês</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm lg:min-w-[420px]">
-                    <div><p className="text-xs text-[var(--text-2)]">Recebidas</p><p className="mt-1 font-semibold">{numberFormatter.format(rancho.usage.received)}</p></div>
+                  <div className="grid grid-cols-2 gap-4 text-sm lg:min-w-[300px]">
                     <div><p className="text-xs text-[var(--text-2)]">Bot enviou</p><p className="mt-1 font-semibold">{numberFormatter.format(rancho.usage.sent)}</p></div>
                     <div><p className="text-xs text-[var(--text-2)]">Acréscimo</p><p className="mt-1 font-semibold">{formatCurrency(rancho.usage.band.additionalFee)}</p></div>
                   </div>
@@ -213,7 +194,7 @@ export default function GerenciamentoUsoPage() {
                 </div>
               </article>
             );
-          }) : <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center text-sm text-[var(--text-2)]">Nenhum rancho cadastrado ainda.</div>}
+          })() : <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center text-sm text-[var(--text-2)]">Não foi possível localizar o rancho deste usuário.</div>}
         </div>
       </section>
 

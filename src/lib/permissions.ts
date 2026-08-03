@@ -12,6 +12,7 @@ const EMPLOYEE_VIEW_PATHS = new Set([
   "/producao",
   "/estoque",
   "/relatorios",
+  "/gerenciamento-uso",
   "/suporte",
   "/configuracoes"
 ]);

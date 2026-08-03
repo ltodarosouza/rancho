@@ -661,7 +661,7 @@ async function saveWhatsAppMessage(
         code: (error as AnyRecord).code || null,
         message: safeErrorText(error)
       });
-    } else if (input.owner?.fazenda_id) {
+    } else if (input.owner?.fazenda_id && input.direction === "saida") {
       const usage = await incrementWhatsAppUsage(supabase, input.owner.fazenda_id, input.direction);
       if (usage.error) {
         console.warn("[WhatsApp usage] Falha ao atualizar contagem mensal", {

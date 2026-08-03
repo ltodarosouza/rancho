@@ -77,7 +77,7 @@ export const navGroups: NavGroup[] = [
     label: "Sistema",
     items: [
       { href: "/admin-interno", label: "Admin Interno", icon: Building2, platformOnly: true },
-      { href: "/gerenciamento-uso", label: "Gerenciamento de uso", icon: ChartNoAxesCombined, platformOnly: true },
+      { href: "/gerenciamento-uso", label: "Gerenciamento de uso", icon: ChartNoAxesCombined },
       { href: "/suporte", label: "Suporte", icon: LifeBuoy },
       { href: "/configuracoes", label: "Configurações", icon: Settings }
     ]

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, CheckCircle2, MessageCircle, Pencil, Send, ShieldCheck, Smartphone, Trash2, UserPlus, X } from "lucide-react";
+import { Bot, CheckCircle2, MessageCircle, Pencil, ShieldCheck, Smartphone, Trash2, UserPlus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState, ErrorState } from "@/components/ui/AsyncState";
@@ -8,11 +8,9 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { formatBrazilianPhone, isValidBrazilianPhone } from "@/lib/input-format";
 import { TABLES } from "@/lib/tables";
-import { useInternalTester } from "@/lib/use-internal-tester";
 import { formatDate } from "@/lib/utils";
 import { normalizeWhatsappNumber, whatsappNumbersMatch } from "@/lib/phone";
 import { canManageData } from "@/lib/permissions";
-import { isWhatsappSandboxEnvironment, publicWhatsappConfig } from "@/lib/public-env";
 import { getFriendlyErrorMessage } from "@/lib/errors";
 import { withAsyncTimeout } from "@/lib/async";
 import { BOT_ROLE_OPTIONS, botRoleLabel, normalizeBotRole } from "@/lib/whatsapp/bot-access";
@@ -25,40 +23,6 @@ const initialDraft = {
   papel_bot: "funcionario",
   ativo: true
 };
-
-const defaultOutboundMessage = [
-  "Olá! Aqui é o bot do Rancho.",
-  "Pode mandar frases como:",
-  "- Mimosa deu 15 litros de leite hoje",
-  "- Vendi leite por 900 reais",
-  "- Comprei ração por 300 reais",
-  "- Entrou 10 sacos de ração no estoque",
-  "- João entrou às 7:30"
-].join("\n");
-
-type BotTestResult = {
-  respostaTexto: string;
-  intencaoDetectada: string | null;
-  confianca: number | null;
-  dadosExtraidos: AnyRecord | null;
-  estadoAnterior: string | null;
-  estadoNovo: string | null;
-  camposFaltantes: string[];
-  eventoConfirmado: boolean;
-  erro: string | null;
-};
-
-type BotTestHistoryItem = {
-  id: string;
-  telefone: string;
-  mensagem: string;
-  resposta: string;
-  horario: string;
-};
-
-const defaultBotTestMessage = "vaca B-002 deu 32 litros";
-const botProcessingNoticePreview = "Recebi sua mensagem. Estou conferindo os dados do rancho e já te respondo.";
-const botProcessingNoticeDelayMs = 2000;
 
 const WHATSAPP_USERS_SELECT = [
   "id",
@@ -85,32 +49,17 @@ function roleToDatabase(value: string) {
 }
 
 export default function WhatsAppPage() {
-  const { dataContext, profile, session } = useAuth();
-  const isInternalTester = useInternalTester();
-  const [phone, setPhone] = useState("");
-  const [outboundMessage, setOutboundMessage] = useState(defaultOutboundMessage);
-  const [status, setStatus] = useState("");
-  const [botTestPhone, setBotTestPhone] = useState("");
-  const [botTestMessage, setBotTestMessage] = useState(defaultBotTestMessage);
-  const [botTestSaveReal, setBotTestSaveReal] = useState(false);
-  const [botTestLoading, setBotTestLoading] = useState(false);
-  const [botTestProcessingNoticeVisible, setBotTestProcessingNoticeVisible] = useState(false);
-  const [botTestResult, setBotTestResult] = useState<BotTestResult | null>(null);
-  const [botTestHistory, setBotTestHistory] = useState<BotTestHistoryItem[]>([]);
+  const { dataContext, profile } = useAuth();
   const [rows, setRows] = useState<AnyRecord[]>([]);
   const [draft, setDraft] = useState(initialDraft);
   const [editing, setEditing] = useState<AnyRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const loadRequestRef = useRef(0);
 
   const canManage = canManageData(profile);
-  const isSandbox = isWhatsappSandboxEnvironment();
-  const sandboxNumber = publicWhatsappConfig.sandboxNumber;
-  const sandboxJoinCode = publicWhatsappConfig.sandboxJoinCode;
 
   const loadAuthorizedNumbers = useCallback(async (forceRefresh = false) => {
     const requestId = ++loadRequestRef.current;
@@ -149,32 +98,6 @@ export default function WhatsAppPage() {
     inactive: rows.filter((row) => row.ativo === false).length
   }), [rows]);
   const initialLoadError = Boolean(error && !rows.length && !loading);
-
-  const preferredBotTestWhatsapp = useMemo(() => {
-    const activeRows = rows.filter((row) => row.ativo !== false);
-    const userId = String(dataContext.usuarioId || "");
-    const ownByUser = userId
-      ? activeRows.find((row) => String(row.usuario_id || "") === userId)
-      : null;
-    const profilePhone = normalizeWhatsappNumber(profile?.telefone);
-    const ownByPhone = profilePhone
-      ? activeRows.find((row) => whatsappNumbersMatch(row.telefone_e164, profilePhone))
-      : null;
-    const adminRow = activeRows.find((row) => row.papel_bot === "admin" && !row.funcionario_id);
-    return ownByUser?.telefone_e164 || ownByPhone?.telefone_e164 || adminRow?.telefone_e164 || activeRows[0]?.telefone_e164;
-  }, [dataContext.usuarioId, profile?.telefone, rows]);
-
-  const simulatedWhatsappUser = useMemo(() => {
-    const normalized = normalizeWhatsappNumber(botTestPhone);
-    if (!normalized) return null;
-    return rows.find((row) => row.ativo !== false && whatsappNumbersMatch(row.telefone_e164, normalized)) || null;
-  }, [botTestPhone, rows]);
-
-  useEffect(() => {
-    if (!botTestPhone && preferredBotTestWhatsapp) {
-      setBotTestPhone(formatBrazilianPhone(preferredBotTestWhatsapp));
-    }
-  }, [botTestPhone, preferredBotTestWhatsapp]);
 
   function updateDraft(name: keyof typeof draft, value: string | boolean) {
     setDraft((current) => ({ ...current, [name]: value }));
@@ -283,134 +206,13 @@ export default function WhatsAppPage() {
     }
   }
 
-  async function sendMessage() {
-    if (!isInternalTester) {
-      setStatus("Você não tem permissão para acessar esta ferramenta interna.");
-      return;
-    }
-
-    if (!isValidBrazilianPhone(phone)) {
-      setStatus("Informe um WhatsApp válido com DDD.");
-      return;
-    }
-
-    setSending(true);
-    setStatus("Enviando...");
-    try {
-      const response = await fetch("/api/whatsapp/send-test", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
-        },
-        body: JSON.stringify({
-          phone: normalizeWhatsappNumber(phone) || phone,
-          message: outboundMessage
-        })
-      });
-      const data = await response.json().catch(() => ({}));
-      setStatus(response.ok && data.ok ? "Mensagem enviada. Confira o WhatsApp." : data.error || "Não foi possível enviar agora.");
-    } catch {
-      setStatus("Não foi possível enviar agora.");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function simulateBotMessage() {
-    if (!isInternalTester) return;
-    const normalizedPhone = normalizeWhatsappNumber(botTestPhone);
-    const text = botTestMessage.trim();
-
-    if (!normalizedPhone) {
-      setBotTestProcessingNoticeVisible(false);
-      setBotTestResult({
-        respostaTexto: "",
-        intencaoDetectada: null,
-        confianca: null,
-        dadosExtraidos: null,
-        estadoAnterior: null,
-        estadoNovo: null,
-        camposFaltantes: [],
-        eventoConfirmado: false,
-        erro: "Informe o telefone simulado."
-      });
-      return;
-    }
-
-    if (!text) {
-      setBotTestProcessingNoticeVisible(false);
-      setBotTestResult({
-        respostaTexto: "",
-        intencaoDetectada: null,
-        confianca: null,
-        dadosExtraidos: null,
-        estadoAnterior: null,
-        estadoNovo: null,
-        camposFaltantes: [],
-        eventoConfirmado: false,
-        erro: "Informe a mensagem para simular."
-      });
-      return;
-    }
-
-    setBotTestLoading(true);
-    setBotTestProcessingNoticeVisible(false);
-    const processingNoticeTimer = window.setTimeout(() => {
-      setBotTestProcessingNoticeVisible(true);
-    }, botProcessingNoticeDelayMs);
-    try {
-      const response = await fetch("/api/whatsapp/testar-bot", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
-        },
-        body: JSON.stringify({
-          telefone: normalizedPhone,
-          mensagem: text,
-          salvarReal: botTestSaveReal
-        })
-      });
-      const data = await response.json().catch(() => ({
-        respostaTexto: "",
-        erro: "Não foi possível ler a resposta do simulador."
-      }));
-      const result = data as BotTestResult;
-      setBotTestResult(result);
-      setBotTestHistory((current) => [{
-        id: crypto.randomUUID(),
-        telefone: normalizedPhone,
-        mensagem: text,
-        resposta: result.respostaTexto || result.erro || "Sem resposta.",
-        horario: new Date().toISOString()
-      }, ...current].slice(0, 8));
-    } catch {
-      setBotTestResult({
-        respostaTexto: "",
-        intencaoDetectada: null,
-        confianca: null,
-        dadosExtraidos: null,
-        estadoAnterior: null,
-        estadoNovo: null,
-        camposFaltantes: [],
-        eventoConfirmado: false,
-        erro: "Não foi possível simular agora."
-      });
-    } finally {
-      window.clearTimeout(processingNoticeTimer);
-      setBotTestLoading(false);
-      setBotTestProcessingNoticeVisible(false);
-    }
-  }
-
   return (
     <div className="animate-fade-in space-y-6">
       <section className="overflow-hidden rounded-lg bg-emerald-950 p-6 text-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-8">
-        <Badge tone="success">Atendimento rápido</Badge>
-        <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl">WhatsApp para a rotina da fazenda.</h1>
+        <Badge tone="success">WhatsApp</Badge>
+        <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl">Assistente inteligente pelo WhatsApp.</h1>
         <p className="mt-4 max-w-3xl text-emerald-100">
-          Cadastre quem pode usar o bot e registre ordenha, animais e financeiro direto pelo telefone.
+          O bot do Rancho entende mensagens em linguagem natural e registra dados, faz consultas e gera relatórios direto pelo telefone.
         </p>
       </section>
 
@@ -429,55 +231,33 @@ export default function WhatsAppPage() {
         </div>
       </section>
 
-      <section className={isSandbox ? "grid gap-4 lg:grid-cols-[0.9fr_1.1fr]" : "grid gap-4"}>
-        <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-[15px] font-semibold">Status da integração</h2>
-              <p className="mt-1 text-sm text-[var(--text-2)]">
-                Veja como o WhatsApp do Rancho está configurado agora.
-              </p>
-            </div>
-            <Badge tone={isSandbox ? "warning" : "success"}>{isSandbox ? "Ambiente de testes" : "Integração ativa"}</Badge>
+      <section className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-semibold">Como funciona</h2>
+            <p className="mt-1 text-sm text-[var(--text-2)]">
+              O assistente usa inteligência artificial para entender o que você envia pelo WhatsApp.
+            </p>
           </div>
-          <p className="text-sm text-[var(--text-2)]">
-            {isSandbox
-              ? "O bot está em ambiente de testes. Para usar, o WhatsApp precisa entrar no sandbox da Twilio e também estar autorizado abaixo."
-              : "A integração oficial do WhatsApp Business está ativa para os números autorizados do Rancho."}
-          </p>
+          <Badge tone="success">Integração ativa</Badge>
         </div>
-
-        {isSandbox ? (
-          <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
-            <h2 className="text-[15px] font-semibold">Como testar o bot agora</h2>
-            <p className="mt-2 text-sm text-[var(--text-2)]">
-              Enquanto estiver em testes, cada telefone precisa ativar o sandbox uma vez antes de conversar com o bot.
-            </p>
-            <ol className="mt-4 space-y-3 text-sm text-[var(--text)]">
-              <li className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">1</span>
-                <span>Cadastre e deixe o número ativo na lista de números autorizados.</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">2</span>
-                <span>Envie a mensagem de ativação para o número do sandbox da Twilio.</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">3</span>
-                <span>Depois da confirmação, mande uma mensagem simples, como &ldquo;menu&rdquo; ou &ldquo;vaca Mimosa deu 15 litros&rdquo;.</span>
-              </li>
-            </ol>
-            {sandboxNumber || sandboxJoinCode ? (
-              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
-                {sandboxNumber ? <p><strong>Número do sandbox:</strong> {sandboxNumber}</p> : null}
-                {sandboxJoinCode ? <p className="mt-1"><strong>Mensagem de ativação:</strong> join {sandboxJoinCode}</p> : null}
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            { icon: MessageCircle, title: "Linguagem natural", text: "Envie mensagens como se estivesse conversando. O bot entende e interpreta automaticamente." },
+            { icon: Smartphone, title: "Registros pelo celular", text: "Registre ordenha, compras, vendas, estoque e eventos direto pelo WhatsApp." },
+            { icon: Bot, title: "Consultas inteligentes", text: "Pergunte sobre animais, produção, financeiro ou estoque e receba respostas na hora." },
+            { icon: CheckCircle2, title: "Dados sincronizados", text: "Tudo o que for registrado pelo bot aparece nas telas do sistema automaticamente." }
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.title} className="rounded-lg border border-[var(--border)]/70 bg-[var(--surface)] p-4">
+                <Icon className="h-7 w-7 text-emerald-600" />
+                <h3 className="mt-3 text-sm font-semibold">{item.title}</h3>
+                <p className="mt-1 text-xs text-[var(--text-2)]">{item.text}</p>
               </div>
-            ) : null}
-            <p className="mt-4 text-xs font-bold text-[var(--text-2)]">
-              No WhatsApp oficial, essa ativação manual do sandbox deixa de existir.
-            </p>
-          </div>
-        ) : null}
+            );
+          })}
+        </div>
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
@@ -545,7 +325,7 @@ export default function WhatsAppPage() {
             <ShieldCheck className="h-6 w-6 text-emerald-600" />
             <div>
               <h2 className="text-[15px] font-semibold">Números autorizados</h2>
-              <p className="text-sm text-[var(--text-2)]">Lista oficial usada pelo bot para liberar ou bloquear acesso.</p>
+              <p className="text-sm text-[var(--text-2)]">Lista de números que podem usar o bot do Rancho.</p>
             </div>
           </div>
 
@@ -593,191 +373,34 @@ export default function WhatsAppPage() {
         </div>
       </div>
 
-      <div className={isInternalTester ? "grid gap-6 lg:grid-cols-[0.9fr_1.1fr]" : "grid gap-6"}>
-        {isInternalTester ? (
-          <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <Send className="h-5 w-5 text-emerald-600" />
-            <h2 className="text-[15px] font-semibold">Enviar mensagem</h2>
-          </div>
-          <p className="mb-4 text-sm text-[var(--text-2)]">
-            Envie uma mensagem inicial ou um aviso para um WhatsApp autorizado.
-          </p>
-          <label className="space-y-2">
-            <span className="text-sm font-medium">Telefone</span>
-            <input className="input" value={phone} onChange={(event) => setPhone(formatBrazilianPhone(event.target.value))} placeholder="(00) 00000-0000" />
-          </label>
-          <label className="mt-4 block space-y-2">
-            <span className="text-sm font-medium">Mensagem</span>
-            <textarea className="input min-h-28 resize-y" value={outboundMessage} onChange={(event) => setOutboundMessage(event.target.value)} />
-          </label>
-          <button className="btn btn-primary mt-4 w-full" onClick={sendMessage} type="button" disabled={sending || !phone.trim() || !outboundMessage.trim()}>
-            <MessageCircle className="h-4 w-4" /> {sending ? "Enviando..." : "Enviar mensagem"}
-          </button>
-          {status ? <p className="mt-3 rounded-lg bg-[var(--bg)] p-3 text-sm font-bold">{status}</p> : null}
-          </div>
-        ) : null}
-
-        <div className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
-          <div className="mb-5 flex items-center gap-3">
-            <Bot className="h-6 w-6 text-amber-500" />
-            <div>
-              <h2 className="text-[15px] font-semibold">Como o acesso funciona</h2>
-              <p className="text-sm text-[var(--text-2)]">O bot só executa ações de números autorizados e ativos.</p>
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {[
-              "O número precisa estar cadastrado e ativo para conversar com o bot.",
-              "Cada pessoa usa o próprio WhatsApp autorizado pelo Rancho.",
-              "Números inativos são bloqueados com uma mensagem clara.",
-              "Os registros entram automaticamente na fazenda correta."
-            ].map((item) => (
-              <div key={item} className="flex gap-3 rounded-lg border border-[var(--border)]/70 bg-[var(--surface)] p-3 text-sm">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                <span>{item}</span>
-              </div>
-            ))}
+      <section className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
+        <div className="mb-5 flex items-center gap-3">
+          <Bot className="h-6 w-6 text-emerald-600" />
+          <div>
+            <h2 className="text-[15px] font-semibold">O que o bot pode fazer</h2>
+            <p className="text-sm text-[var(--text-2)]">Exemplos de mensagens que o assistente entende.</p>
           </div>
         </div>
-      </div>
-
-      {isInternalTester ? (
-        <section className="border border-[var(--border)] bg-[var(--surface)] rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] md:p-6">
-          <div className="mb-5 flex items-center gap-3">
-            <Bot className="h-6 w-6 text-emerald-600" />
-            <div>
-              <h2 className="text-[15px] font-semibold">Ferramentas internas de teste</h2>
-              <p className="text-sm text-[var(--text-2)]">Área restrita para testar o bot antes de liberar mudanças para clientes.</p>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {[
+            { category: "Produção", examples: ["Mimosa deu 15 litros de leite hoje", "qual foi a produção dessa semana?"] },
+            { category: "Financeiro", examples: ["vendi leite por 900 reais", "comprei ração por 300 reais"] },
+            { category: "Estoque", examples: ["entrou 10 sacos de ração no estoque", "quanto tem de sal mineral?"] },
+            { category: "Rebanho", examples: ["registra a vaca Estrela, brinco B-012", "qual vaca ficou mais tempo sem parir?"] },
+            { category: "Eventos", examples: ["vaca 090 pariu hoje", "quais eventos aconteceram em abril?"] },
+            { category: "Consultas", examples: ["me mostra tudo sobre a vaca 090", "quantos animais ativos eu tenho?"] }
+          ].map((group) => (
+            <div key={group.category} className="rounded-lg border border-[var(--border)]/70 bg-[var(--surface)] p-4">
+              <h3 className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">{group.category}</h3>
+              <ul className="mt-2 space-y-1">
+                {group.examples.map((ex) => (
+                  <li key={ex} className="text-xs text-[var(--text-2)]">&ldquo;{ex}&rdquo;</li>
+                ))}
+              </ul>
             </div>
-          </div>
-
-          <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-            <div>
-              <label className="block space-y-2">
-                <span className="text-sm font-medium">Telefone simulado</span>
-                <input className="input" value={botTestPhone} onChange={(event) => setBotTestPhone(formatBrazilianPhone(event.target.value))} placeholder="5583999999999" />
-              </label>
-              <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">
-                {simulatedWhatsappUser ? (
-                  <p>
-                    Simulando: <strong>{simulatedWhatsappUser.nome_exibicao || formatBrazilianPhone(simulatedWhatsappUser.telefone_e164)}</strong> · {roleLabel(simulatedWhatsappUser.papel_bot)} · {formatBrazilianPhone(simulatedWhatsappUser.telefone_e164)}
-                  </p>
-                ) : (
-                  <p className="text-[var(--text-2)]">Informe um WhatsApp ativo cadastrado para simular admin ou funcionário.</p>
-                )}
-              </div>
-              <label className="mt-4 block space-y-2">
-                <span className="text-sm font-medium">Mensagem</span>
-                <textarea className="input min-h-28 resize-y" value={botTestMessage} onChange={(event) => setBotTestMessage(event.target.value)} placeholder="vaca B-002 deu 32 litros" />
-              </label>
-              <label className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950/30">
-                <input
-                  className="mt-1"
-                  type="checkbox"
-                  checked={botTestSaveReal}
-                  onChange={(event) => setBotTestSaveReal(event.target.checked)}
-                />
-                <span>
-                  <strong className="block text-amber-900 dark:text-amber-100">Salvar registros reais no sistema</strong>
-                  <span className="mt-1 block text-amber-800 dark:text-amber-100">
-                    Atenção: com esta opção ativada, os testes vão alterar dados reais da fazenda.
-                  </span>
-                </span>
-              </label>
-              <button className="btn btn-primary mt-4 w-full" onClick={simulateBotMessage} type="button" disabled={botTestLoading || !botTestPhone.trim() || !botTestMessage.trim()}>
-                <Bot className="h-4 w-4" /> {botTestLoading ? "Simulando..." : "Simular mensagem"}
-              </button>
-            </div>
-
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-2)]">Resultado</h3>
-              {botTestResult || botTestLoading ? (
-                <div className="mt-4 space-y-4">
-                  {botTestLoading && botTestProcessingNoticeVisible ? (
-                    <div>
-                      <p className="text-xs font-bold uppercase text-[var(--text-2)]">Mensagem intermediária</p>
-                      <p className="mt-1 whitespace-pre-wrap rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">{botProcessingNoticePreview}</p>
-                    </div>
-                  ) : null}
-                  {botTestResult ? (
-                    <>
-                  {botTestResult.erro ? <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{botTestResult.erro}</p> : null}
-                  {botTestResult.respostaTexto ? (
-                    <div>
-                      <p className="text-xs font-bold uppercase text-[var(--text-2)]">Resposta do bot</p>
-                      <p className="mt-1 whitespace-pre-wrap rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">{botTestResult.respostaTexto}</p>
-                    </div>
-                  ) : null}
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="rounded-lg bg-[var(--bg)] p-3">
-                      <p className="text-xs font-bold text-[var(--text-2)]">Intenção</p>
-                      <p className="mt-1 break-words text-sm font-semibold">{botTestResult.intencaoDetectada || "-"}</p>
-                    </div>
-                    <div className="rounded-lg bg-[var(--bg)] p-3">
-                      <p className="text-xs font-bold text-[var(--text-2)]">Confiança</p>
-                      <p className="mt-1 text-sm font-semibold">{botTestResult.confianca === null ? "-" : `${Math.round(botTestResult.confianca * 100)}%`}</p>
-                    </div>
-                    <div className="rounded-lg bg-[var(--bg)] p-3">
-                      <p className="text-xs font-bold text-[var(--text-2)]">Confirmou</p>
-                      <p className="mt-1 text-sm font-semibold">{botTestResult.eventoConfirmado ? "Sim" : "Não"}</p>
-                    </div>
-                    <div className="rounded-lg bg-[var(--bg)] p-3">
-                      <p className="text-xs font-bold text-[var(--text-2)]">Estado anterior</p>
-                      <p className="mt-1 break-words text-sm font-semibold">{botTestResult.estadoAnterior || "-"}</p>
-                    </div>
-                    <div className="rounded-lg bg-[var(--bg)] p-3">
-                      <p className="text-xs font-bold text-[var(--text-2)]">Estado novo</p>
-                      <p className="mt-1 break-words text-sm font-semibold">{botTestResult.estadoNovo || "-"}</p>
-                    </div>
-                    <div className="rounded-lg bg-[var(--bg)] p-3">
-                      <p className="text-xs font-bold text-[var(--text-2)]">Campos faltantes</p>
-                      <p className="mt-1 break-words text-sm font-semibold">{botTestResult.camposFaltantes.length ? botTestResult.camposFaltantes.join(", ") : "-"}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase text-[var(--text-2)]">Dados extraídos</p>
-                    <pre className="mt-1 max-h-44 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">{JSON.stringify(botTestResult.dadosExtraidos || {}, null, 2)}</pre>
-                  </div>
-                    </>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="mt-4 text-sm text-[var(--text-2)]">Nenhuma simulação executada ainda.</p>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-5">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-2)]">Histórico da simulação</h3>
-            <div className="mt-3 space-y-3">
-              {botTestHistory.length ? botTestHistory.map((item) => (
-                <article key={item.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong>{formatBrazilianPhone(item.telefone)}</strong>
-                    <span className="text-xs text-[var(--text-2)]">{new Date(item.horario).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
-                  </div>
-                  <p className="mt-2 text-[var(--text-2)]">Você: {item.mensagem}</p>
-                  <p className="mt-1 whitespace-pre-wrap font-bold text-emerald-700 dark:text-emerald-300">Bot: {item.resposta}</p>
-                </article>
-              )) : (
-                <p className="rounded-lg border border-dashed border-[var(--border)] p-4 text-sm text-[var(--text-2)]">As mensagens simuladas aparecerão aqui nesta sessão.</p>
-              )}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {[
-          { icon: Smartphone, title: "Menu inicial", text: "Opções claras para começar um registro pelo telefone." },
-          { icon: Bot, title: "Fluxo guiado", text: "O atendimento pergunta uma coisa por vez até completar o registro." },
-          { icon: CheckCircle2, title: "Painel atualizado", text: "As informações aparecem nas áreas certas do sistema." }
-        ].map((item) => {
-          const Icon = item.icon;
-          return <div className="border border-[var(--border)] bg-[var(--surface)] card-hover rounded-lg p-5" key={item.title}><Icon className="h-8 w-8 text-emerald-600" /><h3 className="mt-4 text-lg font-semibold">{item.title}</h3><p className="mt-2 text-sm text-[var(--text-2)]">{item.text}</p></div>;
-        })}
-      </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

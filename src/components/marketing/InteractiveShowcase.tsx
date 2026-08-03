@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertTriangle,
   ArrowRight,
   BarChart3,
   Bot,
@@ -9,18 +10,20 @@ import {
   Database,
   Droplets,
   Home,
-  Leaf,
   Loader2,
   MessageCircle,
   Minus,
   PackageOpen,
   PawPrint,
+  Pencil,
   Plus,
   RotateCcw,
+  Scale,
   Search,
   Send,
   Trash2,
   TrendingUp,
+  Users,
   Wallet,
   X
 } from "lucide-react";
@@ -34,34 +37,34 @@ import {
    DEMO DATA
    ═══════════════════════════════════════════════════════ */
 
-type DemoAnimal = { name: string; code: string; category: string; phase: string };
-type DemoTransaction = { id: number; label: string; date: string; value: number; positive: boolean };
-type DemoStock = { name: string; qty: number; unit: string; min: number };
-type DemoProduction = { id: number; animal: string; liters: number; date: string };
+type DemoAnimal = { name: string; code: string; category: string; phase: string; sex?: string; weight?: number; lot?: string };
+type DemoTransaction = { id: number; label: string; date: string; value: number; positive: boolean; category?: string; method?: string };
+type DemoStock = { name: string; qty: number; unit: string; min: number; category?: string; supplier?: string };
+type DemoProduction = { id: number; animal: string; liters: number; date: string; shift?: string; destination?: string };
 type DemoStore = { animals: DemoAnimal[]; transactions: DemoTransaction[]; stock: DemoStock[]; production: DemoProduction[] };
 
 const INITIAL_ANIMALS: DemoAnimal[] = [
-  { name: "Mimosa", code: "B-001", category: "Vaca", phase: "Lactação" },
-  { name: "Branquinha", code: "V-403", category: "Vaca", phase: "Pré-parto" },
-  { name: "Imperador", code: "T-007", category: "Touro", phase: "Reprodução" },
-  { name: "Aurora", code: "C-396", category: "Bezerra", phase: "Crescimento" },
-  { name: "Estrela", code: "B-012", category: "Vaca", phase: "Lactação" },
-  { name: "Luna", code: "N-401", category: "Novilha", phase: "Recria" }
+  { name: "Mimosa", code: "B-001", category: "Vaca", phase: "Lactação", sex: "femea", weight: 480, lot: "Lote A" },
+  { name: "Branquinha", code: "V-403", category: "Vaca", phase: "Pré-parto", sex: "femea", weight: 510, lot: "Lote A" },
+  { name: "Imperador", code: "T-007", category: "Touro", phase: "Reprodução", sex: "macho", weight: 720, lot: "Lote B" },
+  { name: "Aurora", code: "C-396", category: "Bezerra", phase: "Crescimento", sex: "femea", weight: 85, lot: "Lote C" },
+  { name: "Estrela", code: "B-012", category: "Vaca", phase: "Lactação", sex: "femea", weight: 465, lot: "Lote A" },
+  { name: "Luna", code: "N-401", category: "Novilha", phase: "Recria", sex: "femea", weight: 280, lot: "Lote C" }
 ];
 
 const INITIAL_TRANSACTIONS: DemoTransaction[] = [
-  { id: 1, label: "Venda de leite", date: "Hoje", value: 1280, positive: true },
-  { id: 2, label: "Compra de ração", date: "Ontem", value: 960, positive: false },
-  { id: 3, label: "Vacina clostridial", date: "28/07", value: 180, positive: false },
-  { id: 4, label: "Venda de bezerro", date: "25/07", value: 3200, positive: true },
-  { id: 5, label: "Sal mineral", date: "22/07", value: 240, positive: false }
+  { id: 1, label: "Venda de leite", date: "Hoje", value: 1280, positive: true, category: "Venda de leite", method: "Pix" },
+  { id: 2, label: "Compra de ração", date: "Ontem", value: 960, positive: false, category: "Alimentação", method: "Boleto" },
+  { id: 3, label: "Vacina clostridial", date: "28/07", value: 180, positive: false, category: "Medicamento", method: "Cartão" },
+  { id: 4, label: "Venda de bezerro", date: "25/07", value: 3200, positive: true, category: "Venda de animal", method: "Pix" },
+  { id: 5, label: "Sal mineral", date: "22/07", value: 240, positive: false, category: "Alimentação", method: "Dinheiro" }
 ];
 
 const INITIAL_STOCK: DemoStock[] = [
-  { name: "Ração bovina", qty: 45, unit: "sacos", min: 10 },
-  { name: "Sal mineral", qty: 12, unit: "pacotes", min: 5 },
-  { name: "Vacina clostridial", qty: 8, unit: "doses", min: 3 },
-  { name: "Vermífugo", qty: 15, unit: "doses", min: 5 }
+  { name: "Ração bovina", qty: 45, unit: "sacos", min: 10, category: "Ração", supplier: "Agro Sul" },
+  { name: "Sal mineral", qty: 12, unit: "pacotes", min: 5, category: "Ração", supplier: "Nutrimais" },
+  { name: "Vacina clostridial", qty: 8, unit: "doses", min: 3, category: "Medicamento", supplier: "Vetbrás" },
+  { name: "Vermífugo", qty: 15, unit: "doses", min: 5, category: "Medicamento", supplier: "Vetbrás" }
 ];
 
 const PRODUCTION_DATA = [
@@ -451,30 +454,68 @@ function MetricCard({ label, value, badge, tone = "green" }: { label: string; va
 
 /* ── Dashboard ── */
 
+function StatCard({ icon: Icon, label, value, color, suffix }: { icon: typeof PawPrint; label: string; value: string; color: "green" | "blue" | "red" | "slate"; suffix?: string }) {
+  const colors = { green: "text-emerald-600", blue: "text-blue-600", red: "text-red-600", slate: "text-slate-600" };
+  return (
+    <div className="rounded-lg border border-[#E2E4EA] bg-white p-3">
+      <Icon className={`h-4 w-4 ${colors[color]}`} />
+      <p className="mt-2 text-[10px] font-medium text-[#9CA3AF]">{label}</p>
+      <p className="mt-0.5 text-base font-bold tabular-nums text-[#111318] sm:text-lg">{value}{suffix ? <span className="text-[11px] font-normal text-[#9CA3AF]"> {suffix}</span> : null}</p>
+    </div>
+  );
+}
+
 function DashboardView({ animalCount, totalIncome, totalExpense, stock, production }: { animalCount: number; totalIncome: number; totalExpense: number; stock: DemoStock[]; production: DemoProduction[] }) {
   const balance = totalIncome - totalExpense;
   const totalProduction = production.reduce((sum, item) => sum + item.liters, 0);
+  const criticalStock = stock.filter((s) => s.qty <= s.min * 1.5);
+  function fmt(v: number) { return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}`; }
+
+  const animalRanking = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of production) map[p.animal] = (map[p.animal] || 0) + p.liters;
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [production]);
+  const maxLiters = animalRanking.length ? Math.max(...animalRanking.map(([, v]) => v)) : 1;
+
   return (
     <div className="space-y-3 p-3 sm:p-4">
-      <div className="rounded-lg bg-[#0f1a14] p-4 text-white">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-300">Resumo da fazenda</p>
-            <h3 className="mt-1.5 text-base font-semibold sm:text-lg">Tudo em um só lugar.</h3>
-          </div>
-          <TrendingUp className="h-4 w-4 shrink-0 text-emerald-300" />
+      {/* Summary strip */}
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#E2E4EA] bg-white px-4 py-3 text-[11px]">
+        <div className="min-w-0">
+          <p className="text-[9px] text-[#9CA3AF]">Resultado do mês</p>
+          <p className={`font-bold tabular-nums ${balance >= 0 ? "text-emerald-700" : "text-red-600"}`}>{fmt(balance)}</p>
+        </div>
+        <span className="hidden h-6 w-px bg-[#E2E4EA] sm:block" />
+        <div className="min-w-0">
+          <p className="text-[9px] text-[#9CA3AF]">Entradas</p>
+          <p className="font-bold tabular-nums text-[#111318]">{fmt(totalIncome)}</p>
+        </div>
+        <span className="hidden h-6 w-px bg-[#E2E4EA] sm:block" />
+        <div className="min-w-0">
+          <p className="text-[9px] text-[#9CA3AF]">Saídas</p>
+          <p className="font-bold tabular-nums text-[#111318]">{fmt(totalExpense)}</p>
+        </div>
+        <span className="hidden h-6 w-px bg-[#E2E4EA] sm:block" />
+        <div className="min-w-0">
+          <p className="text-[9px] text-[#9CA3AF]">Produção hoje</p>
+          <p className="font-bold tabular-nums text-[#111318]">{totalProduction} L</p>
         </div>
       </div>
+
+      {/* Stat cards */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <MetricCard label="Animais ativos" value={String(animalCount)} badge={`${animalCount} cadastrados`} />
-        <MetricCard label="Produção hoje" value={`${totalProduction} L`} badge="Atualizado" tone="blue" />
-        <MetricCard label="Saldo do mês" value={`R$ ${(balance / 1000).toFixed(1).replace(".", ",")}k`} badge="Atualizado" tone="green" />
-        <MetricCard label="Itens baixos" value={String(stock.filter((s) => s.qty <= s.min * 2).length)} badge="Ver estoque" tone="amber" />
+        <StatCard icon={PawPrint} label="Animais ativos" value={String(animalCount)} color="green" />
+        <StatCard icon={Droplets} label="Produção diária" value={String(totalProduction)} color="blue" suffix="L" />
+        <StatCard icon={PackageOpen} label="Estoque crítico" value={String(criticalStock.length)} color={criticalStock.length ? "red" : "green"} />
+        <StatCard icon={Users} label="Funcionários" value="3" color="slate" />
       </div>
-      <div className="grid gap-3 sm:grid-cols-[1.3fr_0.7fr]">
+
+      {/* Charts */}
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-[#E2E4EA] bg-white p-3">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-[#111318]">Produção — últimos 7 dias</p>
+            <p className="text-[11px] font-bold text-[#111318]">Produção por dia</p>
             <Droplets className="h-3.5 w-3.5 text-blue-500" />
           </div>
           <div className="mt-4 flex h-20 items-end gap-1.5">
@@ -486,25 +527,80 @@ function DashboardView({ animalCount, totalIncome, totalExpense, stock, producti
             ))}
           </div>
         </div>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p className="text-[11px] font-bold text-amber-900">Atenção</p>
-          <p className="mt-1.5 text-[10px] leading-relaxed text-amber-800">{stock.filter((s) => s.qty <= s.min * 2).length} itens do estoque estão próximos do mínimo.</p>
-          <button type="button" className="mt-3 inline-flex items-center gap-1 text-[10px] font-bold text-amber-900">Ver estoque <ChevronRight className="h-3 w-3" /></button>
+        <div className="rounded-lg border border-[#E2E4EA] bg-white p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold text-[#111318]">Top produção por animal</p>
+            <BarChart3 className="h-3.5 w-3.5 text-emerald-500" />
+          </div>
+          <div className="mt-3 space-y-2">
+            {animalRanking.map(([name, liters]) => (
+              <div key={name} className="flex items-center gap-2">
+                <span className="w-24 truncate text-[9px] text-[#5F6577]">{name}</span>
+                <div className="h-3 flex-1 overflow-hidden rounded-full bg-[#F3F4F6]">
+                  <div className="h-full rounded-full bg-emerald-400" style={{ width: `${(liters / maxLiters) * 100}%` }} />
+                </div>
+                <span className="w-8 text-right text-[9px] font-bold tabular-nums text-[#111318]">{liters}L</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Stock alerts */}
+      {criticalStock.length > 0 ? (
+        <div className="rounded-lg border border-[#E2E4EA] bg-white p-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+            <p className="text-[11px] font-bold text-[#111318]">Estoque crítico</p>
+          </div>
+          <div className="mt-2 space-y-1.5">
+            {criticalStock.map((item) => {
+              const pct = item.min > 0 ? item.qty / item.min : 1;
+              return (
+                <div key={item.name} className="flex items-center gap-2 text-[10px]">
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${pct <= 0.5 ? "bg-red-500" : "bg-amber-500"}`} />
+                  <span className="flex-1 text-[#5F6577]">{item.name}</span>
+                  <span className="font-bold tabular-nums text-[#111318]">{item.qty} / {item.min} {item.unit}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 /* ── Rebanho ── */
 
+const PHASE_COLORS: Record<string, string> = {
+  "Lactação": "bg-blue-100 text-blue-800",
+  "Gestante": "bg-purple-100 text-purple-800",
+  "Pré-parto": "bg-purple-100 text-purple-800",
+  "Vazia": "bg-amber-100 text-amber-800",
+  "Seca": "bg-gray-100 text-gray-700",
+  "Reprodução": "bg-blue-100 text-blue-800",
+  "Crescimento": "bg-emerald-100 text-emerald-800",
+  "Recria": "bg-emerald-100 text-emerald-800",
+  "Engorda": "bg-amber-100 text-amber-800"
+};
+
 function RebanhoView({ animals, onAdd, onRemove }: { animals: DemoAnimal[]; onAdd: (a: DemoAnimal) => void; onRemove: (code: string) => void }) {
   const [filter, setFilter] = useState("Todos");
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", code: "", category: "Vaca", phase: "Crescimento" });
+  const [form, setForm] = useState({ name: "", code: "", category: "Vaca", sex: "femea" });
   const [justAdded, setJustAdded] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
-  const filtered = filter === "Todos" ? animals : animals.filter((a) => a.category === filter);
+  const filtered = useMemo(() => {
+    let list = filter === "Todos" ? animals : animals.filter((a) => a.category === filter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((a) => a.name.toLowerCase().includes(q) || a.code.toLowerCase().includes(q));
+    }
+    return list;
+  }, [animals, filter, search]);
+
   const counts = useMemo(() => {
     const map: Record<string, number> = { Todos: animals.length };
     for (const a of animals) map[a.category] = (map[a.category] || 0) + 1;
@@ -513,9 +609,9 @@ function RebanhoView({ animals, onAdd, onRemove }: { animals: DemoAnimal[]; onAd
 
   function handleAdd() {
     if (!form.name.trim() || !form.code.trim()) return;
-    onAdd({ ...form, name: form.name.trim(), code: form.code.trim() });
+    onAdd({ name: form.name.trim(), code: form.code.trim(), category: form.category, phase: "Crescimento", sex: form.sex, weight: 0, lot: "Sem lote" });
     setJustAdded(form.code.trim());
-    setForm({ name: "", code: "", category: "Vaca", phase: "Crescimento" });
+    setForm({ name: "", code: "", category: "Vaca", sex: "femea" });
     setAdding(false);
     setTimeout(() => setJustAdded(null), 2000);
   }
@@ -524,85 +620,88 @@ function RebanhoView({ animals, onAdd, onRemove }: { animals: DemoAnimal[]; onAd
     <div className="p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-[#111318]">Rebanho</p>
-          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">{animals.length} animais ativos cadastrados</p>
+          <h2 className="text-sm font-bold text-[#111318]">Gestão de Rebanho</h2>
+          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">Animais, lotes, fases e ficha individual.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setAdding(!adding)}
-          className="inline-flex items-center gap-1 rounded-md bg-[#16803C] px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-emerald-600"
-        >
+        <button type="button" onClick={() => setAdding(!adding)} className="inline-flex items-center gap-1 rounded-md bg-[#16803C] px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-emerald-600">
           {adding ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
           {adding ? "Cancelar" : "Adicionar"}
         </button>
+      </div>
+
+      {/* Stat cards */}
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <StatCard icon={PawPrint} label="Animais" value={String(animals.length)} color="green" />
+        <StatCard icon={PawPrint} label="Ativos" value={String(animals.length)} color="green" />
+        <StatCard icon={Scale} label="Peso médio" value={animals.length ? `${Math.round(animals.reduce((s, a) => s + (a.weight || 0), 0) / animals.length)}` : "0"} color="blue" suffix="kg" />
       </div>
 
       {/* Add form */}
       {adding ? (
         <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
           <p className="mb-2 text-[10px] font-semibold text-emerald-800">Novo animal</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
-            <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Código (ex: B-050)" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Brinco (ex: B-050)" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
             <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none">
               {CATEGORIES.slice(1).map((c) => <option key={c}>{c}</option>)}
             </select>
-            <button type="button" onClick={handleAdd} disabled={!form.name.trim() || !form.code.trim()} className="rounded-md bg-[#16803C] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50">
-              Salvar
-            </button>
+            <select value={form.sex} onChange={(e) => setForm({ ...form, sex: e.target.value })} className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none">
+              <option value="femea">Fêmea</option><option value="macho">Macho</option>
+            </select>
+            <button type="button" onClick={handleAdd} disabled={!form.name.trim() || !form.code.trim()} className="rounded-md bg-[#16803C] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50">Salvar</button>
           </div>
         </div>
       ) : null}
 
-      {/* Filter pills */}
-      <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
-        {CATEGORIES.filter((c) => c === "Todos" || (counts[c] || 0) > 0).map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            onClick={() => setFilter(cat)}
-            className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold transition ${
-              filter === cat ? "bg-emerald-100 text-emerald-800" : "bg-[#F3F4F6] text-[#9CA3AF] hover:text-[#5F6577]"
-            }`}
-          >
-            {cat} · {counts[cat] || 0}
-          </button>
-        ))}
+      {/* Search + filter bar */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-[#9CA3AF]" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar animal..." className="w-full rounded-md border border-[#E2E4EA] bg-white py-1.5 pl-7 pr-2 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+        </div>
+        <div className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
+          {CATEGORIES.filter((c) => c === "Todos" || (counts[c] || 0) > 0).map((cat) => (
+            <button key={cat} type="button" onClick={() => setFilter(cat)} className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold transition ${filter === cat ? "bg-emerald-100 text-emerald-800" : "bg-[#F3F4F6] text-[#9CA3AF] hover:text-[#5F6577]"}`}>
+              {cat} {counts[cat] ? `· ${counts[cat]}` : ""}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="mt-3 overflow-hidden rounded-lg border border-[#E2E4EA]">
-        <div className="grid grid-cols-[1.3fr_0.7fr_0.7fr_auto] gap-2 bg-[#F3F4F6] px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-[#9CA3AF]">
-          <span>Animal</span><span>Categoria</span><span>Fase</span><span />
-        </div>
+      {/* Card grid */}
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {filtered.length === 0 ? (
-          <div className="px-3 py-6 text-center text-[11px] text-[#9CA3AF]">Nenhum animal nesta categoria.</div>
-        ) : filtered.map((animal) => (
-          <div
-            key={animal.code}
-            className={`grid grid-cols-[1.3fr_0.7fr_0.7fr_auto] items-center gap-2 border-t border-[#E2E4EA] px-3 py-2 text-[10px] text-[#5F6577] transition-colors ${
-              justAdded === animal.code ? "bg-emerald-50" : ""
-            }`}
-          >
-            <div>
-              <p className="font-semibold text-[#111318]">{animal.name}</p>
-              <p className="text-[9px] text-[#9CA3AF]">{animal.code}</p>
+          <div className="col-span-2 rounded-lg border border-dashed border-[#E2E4EA] px-3 py-6 text-center text-[11px] text-[#9CA3AF]">Nenhum animal encontrado.</div>
+        ) : filtered.map((animal) => {
+          const sexColor = animal.sex === "macho" ? "bg-blue-500" : animal.sex === "femea" ? "bg-pink-400" : "bg-gray-400";
+          const phaseClass = PHASE_COLORS[animal.phase] || "bg-gray-100 text-gray-700";
+          return (
+            <div key={animal.code} className={`relative flex overflow-hidden rounded-lg border bg-white transition-colors ${justAdded === animal.code ? "border-emerald-300 bg-emerald-50" : "border-[#E2E4EA]"}`}>
+              <div className={`w-1 shrink-0 ${sexColor}`} />
+              <div className="flex flex-1 items-start justify-between gap-2 p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-[12px] font-bold text-[#111318]">{animal.name || animal.code}</p>
+                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[8px] font-semibold ${phaseClass}`}>{animal.phase}</span>
+                  </div>
+                  <p className="mt-0.5 text-[9px] text-[#9CA3AF]">{animal.code} · {animal.category}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-2 text-[9px] text-[#5F6577]">
+                    <span>{animal.lot}</span>
+                    <span className={`rounded px-1 py-0.5 text-[8px] font-semibold ${animal.sex === "macho" ? "bg-blue-50 text-blue-700" : "bg-pink-50 text-pink-700"}`}>
+                      {animal.sex === "macho" ? "Macho" : "Fêmea"}
+                    </span>
+                    {(animal.weight || 0) > 0 ? <span>{animal.weight} kg</span> : null}
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <button type="button" className="rounded p-1 text-[#9CA3AF] transition hover:bg-[#F3F4F6] hover:text-[#111318]" aria-label="Editar"><Pencil className="h-3 w-3" /></button>
+                  <button type="button" onClick={() => onRemove(animal.code)} className="rounded p-1 text-[#9CA3AF] transition hover:bg-red-50 hover:text-red-500" aria-label="Remover"><Trash2 className="h-3 w-3" /></button>
+                </div>
+              </div>
             </div>
-            <span>{animal.category}</span>
-            <span className="flex items-center gap-1">
-              <i className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              {animal.phase}
-            </span>
-            <button
-              type="button"
-              onClick={() => onRemove(animal.code)}
-              className="rounded p-1 text-[#9CA3AF] transition hover:bg-red-50 hover:text-red-500"
-              aria-label={`Remover ${animal.name}`}
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -612,17 +711,16 @@ function RebanhoView({ animals, onAdd, onRemove }: { animals: DemoAnimal[]; onAd
 
 function FinanceiroView({ transactions, onAdd, onRemove }: { transactions: DemoTransaction[]; onAdd: (t: DemoTransaction) => void; onRemove: (id: number) => void }) {
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ label: "", value: "", positive: true });
+  const [form, setForm] = useState({ label: "", value: "", positive: true, category: "Venda de leite" });
 
   const income = transactions.filter((t) => t.positive).reduce((sum, t) => sum + t.value, 0);
   const expense = transactions.filter((t) => !t.positive).reduce((sum, t) => sum + t.value, 0);
-  const balance = income - expense;
 
   function handleAdd() {
     const value = parseFloat(form.value.replace(",", "."));
     if (!form.label.trim() || isNaN(value) || value <= 0) return;
-    onAdd({ id: Date.now(), label: form.label.trim(), date: "Agora", value, positive: form.positive });
-    setForm({ label: "", value: "", positive: true });
+    onAdd({ id: Date.now(), label: form.label.trim(), date: "Agora", value, positive: form.positive, category: form.category, method: "Pix" });
+    setForm({ label: "", value: "", positive: true, category: "Venda de leite" });
     setAdding(false);
   }
 
@@ -632,115 +730,62 @@ function FinanceiroView({ transactions, onAdd, onRemove }: { transactions: DemoT
     <div className="space-y-3 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-[#111318]">Financeiro</p>
-          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">Receitas, despesas e resultado do período.</p>
+          <h2 className="text-sm font-bold text-[#111318]">Financeiro</h2>
+          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">Entradas, saídas, categorias e fluxo de caixa da fazenda.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setAdding(!adding)}
-          className="inline-flex items-center gap-1 rounded-md bg-[#16803C] px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-emerald-600"
-        >
+        <button type="button" onClick={() => setAdding(!adding)} className="inline-flex items-center gap-1 rounded-md bg-[#16803C] px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-emerald-600">
           {adding ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
           {adding ? "Cancelar" : "Nova transação"}
         </button>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-2">
+        <StatCard icon={TrendingUp} label="Entradas" value={fmt(income)} color="green" />
+        <StatCard icon={Wallet} label="Saídas" value={fmt(expense)} color="red" />
       </div>
 
       {/* Add form */}
       {adding ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
           <p className="mb-2 text-[10px] font-semibold text-emerald-800">Nova transação</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Descrição" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
-            <input value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder="Valor (ex: 500)" type="text" inputMode="decimal" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             <div className="flex gap-1">
-              <button type="button" onClick={() => setForm({ ...form, positive: true })} className={`flex-1 rounded-md px-2 py-1.5 text-[10px] font-semibold transition ${form.positive ? "bg-emerald-600 text-white" : "border border-emerald-200 bg-white text-[#5F6577]"}`}>Receita</button>
-              <button type="button" onClick={() => setForm({ ...form, positive: false })} className={`flex-1 rounded-md px-2 py-1.5 text-[10px] font-semibold transition ${!form.positive ? "bg-red-500 text-white" : "border border-emerald-200 bg-white text-[#5F6577]"}`}>Despesa</button>
+              <button type="button" onClick={() => setForm({ ...form, positive: true })} className={`flex-1 rounded-md px-2 py-1.5 text-[10px] font-semibold transition ${form.positive ? "bg-emerald-600 text-white" : "border border-emerald-200 bg-white text-[#5F6577]"}`}>Entrada</button>
+              <button type="button" onClick={() => setForm({ ...form, positive: false })} className={`flex-1 rounded-md px-2 py-1.5 text-[10px] font-semibold transition ${!form.positive ? "bg-red-500 text-white" : "border border-emerald-200 bg-white text-[#5F6577]"}`}>Saída</button>
             </div>
-            <button type="button" onClick={handleAdd} disabled={!form.label.trim() || !form.value.trim()} className="rounded-md bg-[#16803C] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50">
-              Salvar
-            </button>
+            <input value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder="Valor" type="text" inputMode="decimal" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Categoria" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Descrição" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <button type="button" onClick={handleAdd} disabled={!form.label.trim() || !form.value.trim()} className="rounded-md bg-[#16803C] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50">Salvar</button>
           </div>
         </div>
       ) : null}
 
-      {/* Metrics */}
-      <div className="grid grid-cols-3 gap-2">
-        <MetricCard label="Entradas" value={fmt(income)} badge={`${transactions.filter((t) => t.positive).length} registros`} />
-        <MetricCard label="Saídas" value={fmt(expense)} badge={`${transactions.filter((t) => !t.positive).length} registros`} tone="amber" />
-        <MetricCard label="Resultado" value={fmt(balance)} badge={balance >= 0 ? "Positivo" : "Negativo"} tone={balance >= 0 ? "blue" : "red"} />
-      </div>
-
-      {/* Transaction list */}
-      <div className="rounded-lg border border-[#E2E4EA] bg-white p-3">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold text-[#111318]">Movimentações recentes</p>
-          <BarChart3 className="h-3.5 w-3.5 text-[#9CA3AF]" />
+      {/* Table */}
+      <div className="overflow-hidden rounded-lg border border-[#E2E4EA] bg-white">
+        <div className="hidden grid-cols-[auto_0.6fr_0.8fr_0.9fr_0.6fr_auto] items-center gap-2 bg-[#F3F4F6] px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-[#9CA3AF] sm:grid">
+          <span>Tipo</span><span>Data</span><span>Valor</span><span>Categoria</span><span>Pagamento</span><span />
         </div>
-        <div className="mt-2 divide-y divide-[#E2E4EA]">
-          {transactions.map((t) => (
-            <div key={t.id} className="flex items-center justify-between gap-2 py-2 text-[10px]">
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-[#111318]">{t.label}</p>
-                <p className="text-[9px] text-[#9CA3AF]">{t.date}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`font-bold tabular-nums ${t.positive ? "text-emerald-700" : "text-[#111318]"}`}>
-                  {t.positive ? "+" : "-"}R$ {t.value.toLocaleString("pt-BR")}
-                </span>
-                <button type="button" onClick={() => onRemove(t.id)} className="rounded p-0.5 text-[#9CA3AF] transition hover:text-red-500" aria-label="Remover">
-                  <Minus className="h-3 w-3" />
-                </button>
-              </div>
+        {transactions.map((t) => (
+          <div key={t.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-t border-[#E2E4EA] px-3 py-2.5 text-[10px] sm:grid-cols-[auto_0.6fr_0.8fr_0.9fr_0.6fr_auto]">
+            <span className={`hidden rounded px-1.5 py-0.5 text-[8px] font-bold sm:inline-flex ${t.positive ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"}`}>
+              {t.positive ? "Entrada" : "Saída"}
+            </span>
+            <span className="hidden text-[#9CA3AF] sm:inline">{t.date}</span>
+            <div className="min-w-0 sm:hidden">
+              <p className="truncate font-semibold text-[#111318]">{t.label}</p>
+              <p className="text-[9px] text-[#9CA3AF]">{t.date} · {t.category}</p>
             </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Estoque ── */
-
-function ProductionView({ production, onAdd }: { production: DemoProduction[]; onAdd: (item: DemoProduction) => void }) {
-  const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ animal: "", liters: "" });
-  const total = production.reduce((sum, item) => sum + item.liters, 0);
-
-  function handleAdd() {
-    const liters = Number(form.liters.replace(",", "."));
-    if (!form.animal.trim() || !Number.isFinite(liters) || liters <= 0) return;
-    onAdd({ id: Date.now(), animal: form.animal.trim(), liters, date: "Agora" });
-    setForm({ animal: "", liters: "" });
-    setAdding(false);
-  }
-
-  return (
-    <div className="p-3 sm:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-bold text-[#111318]">Produção de leite</p>
-          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">{production.length} registros · {total.toLocaleString("pt-BR")} litros</p>
-        </div>
-        <button type="button" onClick={() => setAdding(!adding)} className="inline-flex items-center gap-1 rounded-md bg-[#16803C] px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-emerald-600">
-          {adding ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-          {adding ? "Cancelar" : "Registrar"}
-        </button>
-      </div>
-      {adding ? (
-        <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-          <p className="mb-2 text-[10px] font-semibold text-emerald-800">Novo registro</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <input value={form.animal} onChange={(e) => setForm({ ...form, animal: e.target.value })} placeholder="Animal ou código" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
-            <input value={form.liters} onChange={(e) => setForm({ ...form, liters: e.target.value })} placeholder="Litros" inputMode="decimal" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
-            <button type="button" onClick={handleAdd} disabled={!form.animal.trim() || !form.liters.trim()} className="rounded-md bg-[#16803C] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50">Salvar</button>
-          </div>
-        </div>
-      ) : null}
-      <div className="mt-3 overflow-hidden rounded-lg border border-[#E2E4EA] bg-white">
-        {production.map((item) => (
-          <div key={item.id} className="flex items-center justify-between border-b border-[#E2E4EA] px-3 py-2.5 last:border-0">
-            <div><p className="text-[11px] font-semibold text-[#111318]">{item.animal}</p><p className="text-[9px] text-[#9CA3AF]">{item.date}</p></div>
-            <span className="text-[12px] font-bold tabular-nums text-blue-700">{item.liters.toLocaleString("pt-BR")} L</span>
+            <span className={`font-bold tabular-nums ${t.positive ? "text-emerald-700" : "text-[#111318]"}`}>
+              {t.positive ? "+" : "-"}R$ {t.value.toLocaleString("pt-BR")}
+            </span>
+            <span className="hidden truncate text-[#5F6577] sm:inline">{t.category}</span>
+            <span className="hidden text-[#9CA3AF] sm:inline">{t.method}</span>
+            <div className="flex gap-1">
+              <button type="button" className="rounded p-1 text-[#9CA3AF] transition hover:bg-[#F3F4F6]" aria-label="Editar"><Pencil className="h-3 w-3" /></button>
+              <button type="button" onClick={() => onRemove(t.id)} className="rounded p-1 text-[#9CA3AF] transition hover:bg-red-50 hover:text-red-500" aria-label="Remover"><Trash2 className="h-3 w-3" /></button>
+            </div>
           </div>
         ))}
       </div>
@@ -748,24 +793,104 @@ function ProductionView({ production, onAdd }: { production: DemoProduction[]; o
   );
 }
 
-function EstoqueView({ stock, onAdd }: { stock: DemoStock[]; onAdd: (item: DemoStock) => void }) {
+/* ── Produção ── */
+
+function ProductionView({ production, onAdd }: { production: DemoProduction[]; onAdd: (item: DemoProduction) => void }) {
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", qty: "", unit: "sacos" });
+  const [form, setForm] = useState({ animal: "", liters: "", shift: "manhã", destination: "tanque" });
+  const total = production.reduce((sum, item) => sum + item.liters, 0);
+  const avg = production.length ? (total / production.length).toFixed(1) : "0";
 
   function handleAdd() {
-    const qty = parseInt(form.qty, 10);
-    if (!form.name.trim() || isNaN(qty) || qty <= 0) return;
-    onAdd({ name: form.name.trim(), qty, unit: form.unit, min: Math.floor(qty * 0.2) });
-    setForm({ name: "", qty: "", unit: "sacos" });
+    const liters = Number(form.liters.replace(",", "."));
+    if (!form.animal.trim() || !Number.isFinite(liters) || liters <= 0) return;
+    onAdd({ id: Date.now(), animal: form.animal.trim(), liters, date: "Agora", shift: form.shift, destination: form.destination });
+    setForm({ animal: "", liters: "", shift: "manhã", destination: "tanque" });
     setAdding(false);
   }
 
   return (
-    <div className="p-3 sm:p-4">
+    <div className="space-y-3 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-[#111318]">Estoque</p>
-          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">{stock.length} itens cadastrados</p>
+          <h2 className="text-sm font-bold text-[#111318]">Produção Leiteira</h2>
+          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">Ordenhas por animal, turnos, destino do leite e origem do registro.</p>
+        </div>
+        <button type="button" onClick={() => setAdding(!adding)} className="inline-flex items-center gap-1 rounded-md bg-[#16803C] px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-emerald-600">
+          {adding ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+          {adding ? "Cancelar" : "Registrar"}
+        </button>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-3 gap-2">
+        <StatCard icon={BarChart3} label="Registros" value={String(production.length)} color="green" />
+        <StatCard icon={Droplets} label="Total" value={String(total)} color="blue" suffix="L" />
+        <StatCard icon={Droplets} label="Média" value={avg} color="blue" suffix="L" />
+      </div>
+
+      {/* Add form */}
+      {adding ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+          <p className="mb-2 text-[10px] font-semibold text-emerald-800">Novo registro</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <input value={form.animal} onChange={(e) => setForm({ ...form, animal: e.target.value })} placeholder="Animal ou brinco" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <input value={form.liters} onChange={(e) => setForm({ ...form, liters: e.target.value })} placeholder="Litros" inputMode="decimal" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <select value={form.shift} onChange={(e) => setForm({ ...form, shift: e.target.value })} className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none">
+              <option value="manhã">Manhã</option><option value="tarde">Tarde</option><option value="noite">Noite</option>
+            </select>
+            <select value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none">
+              <option value="tanque">Tanque</option><option value="venda">Venda</option><option value="consumo">Consumo</option><option value="descarte">Descarte</option>
+            </select>
+            <button type="button" onClick={handleAdd} disabled={!form.animal.trim() || !form.liters.trim()} className="rounded-md bg-[#16803C] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50">Salvar</button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Table */}
+      <div className="overflow-hidden rounded-lg border border-[#E2E4EA] bg-white">
+        <div className="hidden grid-cols-[1fr_0.5fr_0.5fr_0.6fr_0.5fr] items-center gap-2 bg-[#F3F4F6] px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-[#9CA3AF] sm:grid">
+          <span>Animal</span><span>Litros</span><span>Turno</span><span>Data</span><span>Destino</span>
+        </div>
+        {production.map((item) => (
+          <div key={item.id} className="grid grid-cols-[1fr_auto] items-center gap-2 border-t border-[#E2E4EA] px-3 py-2.5 text-[10px] sm:grid-cols-[1fr_0.5fr_0.5fr_0.6fr_0.5fr]">
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-[#111318]">{item.animal}</p>
+              <p className="text-[9px] text-[#9CA3AF] sm:hidden">{item.date} · {item.shift} · {item.destination}</p>
+            </div>
+            <span className="font-bold tabular-nums text-blue-700">{item.liters.toLocaleString("pt-BR")} L</span>
+            <span className="hidden capitalize text-[#5F6577] sm:inline">{item.shift}</span>
+            <span className="hidden text-[#9CA3AF] sm:inline">{item.date}</span>
+            <span className="hidden capitalize text-[#5F6577] sm:inline">{item.destination}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Estoque ── */
+
+function EstoqueView({ stock, onAdd, onUpdateQty }: { stock: DemoStock[]; onAdd: (item: DemoStock) => void; onUpdateQty: (name: string, delta: number) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ name: "", qty: "", unit: "sacos", category: "Ração" });
+  const criticalCount = stock.filter((s) => s.qty <= s.min * 1.5).length;
+  const estimatedValue = stock.reduce((sum, s) => sum + s.qty * 25, 0);
+
+  function handleAdd() {
+    const qty = parseInt(form.qty, 10);
+    if (!form.name.trim() || isNaN(qty) || qty <= 0) return;
+    onAdd({ name: form.name.trim(), qty, unit: form.unit, min: Math.floor(qty * 0.2), category: form.category, supplier: "" });
+    setForm({ name: "", qty: "", unit: "sacos", category: "Ração" });
+    setAdding(false);
+  }
+
+  return (
+    <div className="space-y-3 p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold text-[#111318]">Gestão de Estoque</h2>
+          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">Entradas, baixas e saldo de insumos da fazenda.</p>
         </div>
         <button type="button" onClick={() => setAdding(!adding)} className="inline-flex items-center gap-1 rounded-md bg-[#16803C] px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-emerald-600">
           {adding ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
@@ -773,11 +898,22 @@ function EstoqueView({ stock, onAdd }: { stock: DemoStock[]; onAdd: (item: DemoS
         </button>
       </div>
 
+      {/* Stat cards */}
+      <div className="grid grid-cols-3 gap-2">
+        <StatCard icon={PackageOpen} label="Itens cadastrados" value={String(stock.length)} color="green" />
+        <StatCard icon={AlertTriangle} label="Estoque crítico" value={String(criticalCount)} color={criticalCount ? "red" : "green"} />
+        <StatCard icon={Scale} label="Valor estimado" value={`R$ ${estimatedValue.toLocaleString("pt-BR")}`} color="blue" />
+      </div>
+
+      {/* Add form */}
       {adding ? (
-        <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
           <p className="mb-2 text-[10px] font-semibold text-emerald-800">Novo item de estoque</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome do item" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Produto/insumo" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none">
+              <option>Ração</option><option>Medicamento</option><option>Insumo</option><option>Equipamento</option>
+            </select>
             <input value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} placeholder="Quantidade" type="text" inputMode="numeric" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
             <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none">
               <option>sacos</option><option>pacotes</option><option>doses</option><option>litros</option><option>kg</option>
@@ -787,17 +923,40 @@ function EstoqueView({ stock, onAdd }: { stock: DemoStock[]; onAdd: (item: DemoS
         </div>
       ) : null}
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      {/* Stock cards */}
+      <div className="grid gap-2 sm:grid-cols-2">
         {stock.map((item) => {
           const low = item.qty <= item.min * 1.5;
           return (
             <div key={item.name} className={`rounded-lg border p-3 ${low ? "border-amber-200 bg-amber-50" : "border-[#E2E4EA] bg-white"}`}>
               <div className="flex items-center justify-between">
-                <p className={`text-[11px] font-bold ${low ? "text-amber-900" : "text-[#111318]"}`}>{item.name}</p>
-                {low ? <span className="rounded px-1.5 py-0.5 text-[8px] font-semibold bg-amber-200 text-amber-900">Baixo</span> : null}
+                <div className="flex items-center gap-2">
+                  <p className={`text-[11px] font-bold ${low ? "text-amber-900" : "text-[#111318]"}`}>{item.name}</p>
+                  <span className={`rounded px-1.5 py-0.5 text-[8px] font-semibold ${low ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
+                    {low ? "Atenção" : "Ok"}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  <button type="button" className="rounded p-1 text-[#9CA3AF] transition hover:bg-[#F3F4F6]" aria-label="Editar"><Pencil className="h-3 w-3" /></button>
+                  <button type="button" className="rounded p-1 text-[#9CA3AF] transition hover:bg-red-50 hover:text-red-500" aria-label="Excluir"><Trash2 className="h-3 w-3" /></button>
+                </div>
               </div>
-              <p className="mt-1 text-lg font-bold tabular-nums text-[#111318]">{item.qty} <span className="text-[11px] font-normal text-[#9CA3AF]">{item.unit}</span></p>
-              <p className="mt-0.5 text-[9px] text-[#9CA3AF]">Mínimo: {item.min} {item.unit}</p>
+              <p className="mt-0.5 text-[9px] text-[#9CA3AF]">{item.category}{item.supplier ? ` · ${item.supplier}` : ""}</p>
+              <div className="mt-2 flex items-end justify-between">
+                <div>
+                  <p className="text-[9px] text-[#9CA3AF]">Saldo atual</p>
+                  <p className="text-lg font-bold tabular-nums text-[#111318]">{item.qty} <span className="text-[11px] font-normal text-[#9CA3AF]">{item.unit}</span></p>
+                  <p className="text-[9px] text-[#9CA3AF]">Mínimo: {item.min} {item.unit}</p>
+                </div>
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => onUpdateQty(item.name, 5)} className="rounded-md bg-emerald-100 px-2 py-1 text-[9px] font-semibold text-emerald-800 transition hover:bg-emerald-200">
+                    <Plus className="mr-0.5 inline h-2.5 w-2.5" />Adicionar
+                  </button>
+                  <button type="button" onClick={() => onUpdateQty(item.name, -1)} className="rounded-md bg-red-100 px-2 py-1 text-[9px] font-semibold text-red-800 transition hover:bg-red-200">
+                    <Minus className="mr-0.5 inline h-2.5 w-2.5" />Remover
+                  </button>
+                </div>
+              </div>
             </div>
           );
         })}
@@ -829,6 +988,9 @@ export function InteractiveProductShowcase({ store, onStoreChange }: Interactive
   const addTransaction = useCallback((t: DemoTransaction) => onStoreChange({ ...store, transactions: [t, ...store.transactions] }), [onStoreChange, store]);
   const removeTransaction = useCallback((id: number) => onStoreChange({ ...store, transactions: store.transactions.filter((t) => t.id !== id) }), [onStoreChange, store]);
   const addStock = useCallback((item: DemoStock) => onStoreChange({ ...store, stock: [item, ...store.stock] }), [onStoreChange, store]);
+  const updateStockQty = useCallback((name: string, delta: number) => {
+    onStoreChange({ ...store, stock: store.stock.map((s) => s.name === name ? { ...s, qty: Math.max(0, s.qty + delta) } : s) });
+  }, [onStoreChange, store]);
   const addProduction = useCallback((item: DemoProduction) => onStoreChange({ ...store, production: [item, ...store.production] }), [onStoreChange, store]);
 
   const totalIncome = store.transactions.filter((t) => t.positive).reduce((s, t) => s + t.value, 0);
@@ -874,7 +1036,7 @@ export function InteractiveProductShowcase({ store, onStoreChange }: Interactive
               {active === "rebanho" ? <RebanhoView animals={store.animals} onAdd={addAnimal} onRemove={removeAnimal} /> : null}
               {active === "producao" ? <ProductionView production={store.production} onAdd={addProduction} /> : null}
               {active === "financeiro" ? <FinanceiroView transactions={store.transactions} onAdd={addTransaction} onRemove={removeTransaction} /> : null}
-              {active === "estoque" ? <EstoqueView stock={store.stock} onAdd={addStock} /> : null}
+              {active === "estoque" ? <EstoqueView stock={store.stock} onAdd={addStock} onUpdateQty={updateStockQty} /> : null}
             </div>
           </div>
         </div>

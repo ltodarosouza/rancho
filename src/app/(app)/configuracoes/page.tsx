@@ -242,7 +242,7 @@ export default function ConfiguracoesPage() {
       icon: MessageCircle,
       title: "WhatsApp",
       value: health?.meta ? "Integração configurada" : "Integração pendente",
-      description: "Status real da configuração do backend"
+      description: health?.meta ? "Integração ativa" : "Integração pendente"
     }
   ], [farmDraft.ativa, farmDraft.nome, health?.meta, isDemo, profile?.papel, session?.user?.email, userDraft.cargo, userDraft.nome]);
 
@@ -598,9 +598,9 @@ export default function ConfiguracoesPage() {
           {showSkeleton ? <Skeleton className="h-56 rounded-lg" /> : (
             <form onSubmit={saveWhatsApp} className="space-y-4">
               <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
-                <Badge tone={health?.meta ? "success" : "warning"}>{health?.meta ? "Backend configurado" : "Backend pendente"}</Badge>
+                <Badge tone={health?.meta ? "success" : "warning"}>{health?.meta ? "Integração configurada" : "Integração pendente"}</Badge>
                 <p className="mt-3 text-sm text-[var(--text-2)]">
-                  O app só salva preferências aqui. O envio real de mensagens continua dependendo do webhook e das credenciais do backend.
+                  O app salva suas preferências de atendimento aqui. O envio real de mensagens depende da integração do WhatsApp estar ativa.
                 </p>
               </div>
               <div className="grid gap-4 md:grid-cols-2">

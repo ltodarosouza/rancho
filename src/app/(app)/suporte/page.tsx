@@ -57,9 +57,9 @@ export default function SuportePage() {
           </div>
           <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
             <div className="mb-2 flex items-center gap-2 font-semibold">
-              <ShieldCheck className="h-4 w-4" /> Envio real via e-mail
+              <ShieldCheck className="h-4 w-4" /> Como funciona
             </div>
-            Não há backend de envio de e-mail no projeto, então o botão abre o aplicativo de e-mail do usuário com destinatário, assunto e corpo preenchidos.
+            O botão abre o aplicativo de e-mail do seu dispositivo com destinatário, assunto e corpo já preenchidos. Basta revisar e enviar.
           </div>
         </section>
 

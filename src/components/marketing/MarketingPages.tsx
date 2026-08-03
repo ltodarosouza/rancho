@@ -27,7 +27,6 @@ import {
   homeExamples,
   homeFaq,
   marketingStructuredData,
-  showcaseItems,
   solutionPages,
   SUPPORT_EMAIL,
   type MarketingFeature,
@@ -36,6 +35,7 @@ import {
   type MarketingScreenshot
 } from "@/lib/marketing-content";
 import { MarketingEffects } from "./MarketingEffects";
+import { BotLandingDemo, InteractiveProductShowcase } from "./InteractiveShowcase";
 
 const iconMap: Record<MarketingIcon, LucideIcon> = {
   "bar-chart": BarChart3,
@@ -342,21 +342,39 @@ export function MarketingHomePage() {
                 ))}
               </div>
             </div>
-            <div className="reveal-on-scroll">
-              <div className="overflow-hidden rounded-xl border border-white/10 shadow-2xl shadow-black/30">
-                <Image
-                  src="/landing/screenshots/whatsapp.png"
-                  alt="Bot de WhatsApp do Rancho para registro da fazenda"
-                  width={2160}
-                  height={1350}
-                  unoptimized
-                  loading="lazy"
-                  className="h-auto w-full"
-                />
+            <div className="reveal-on-scroll rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-2xl shadow-black/30 sm:p-6">
+              <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+                    <Bot className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Rancho</p>
+                    <p className="text-xs text-gray-400">Bot de gestão no WhatsApp</p>
+                  </div>
+                </div>
+                <span className="flex items-center gap-1.5 text-xs text-emerald-300">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" /> online
+                </span>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-emerald-600 px-4 py-3 text-white">
+                  A vaca Mimosa produziu 19,7 litros hoje.
+                </div>
+                <div className="max-w-[88%] rounded-2xl rounded-bl-md bg-white/10 px-4 py-3 text-gray-200">
+                  Entendi. Vou registrar a produção de leite da Mimosa. Está correto?
+                  <div className="mt-2 text-xs font-semibold text-emerald-300">1 - Confirmar &nbsp; 2 - Corrigir</div>
+                </div>
+                <div className="flex items-center gap-2 border-t border-white/10 pt-4 text-xs text-gray-400">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  A ação só é salva depois da confirmação.
+                </div>
               </div>
             </div>
           </div>
         </section>
+
+        <BotLandingDemo />
 
         {/* ── Módulos ── */}
         <section className="bg-[var(--bg)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="modulos" data-section-label="Módulos">
@@ -386,26 +404,7 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        {/* ── Telas do sistema ── */}
-        <section className="bg-[var(--surface)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="produto" data-section-label="Produto">
-          <div className="mx-auto max-w-6xl">
-            <div className="reveal-on-scroll flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-              <div>
-                <h2 className="text-2xl font-semibold sm:text-3xl">Veja o sistema por dentro.</h2>
-                <p className="mt-2 max-w-lg text-base text-[var(--text-2)]">Telas reais com dados protegidos.</p>
-              </div>
-              <Link href="/login" className="btn btn-secondary shrink-0">
-                Acessar o sistema
-                <LogIn className="h-4 w-4" />
-              </Link>
-            </div>
-            <div className="mt-10 grid gap-5 sm:grid-cols-2">
-              {[showcaseItems[1], showcaseItems[3], showcaseItems[4], showcaseItems[5]].map((item) => (
-                <ScreenshotCard key={item.name} item={item} />
-              ))}
-            </div>
-          </div>
-        </section>
+        <InteractiveProductShowcase />
 
         {/* ── Exemplos ── */}
         <section className="bg-[var(--bg)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="exemplos" data-section-label="Exemplos">

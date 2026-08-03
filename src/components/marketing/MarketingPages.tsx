@@ -34,7 +34,7 @@ import {
   type MarketingScreenshot
 } from "@/lib/marketing-content";
 import { MarketingEffects } from "./MarketingEffects";
-import { BotLandingDemo, InteractiveProductShowcase } from "./InteractiveShowcase";
+import { LandingInteractiveExperience } from "./InteractiveShowcase";
 
 const iconMap: Record<MarketingIcon, LucideIcon> = {
   "bar-chart": BarChart3,
@@ -313,9 +313,7 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        <BotLandingDemo />
-
-        <InteractiveProductShowcase />
+        <LandingInteractiveExperience />
 
         {/* ── Módulos ── */}
         <section className="bg-[var(--bg)] px-5 py-16 sm:px-8 sm:py-20" data-marketing-section="modulos" data-section-label="Módulos">

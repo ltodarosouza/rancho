@@ -26,6 +26,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  INITIAL_DEMO_STORE
+} from "@/lib/marketing/demo-store";
 
 /* ═══════════════════════════════════════════════════════
    DEMO DATA
@@ -34,6 +37,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 type DemoAnimal = { name: string; code: string; category: string; phase: string };
 type DemoTransaction = { id: number; label: string; date: string; value: number; positive: boolean };
 type DemoStock = { name: string; qty: number; unit: string; min: number };
+type DemoProduction = { id: number; animal: string; liters: number; date: string };
+type DemoStore = { animals: DemoAnimal[]; transactions: DemoTransaction[]; stock: DemoStock[]; production: DemoProduction[] };
 
 const INITIAL_ANIMALS: DemoAnimal[] = [
   { name: "Mimosa", code: "B-001", category: "Vaca", phase: "Lactação" },
@@ -106,7 +111,7 @@ const BOT_EXAMPLES: BotExample[] = [
 
 type ChatMessage = { role: "user" | "bot"; text: string };
 
-function DatabasePanel({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
+function DatabasePanel({ expanded, onToggle, store }: { expanded: boolean; onToggle: () => void; store: DemoStore }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.04]">
       <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-xs font-semibold text-slate-300 lg:cursor-default">
@@ -116,9 +121,9 @@ function DatabasePanel({ expanded, onToggle }: { expanded: boolean; onToggle: ()
       <div className={`overflow-hidden transition-all duration-300 ${expanded ? "max-h-[500px]" : "max-h-0 lg:max-h-[500px]"}`}>
         <div className="space-y-3 border-t border-white/10 px-4 py-3 text-[11px]">
           <div>
-            <p className="mb-1.5 font-semibold text-emerald-300">Animais (6)</p>
+            <p className="mb-1.5 font-semibold text-emerald-300">Animais ({store.animals.length})</p>
             <div className="space-y-1 text-slate-400">
-              {INITIAL_ANIMALS.map((a) => (
+              {store.animals.slice(0, 8).map((a) => (
                 <p key={a.code}><span className="text-slate-200">{a.name}</span> ({a.code}) · {a.category} · {a.phase}</p>
               ))}
             </div>
@@ -126,18 +131,18 @@ function DatabasePanel({ expanded, onToggle }: { expanded: boolean; onToggle: ()
           <div>
             <p className="mb-1.5 font-semibold text-emerald-300">Estoque</p>
             <div className="space-y-1 text-slate-400">
-              {INITIAL_STOCK.map((s) => (
+              {store.stock.map((s) => (
                 <p key={s.name}><span className="text-slate-200">{s.name}</span> · {s.qty} {s.unit}</p>
               ))}
             </div>
           </div>
           <div>
             <p className="mb-1.5 font-semibold text-emerald-300">Produção de hoje</p>
-            <p className="text-slate-400">Mimosa 28L · Estrela 31L · <span className="text-slate-200">Total 59L</span></p>
+            <p className="text-slate-400">{store.production.slice(0, 4).map((item) => `${item.animal} ${item.liters}L`).join(" · ")} · <span className="text-slate-200">Total {store.production.reduce((sum, item) => sum + item.liters, 0)}L</span></p>
           </div>
           <div>
             <p className="mb-1.5 font-semibold text-emerald-300">Financeiro</p>
-            <p className="text-slate-400">Saldo: <span className="text-slate-200">R$ 4.280</span></p>
+            <p className="text-slate-400">Saldo: <span className="text-slate-200">R$ {store.transactions.reduce((sum, item) => sum + (item.positive ? item.value : -item.value), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span></p>
           </div>
         </div>
       </div>
@@ -145,7 +150,9 @@ function DatabasePanel({ expanded, onToggle }: { expanded: boolean; onToggle: ()
   );
 }
 
-export function BotLandingDemo() {
+type BotLandingDemoProps = { store: DemoStore; onStoreChange: (store: DemoStore) => void };
+
+export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "bot", text: "Olá! Sou o bot demonstrativo do Rancho. Você pode me enviar mensagens sobre produção, estoque, financeiro, reprodução e muito mais. Use os dados da fazenda ao lado como referência." }
   ]);
@@ -153,6 +160,7 @@ export function BotLandingDemo() {
   const [freeUses, setFreeUses] = useState(3);
   const [busy, setBusy] = useState(false);
   const [dbExpanded, setDbExpanded] = useState(false);
+  const [pendingAction, setPendingAction] = useState<Record<string, unknown> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -170,10 +178,11 @@ export function BotLandingDemo() {
     [messages]
   );
 
-  async function sendFreeMessage(text: string) {
-    if (!text.trim() || busy || freeUses <= 0) return;
+  async function sendMessage(text: string, countUse: boolean) {
+    const replyingToPendingAction = Boolean(pendingAction);
+    if (!text.trim() || busy || (countUse && freeUses <= 0 && !replyingToPendingAction)) return;
     setInput("");
-    setFreeUses((n) => n - 1);
+    if (countUse && !replyingToPendingAction) setFreeUses((n) => n - 1);
     setMessages((prev) => [...prev, { role: "user", text }]);
     setBusy(true);
 
@@ -181,9 +190,11 @@ export function BotLandingDemo() {
       const res = await fetch("/api/demo/bot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({ message: text, store, pendingAction })
       });
       const data = await res.json().catch(() => ({}));
+      if (data.store) onStoreChange(data.store as DemoStore);
+      setPendingAction(data.pendingAction || null);
       setMessages((prev) => [...prev, { role: "bot", text: data.response || "Não consegui processar. Tente uma mensagem sugerida." }]);
     } catch {
       setMessages((prev) => [...prev, { role: "bot", text: "Erro de conexão. Tente novamente." }]);
@@ -193,20 +204,15 @@ export function BotLandingDemo() {
     }
   }
 
-  function sendSuggested(example: BotExample) {
-    if (busy) return;
-    setMessages((prev) => [...prev, { role: "user", text: example.text }]);
-    setBusy(true);
-    setTimeout(() => {
-      setMessages((prev) => [...prev, { role: "bot", text: example.answer }]);
-      setBusy(false);
-    }, 600);
-  }
+  function sendFreeMessage(text: string) { void sendMessage(text, true); }
+  function sendSuggested(example: BotExample) { void sendMessage(example.text, false); }
 
   function reset() {
     setMessages([{ role: "bot", text: "Demonstração reiniciada. Envie uma mensagem para testar o bot." }]);
     setFreeUses(3);
     setInput("");
+    setPendingAction(null);
+    onStoreChange(JSON.parse(JSON.stringify(INITIAL_DEMO_STORE)) as DemoStore);
   }
 
   return (
@@ -227,7 +233,7 @@ export function BotLandingDemo() {
         <div className="reveal-on-scroll grid gap-4 lg:grid-cols-[0.38fr_0.62fr] lg:items-start">
           {/* Database panel */}
           <div className="space-y-3">
-            <DatabasePanel expanded={dbExpanded} onToggle={() => setDbExpanded(!dbExpanded)} />
+            <DatabasePanel expanded={dbExpanded} onToggle={() => setDbExpanded(!dbExpanded)} store={store} />
             <div className="hidden items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4 lg:flex">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-300">
                 <MessageCircle className="h-4 w-4" />
@@ -349,11 +355,12 @@ export function BotLandingDemo() {
    INTERACTIVE PRODUCT SHOWCASE
    ═══════════════════════════════════════════════════════ */
 
-type ShowcaseTab = "dashboard" | "rebanho" | "financeiro" | "estoque";
+type ShowcaseTab = "dashboard" | "rebanho" | "producao" | "financeiro" | "estoque";
 
 const TABS: { key: ShowcaseTab; label: string; icon: typeof Home }[] = [
   { key: "dashboard", label: "Dashboard", icon: Home },
   { key: "rebanho", label: "Rebanho", icon: PawPrint },
+  { key: "producao", label: "Produção", icon: Droplets },
   { key: "financeiro", label: "Financeiro", icon: Wallet },
   { key: "estoque", label: "Estoque", icon: PackageOpen }
 ];
@@ -411,6 +418,7 @@ function ShowcaseHeader({ tab }: { tab: ShowcaseTab }) {
   const labels: Record<ShowcaseTab, [string, string]> = {
     dashboard: ["Principal", "Dashboard"],
     rebanho: ["Rebanho", "Animais"],
+    producao: ["Produção", "Registros de leite"],
     financeiro: ["Financeiro", "Transações"],
     estoque: ["Estoque", "Visão do estoque"]
   };
@@ -443,8 +451,9 @@ function MetricCard({ label, value, badge, tone = "green" }: { label: string; va
 
 /* ── Dashboard ── */
 
-function DashboardView({ animalCount, totalIncome, totalExpense }: { animalCount: number; totalIncome: number; totalExpense: number }) {
+function DashboardView({ animalCount, totalIncome, totalExpense, stock, production }: { animalCount: number; totalIncome: number; totalExpense: number; stock: DemoStock[]; production: DemoProduction[] }) {
   const balance = totalIncome - totalExpense;
+  const totalProduction = production.reduce((sum, item) => sum + item.liters, 0);
   return (
     <div className="space-y-3 p-3 sm:p-4">
       <div className="rounded-lg bg-[#0f1a14] p-4 text-white">
@@ -458,9 +467,9 @@ function DashboardView({ animalCount, totalIncome, totalExpense }: { animalCount
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <MetricCard label="Animais ativos" value={String(animalCount)} badge={`${animalCount} cadastrados`} />
-        <MetricCard label="Produção hoje" value="59 L" badge="+8,4%" tone="blue" />
+        <MetricCard label="Produção hoje" value={`${totalProduction} L`} badge="Atualizado" tone="blue" />
         <MetricCard label="Saldo do mês" value={`R$ ${(balance / 1000).toFixed(1).replace(".", ",")}k`} badge="Atualizado" tone="green" />
-        <MetricCard label="Itens baixos" value={String(INITIAL_STOCK.filter((s) => s.qty <= s.min * 2).length)} badge="Ver estoque" tone="amber" />
+        <MetricCard label="Itens baixos" value={String(stock.filter((s) => s.qty <= s.min * 2).length)} badge="Ver estoque" tone="amber" />
       </div>
       <div className="grid gap-3 sm:grid-cols-[1.3fr_0.7fr]">
         <div className="rounded-lg border border-[#E2E4EA] bg-white p-3">
@@ -479,7 +488,7 @@ function DashboardView({ animalCount, totalIncome, totalExpense }: { animalCount
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
           <p className="text-[11px] font-bold text-amber-900">Atenção</p>
-          <p className="mt-1.5 text-[10px] leading-relaxed text-amber-800">{INITIAL_STOCK.filter((s) => s.qty <= s.min * 2).length} itens do estoque estão próximos do mínimo.</p>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-amber-800">{stock.filter((s) => s.qty <= s.min * 2).length} itens do estoque estão próximos do mínimo.</p>
           <button type="button" className="mt-3 inline-flex items-center gap-1 text-[10px] font-bold text-amber-900">Ver estoque <ChevronRight className="h-3 w-3" /></button>
         </div>
       </div>
@@ -692,15 +701,61 @@ function FinanceiroView({ transactions, onAdd, onRemove }: { transactions: DemoT
 
 /* ── Estoque ── */
 
-function EstoqueView() {
-  const [stock, setStock] = useState(INITIAL_STOCK);
+function ProductionView({ production, onAdd }: { production: DemoProduction[]; onAdd: (item: DemoProduction) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ animal: "", liters: "" });
+  const total = production.reduce((sum, item) => sum + item.liters, 0);
+
+  function handleAdd() {
+    const liters = Number(form.liters.replace(",", "."));
+    if (!form.animal.trim() || !Number.isFinite(liters) || liters <= 0) return;
+    onAdd({ id: Date.now(), animal: form.animal.trim(), liters, date: "Agora" });
+    setForm({ animal: "", liters: "" });
+    setAdding(false);
+  }
+
+  return (
+    <div className="p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-[#111318]">Produção de leite</p>
+          <p className="mt-0.5 text-[10px] text-[#9CA3AF]">{production.length} registros · {total.toLocaleString("pt-BR")} litros</p>
+        </div>
+        <button type="button" onClick={() => setAdding(!adding)} className="inline-flex items-center gap-1 rounded-md bg-[#16803C] px-2.5 py-1.5 text-[10px] font-semibold text-white transition hover:bg-emerald-600">
+          {adding ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+          {adding ? "Cancelar" : "Registrar"}
+        </button>
+      </div>
+      {adding ? (
+        <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+          <p className="mb-2 text-[10px] font-semibold text-emerald-800">Novo registro</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <input value={form.animal} onChange={(e) => setForm({ ...form, animal: e.target.value })} placeholder="Animal ou código" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <input value={form.liters} onChange={(e) => setForm({ ...form, liters: e.target.value })} placeholder="Litros" inputMode="decimal" className="rounded-md border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-[#111318] outline-none focus:border-[#16803C]" />
+            <button type="button" onClick={handleAdd} disabled={!form.animal.trim() || !form.liters.trim()} className="rounded-md bg-[#16803C] px-2 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50">Salvar</button>
+          </div>
+        </div>
+      ) : null}
+      <div className="mt-3 overflow-hidden rounded-lg border border-[#E2E4EA] bg-white">
+        {production.map((item) => (
+          <div key={item.id} className="flex items-center justify-between border-b border-[#E2E4EA] px-3 py-2.5 last:border-0">
+            <div><p className="text-[11px] font-semibold text-[#111318]">{item.animal}</p><p className="text-[9px] text-[#9CA3AF]">{item.date}</p></div>
+            <span className="text-[12px] font-bold tabular-nums text-blue-700">{item.liters.toLocaleString("pt-BR")} L</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EstoqueView({ stock, onAdd }: { stock: DemoStock[]; onAdd: (item: DemoStock) => void }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", qty: "", unit: "sacos" });
 
   function handleAdd() {
     const qty = parseInt(form.qty, 10);
     if (!form.name.trim() || isNaN(qty) || qty <= 0) return;
-    setStock((prev) => [...prev, { name: form.name.trim(), qty, unit: form.unit, min: Math.floor(qty * 0.2) }]);
+    onAdd({ name: form.name.trim(), qty, unit: form.unit, min: Math.floor(qty * 0.2) });
     setForm({ name: "", qty: "", unit: "sacos" });
     setAdding(false);
   }
@@ -753,18 +808,31 @@ function EstoqueView() {
 
 /* ── Main showcase ── */
 
-export function InteractiveProductShowcase() {
+export function LandingInteractiveExperience() {
+  const [store, setStore] = useState<DemoStore>(() => JSON.parse(JSON.stringify(INITIAL_DEMO_STORE)) as DemoStore);
+
+  return (
+    <>
+      <BotLandingDemo store={store} onStoreChange={setStore} />
+      <InteractiveProductShowcase store={store} onStoreChange={setStore} />
+    </>
+  );
+}
+
+type InteractiveProductShowcaseProps = { store: DemoStore; onStoreChange: (store: DemoStore) => void };
+
+export function InteractiveProductShowcase({ store, onStoreChange }: InteractiveProductShowcaseProps) {
   const [active, setActive] = useState<ShowcaseTab>("dashboard");
-  const [animals, setAnimals] = useState<DemoAnimal[]>(INITIAL_ANIMALS);
-  const [transactions, setTransactions] = useState<DemoTransaction[]>(INITIAL_TRANSACTIONS);
 
-  const addAnimal = useCallback((a: DemoAnimal) => setAnimals((prev) => [a, ...prev]), []);
-  const removeAnimal = useCallback((code: string) => setAnimals((prev) => prev.filter((a) => a.code !== code)), []);
-  const addTransaction = useCallback((t: DemoTransaction) => setTransactions((prev) => [t, ...prev]), []);
-  const removeTransaction = useCallback((id: number) => setTransactions((prev) => prev.filter((t) => t.id !== id)), []);
+  const addAnimal = useCallback((a: DemoAnimal) => onStoreChange({ ...store, animals: [a, ...store.animals] }), [onStoreChange, store]);
+  const removeAnimal = useCallback((code: string) => onStoreChange({ ...store, animals: store.animals.filter((a) => a.code !== code) }), [onStoreChange, store]);
+  const addTransaction = useCallback((t: DemoTransaction) => onStoreChange({ ...store, transactions: [t, ...store.transactions] }), [onStoreChange, store]);
+  const removeTransaction = useCallback((id: number) => onStoreChange({ ...store, transactions: store.transactions.filter((t) => t.id !== id) }), [onStoreChange, store]);
+  const addStock = useCallback((item: DemoStock) => onStoreChange({ ...store, stock: [item, ...store.stock] }), [onStoreChange, store]);
+  const addProduction = useCallback((item: DemoProduction) => onStoreChange({ ...store, production: [item, ...store.production] }), [onStoreChange, store]);
 
-  const totalIncome = transactions.filter((t) => t.positive).reduce((s, t) => s + t.value, 0);
-  const totalExpense = transactions.filter((t) => !t.positive).reduce((s, t) => s + t.value, 0);
+  const totalIncome = store.transactions.filter((t) => t.positive).reduce((s, t) => s + t.value, 0);
+  const totalExpense = store.transactions.filter((t) => !t.positive).reduce((s, t) => s + t.value, 0);
 
   return (
     <section className="bg-[var(--surface)] px-4 py-14 sm:px-8 sm:py-20" data-marketing-section="produto" data-section-label="Produto">
@@ -802,10 +870,11 @@ export function InteractiveProductShowcase() {
             <Sidebar active={active} onNavigate={setActive} />
             <div className="min-w-0 flex-1 bg-[#F3F4F6]">
               <ShowcaseHeader tab={active} />
-              {active === "dashboard" ? <DashboardView animalCount={animals.length} totalIncome={totalIncome} totalExpense={totalExpense} /> : null}
-              {active === "rebanho" ? <RebanhoView animals={animals} onAdd={addAnimal} onRemove={removeAnimal} /> : null}
-              {active === "financeiro" ? <FinanceiroView transactions={transactions} onAdd={addTransaction} onRemove={removeTransaction} /> : null}
-              {active === "estoque" ? <EstoqueView /> : null}
+              {active === "dashboard" ? <DashboardView animalCount={store.animals.length} totalIncome={totalIncome} totalExpense={totalExpense} stock={store.stock} production={store.production} /> : null}
+              {active === "rebanho" ? <RebanhoView animals={store.animals} onAdd={addAnimal} onRemove={removeAnimal} /> : null}
+              {active === "producao" ? <ProductionView production={store.production} onAdd={addProduction} /> : null}
+              {active === "financeiro" ? <FinanceiroView transactions={store.transactions} onAdd={addTransaction} onRemove={removeTransaction} /> : null}
+              {active === "estoque" ? <EstoqueView stock={store.stock} onAdd={addStock} /> : null}
             </div>
           </div>
         </div>

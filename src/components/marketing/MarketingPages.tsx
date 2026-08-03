@@ -93,7 +93,7 @@ function NavLight(_props: { currentSlug?: string }) {
 
 function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; large?: boolean }) {
   return (
-    <article className={`marketing-spotlight reveal-on-scroll overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${large ? "lg:col-span-2" : ""}`}>
+    <article className={`reveal-on-scroll overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${large ? "lg:col-span-2" : ""}`}>
       <div className="relative overflow-x-auto bg-[var(--surface)] [scrollbar-width:thin]">
         <Image
           src={item.image}
@@ -135,7 +135,7 @@ function ScreenshotCard({ item, large = false }: { item: MarketingScreenshot; la
 function FeatureCard({ item }: { item: MarketingFeature }) {
   const Icon = iconMap[item.icon];
   return (
-    <article className="marketing-spotlight reveal-on-scroll rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+    <article className="reveal-on-scroll rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
         <Icon className="h-5 w-5" />
       </div>
@@ -287,7 +287,7 @@ export function MarketingHomePage() {
               {modules.map((m) => {
                 const Icon = iconMap[m.icon];
                 return (
-                  <div key={m.name} className="marketing-spotlight reveal-on-scroll flex items-start gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition hover:border-[var(--text-3)]">
+                  <div key={m.name} className="reveal-on-scroll flex items-start gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
                       <Icon className="h-5 w-5" />
                     </div>

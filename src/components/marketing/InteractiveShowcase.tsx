@@ -315,14 +315,14 @@ export function BotLandingDemo({ store, onStoreChange }: BotLandingDemoProps) {
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  disabled={freeUses <= 0 || busy}
-                  placeholder={freeUses > 0 ? `Escreva sua mensagem (${freeUses} restante${freeUses > 1 ? "s" : ""})...` : "Mensagens livres esgotadas"}
+                  disabled={(freeUses <= 0 && !pendingAction) || busy}
+                  placeholder={freeUses > 0 ? `Escreva sua mensagem (${freeUses} restante${freeUses > 1 ? "s" : ""})...` : pendingAction ? "Confirme ou cancele a ação acima..." : "Mensagens livres esgotadas"}
                   className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-[13px] text-white outline-none placeholder:text-slate-500 focus:border-emerald-400/40 disabled:cursor-not-allowed disabled:opacity-50"
                   maxLength={300}
                 />
                 <button
                   type="submit"
-                  disabled={!input.trim() || freeUses <= 0 || busy}
+                  disabled={!input.trim() || (freeUses <= 0 && !pendingAction) || busy}
                   aria-label="Enviar"
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white transition hover:bg-emerald-500 disabled:opacity-40"
                 >

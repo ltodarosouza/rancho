@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { interpretWithGemini } from "@/lib/whatsapp/gemini/interpreter";
 import type { ActionPlan } from "@/lib/whatsapp/gemini/action-plan-types";
+import type { ParsedRanchoMessage } from "@/lib/whatsapp/nlp";
+import { composeBotResponseWithAI } from "@/services/whatsapp/ai-response-composer";
+import type { BotSession } from "@/services/whatsapp/session-service";
 import {
   cloneDemoStore,
   type DemoAnimal,
@@ -20,6 +23,15 @@ const DEMO_TIMEZONE = "America/Fortaleza";
 type DemoPendingAction = {
   plan: ActionPlan;
   summary: string;
+};
+
+type DemoExecution = {
+  response: string;
+  parsed: ParsedRanchoMessage;
+};
+
+type DemoQueryResult = DemoExecution & {
+  result: Record<string, unknown>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -101,6 +113,70 @@ function actionLabel(plan: ActionPlan) {
   if (plan.action === "update") return "atualização";
   if (plan.action === "execute") return "operação";
   return "ação";
+}
+
+function demoIntentForPlan(plan: ActionPlan) {
+  if (plan.action === "query") {
+    const domain = "domain" in plan ? plan.domain : "";
+    if (domain === "animais") return "CONSULTA_REBANHO";
+    if (domain === "financeiro") return "CONSULTA_FINANCEIRO";
+    if (domain === "estoque") return "CONSULTA_ESTOQUE";
+    if (domain === "producao_leite") return "CONSULTA_PRODUCAO";
+    return "CONSULTA_RANCHO";
+  }
+  if (plan.action === "import_table") return "IMPORTACAO_TABELA_DOMINIO";
+  if (plan.action === "create") {
+    const domain = "domain" in plan ? plan.domain : "";
+    if (domain === "animais") return "CADASTRO_ANIMAL";
+    if (domain === "financeiro") return "RECEITA_VENDA";
+    if (domain === "estoque") return "ESTOQUE_ENTRADA";
+    if (domain === "producao_leite") return "PRODUCAO_LEITE";
+  }
+  if (plan.action === "update") return "ATUALIZACAO_ANIMAL";
+  if (plan.action === "execute") return "EXECUCAO_ACTION_PLAN";
+  return "DESCONHECIDO";
+}
+
+function demoParsedFromPlan(plan: ActionPlan, dados: Record<string, unknown> = {}) {
+  return {
+    tipo: demoIntentForPlan(plan),
+    confianca: "confidence" in plan ? plan.confidence : 0.9,
+    perguntas_faltantes: "missingFields" in plan && Array.isArray(plan.missingFields) ? plan.missingFields : [],
+    campos_faltantes: "missingFields" in plan && Array.isArray(plan.missingFields) ? plan.missingFields : [],
+    dados: {
+      ...("data" in plan && isRecord(plan.data) ? plan.data : {}),
+      ...dados,
+      consulta: plan.action === "query",
+      action_plan: plan,
+      origem_parser: "gemini_action_plan"
+    }
+  } as unknown as ParsedRanchoMessage;
+}
+
+function demoSession(etapa: BotSession["etapa"], dados: Record<string, unknown> = {}): BotSession {
+  return { etapa, dados };
+}
+
+async function composeDemoResponse(input: {
+  response: string;
+  plan: ActionPlan;
+  previousSession: BotSession;
+  nextSession: BotSession;
+  eventConfirmed?: boolean;
+  dados?: Record<string, unknown>;
+  userMessage: string;
+}) {
+  const parsed = demoParsedFromPlan(input.plan, input.dados);
+  const composed = await composeBotResponseWithAI({
+    response: input.response,
+    userMessage: input.userMessage,
+    parsed,
+    previousSession: input.previousSession,
+    nextSession: input.nextSession,
+    eventConfirmed: input.eventConfirmed,
+    modoTeste: false
+  });
+  return { response: composed.response, parsed, usedAI: composed.usedAI };
 }
 
 function mutationSummary(plan: ActionPlan) {
@@ -219,29 +295,95 @@ function applyMutation(plan: ActionPlan, store: DemoStore) {
   return `A demonstração reconheceu a ${actionLabel(plan)}, mas esse tipo de cadastro ainda não está disponível neste exemplo.`;
 }
 
-function queryDemo(plan: ActionPlan, store: DemoStore) {
+function queryFilters(plan: ActionPlan) {
+  return "filters" in plan && Array.isArray(plan.filters) ? plan.filters : [];
+}
+
+function queryFilterValue(plan: ActionPlan, fields: string[]) {
+  const accepted = new Set(fields.map(normalizeName));
+  return queryFilters(plan).find((filter) => accepted.has(normalizeName(filter.field)))?.value;
+}
+
+function queryIsDetailed(plan: ActionPlan) {
+  const semantic = planSemantic(plan);
+  const report = isRecord(semantic.report) ? semantic.report : {};
+  return normalizeName(String(report.detailLevel || plan.operation || "")).includes("detalh")
+    || normalizeName(String(plan.operation || "")).includes("listar")
+    || normalizeName(String(plan.operation || "")).includes("continuar");
+}
+
+function queryResult(plan: ActionPlan, response: string, linhas: unknown[], extra: Record<string, unknown> = {}): DemoQueryResult {
+  const result = {
+    registros: linhas.length,
+    filters: queryFilters(plan),
+    linhas_pagina: linhas,
+    ...extra
+  };
+  return {
+    response,
+    result,
+    parsed: demoParsedFromPlan(plan, { resultado: result })
+  };
+}
+
+function queryDemo(plan: ActionPlan, store: DemoStore): DemoQueryResult {
   const domain = "domain" in plan ? plan.domain : "";
-  const filters = "filters" in plan && Array.isArray(plan.filters) ? plan.filters : [];
+  const targetAnimal = queryFilterValue(plan, ["animal_ref", "animal_codigo", "brinco", "nome"]);
+  const targetCategory = queryFilterValue(plan, ["categoria", "animal_categoria"]);
+  const targetItem = queryFilterValue(plan, ["item", "item_ref", "produto", "descricao"]);
+  const detailed = queryIsDetailed(plan);
+
   if (domain === "animais") {
-    const category = filters.find((filter) => filter.field === "categoria")?.value;
-    const animals = typeof category === "string" ? store.animals.filter((animal) => normalizeName(animal.category) === normalizeName(category)) : store.animals;
-    const count = "aggregations" in plan && plan.aggregations?.some((item) => item.op === "count") ? `Total: ${animals.length} animais.` : "";
-    const sample = animals.slice(0, 8).map((animal) => `• ${animal.name} (${animal.code}) — ${animal.category}`).join("\n");
-    return `${count || `Encontrei ${animals.length} animais na demonstração.`}${sample ? `\n\n${sample}` : ""}`;
+    const animals = store.animals.filter((animal) => {
+      const matchesAnimal = targetAnimal === undefined
+        || normalizeName(`${animal.name} ${animal.code}`).includes(normalizeName(String(targetAnimal)));
+      const matchesCategory = targetCategory === undefined
+        || normalizeName(animal.category) === normalizeName(String(targetCategory));
+      return matchesAnimal && matchesCategory;
+    });
+    const count = "aggregations" in plan && plan.aggregations?.some((item) => item.op === "count");
+    const lines = animals.map((animal) => `${animal.name} (${animal.code}) - ${animal.category} - ${animal.phase}`);
+    const visibleLines = detailed || count ? lines : lines.slice(0, 8);
+    const response = `${count ? `Total: ${animals.length} animais.` : `Encontrei ${animals.length} animais na demonstração.`}${visibleLines.length ? `\n\n${visibleLines.map((line) => `• ${line}`).join("\n")}` : ""}`;
+    return queryResult(plan, response, visibleLines, { total: animals.length });
   }
+
   if (domain === "financeiro") {
-    const income = store.transactions.filter((item) => item.positive).reduce((sum, item) => sum + item.value, 0);
-    const expense = store.transactions.filter((item) => !item.positive).reduce((sum, item) => sum + item.value, 0);
-    return `Resumo financeiro da demonstração:\n• Entradas: ${currency(income)}\n• Saídas: ${currency(expense)}\n• Saldo: ${currency(income - expense)}`;
+    const transactions = targetItem === undefined
+      ? store.transactions
+      : store.transactions.filter((item) => normalizeName(`${item.label} ${item.positive ? "entrada" : "saida"}`).includes(normalizeName(String(targetItem))));
+    const income = transactions.filter((item) => item.positive).reduce((sum, item) => sum + item.value, 0);
+    const expense = transactions.filter((item) => !item.positive).reduce((sum, item) => sum + item.value, 0);
+    const lines = transactions.map((item) => `${item.date} - ${item.positive ? "Entrada" : "Saída"} - ${item.label}: ${currency(item.value)}`);
+    const response = detailed
+      ? `Transações financeiras da demonstração (${transactions.length}):\n${lines.map((line) => `• ${line}`).join("\n")}`
+      : `Resumo financeiro da demonstração:\n• Entradas: ${currency(income)}\n• Saídas: ${currency(expense)}\n• Saldo: ${currency(income - expense)}`;
+    return queryResult(plan, response, detailed ? lines : [], { total_entradas: income, total_saidas: expense, saldo: income - expense });
   }
+
   if (domain === "estoque") {
-    return `Estoque demonstrativo (${store.stock.length} itens):\n${store.stock.map((item) => `• ${item.name}: ${item.qty} ${item.unit}`).join("\n")}`;
+    const items = targetItem === undefined
+      ? store.stock
+      : store.stock.filter((item) => normalizeName(item.name).includes(normalizeName(String(targetItem))));
+    const lines = items.map((item) => `${item.name}: ${item.qty} ${item.unit} (mínimo ${item.min})`);
+    const response = `Estoque demonstrativo (${items.length} item(ns)):\n${lines.map((line) => `• ${line}`).join("\n")}`;
+    return queryResult(plan, response, lines, { total: items.length });
   }
+
   if (domain === "producao_leite") {
-    const total = store.production.reduce((sum, item) => sum + item.liters, 0);
-    return `Produção de leite na demonstração:\n• Registros: ${store.production.length}\n• Total: ${total.toLocaleString("pt-BR")} litros\n• Média: ${(total / Math.max(store.production.length, 1)).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} litros por registro`;
+    const production = targetAnimal === undefined
+      ? store.production
+      : store.production.filter((item) => normalizeName(item.animal).includes(normalizeName(String(targetAnimal))));
+    const total = production.reduce((sum, item) => sum + item.liters, 0);
+    const average = total / Math.max(production.length, 1);
+    const lines = production.map((item) => `${item.date} - ${item.animal}: ${item.liters.toLocaleString("pt-BR")} litros`);
+    const response = detailed
+      ? `Produção de leite na demonstração (${production.length} registro(s)):\n${lines.map((line) => `• ${line}`).join("\n")}\n\nTotal: ${total.toLocaleString("pt-BR")} litros. Média: ${average.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} litros por registro.`
+      : `Produção de leite na demonstração:\n• Registros: ${production.length}\n• Total: ${total.toLocaleString("pt-BR")} litros\n• Média: ${average.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} litros por registro`;
+    return queryResult(plan, response, detailed ? lines : [], { total_litros: total, media_litros: average });
   }
-  return "A demonstração reconheceu a consulta. Explore os módulos ao lado para visualizar os dados disponíveis.";
+
+  return queryResult(plan, "A demonstração reconheceu a consulta, mas ainda não há dados de exemplo para essa área.", []);
 }
 
 function isConfirmation(message: string) {
@@ -268,18 +410,46 @@ export async function POST(request: NextRequest) {
     const pending = isRecord(body?.pendingAction) && isRecord(body.pendingAction.plan)
       ? body.pendingAction as DemoPendingAction
       : null;
+    const previousSession = demoSession(
+      pending ? "aguardando_confirmacao" : "livre",
+      {
+        demo_database: store,
+        pending_action: pending?.plan || null
+      }
+    );
 
     if (pending && isCancellation(message)) {
       return NextResponse.json({ ok: true, response: "Tudo bem. Não alterei a base de demonstração.", store, pendingAction: null, source: "action_plan" });
     }
     if (pending && isConfirmation(message)) {
       const response = applyMutation(pending.plan, store);
-      return NextResponse.json({ ok: true, response, store, pendingAction: null, source: "action_plan" });
+      const composed = await composeDemoResponse({
+        response,
+        plan: pending.plan,
+        previousSession,
+        nextSession: demoSession("livre", { demo_database: store }),
+        eventConfirmed: true,
+        userMessage: message
+      });
+      return NextResponse.json({
+        ok: true,
+        response: composed.response,
+        store,
+        pendingAction: null,
+        source: "action_plan",
+        response_composer_used: composed.usedAI
+      });
     }
 
     const interpretation = await interpretWithGemini({
       text: message,
-      session: { demo_database: store },
+      session: {
+        etapa: pending ? "aguardando_confirmacao" : "livre",
+        dados: {
+          demo_database: store,
+          pending_action: pending?.plan || null
+        }
+      },
       user: { papel_bot: "admin", nome: "Demonstração Rancho" },
       rancho: { fazenda_id: "demo" },
       currentDate: new Date().toISOString().slice(0, 10),
@@ -302,16 +472,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, response, store, pendingAction: null, source: "action_plan" });
     }
     if (plan.action === "query") {
-      return NextResponse.json({ ok: true, response: queryDemo(plan, store), store, pendingAction: null, source: "action_plan" });
+      const executed = queryDemo(plan, store);
+      const composed = await composeDemoResponse({
+        response: executed.response,
+        plan,
+        previousSession: demoSession("livre", { demo_database: store }),
+        nextSession: demoSession("livre", { demo_database: store }),
+        dados: executed.result,
+        userMessage: message
+      });
+      return NextResponse.json({
+        ok: true,
+        response: composed.response,
+        store,
+        pendingAction: null,
+        source: "action_plan",
+        response_composer_used: composed.usedAI,
+        result: executed.result
+      });
     }
 
     const summary = mutationSummary(plan);
+    const response = `${summary}\n\nEstá correto?\n1 - Confirmar\n2 - Cancelar`;
+    const composed = await composeDemoResponse({
+      response,
+      plan,
+      previousSession: demoSession("livre", { demo_database: store }),
+      nextSession: demoSession("aguardando_confirmacao", {
+        demo_database: store,
+        pending_action: plan
+      }),
+      userMessage: message
+    });
     return NextResponse.json({
       ok: true,
-      response: `${summary}\n\nEstá correto?\n1 - Confirmar\n2 - Cancelar`,
+      response: composed.response,
       store,
       pendingAction: { plan, summary },
-      source: "action_plan"
+      source: "action_plan",
+      response_composer_used: composed.usedAI
     });
   } catch {
     return NextResponse.json({ ok: true, response: fallbackResponse(), source: "fallback" });

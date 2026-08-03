@@ -369,6 +369,24 @@ function referenceMatches(candidates: unknown[], target: unknown) {
   });
 }
 
+function relationReference(row: AnyRecord, fieldName: string) {
+  const fields = fieldName === "pai_ref"
+    ? ["pai_id", "pai_ref", "pai"]
+    : fieldName === "mae_ref"
+      ? ["mae_id", "mae_ref", "mae"]
+      : ["animal_id", "animal_ref", "id", "brinco"];
+  return fields.map((field) => row[field]).find((value) => value !== null && value !== undefined && String(value).trim() !== "");
+}
+
+function relatedAnimalByReference(reference: unknown, relations: AnyRecord) {
+  const animals = relations.animalsById as Map<string, AnyRecord> | undefined;
+  if (!animals || reference === null || reference === undefined || String(reference).trim() === "") return undefined;
+  const raw = String(reference).trim();
+  const direct = animals.get(raw);
+  if (direct) return direct;
+  return Array.from(animals.values()).find((animal) => referenceMatches([animal.id, animal.brinco, animal.nome], raw));
+}
+
 function relationCandidateValues(row: AnyRecord, domain: DomainManifestEntry, fieldName: string, relations: AnyRecord) {
   if (fieldName === "animal_ref") {
     if (domain.domain === "genealogia" || domain.domain === "animais") {
@@ -386,12 +404,14 @@ function relationCandidateValues(row: AnyRecord, domain: DomainManifestEntry, fi
     return [row.item_id, row.item_ref, row.nome].filter(Boolean);
   }
   if (domain.domain === "genealogia" && fieldName === "pai_ref") {
-    const father = relations.animalsById?.get(String(row.pai_id || ""));
-    return [father?.brinco, father?.nome, father?.id, row.pai_id].filter(Boolean);
+    const reference = relationReference(row, fieldName);
+    const father = relatedAnimalByReference(reference, relations);
+    return [father?.brinco, father?.nome, father?.id, reference].filter(Boolean);
   }
   if (domain.domain === "genealogia" && fieldName === "mae_ref") {
-    const mother = relations.animalsById?.get(String(row.mae_id || ""));
-    return [mother?.brinco, mother?.nome, mother?.id, row.mae_id].filter(Boolean);
+    const reference = relationReference(row, fieldName);
+    const mother = relatedAnimalByReference(reference, relations);
+    return [mother?.brinco, mother?.nome, mother?.id, reference].filter(Boolean);
   }
   if (domain.domain === "genealogia" && fieldName === "filho_ref") {
     return [row.brinco, row.nome, row.id].filter(Boolean);
@@ -412,6 +432,9 @@ function rowValue(row: AnyRecord, domain: DomainManifestEntry, fieldName: string
   if (fieldName === "funcionario_ref") {
     const employee = relations.employeesById?.get(String(row.funcionario_id || ""));
     return [employee?.nome, employee?.funcao].filter(Boolean).join(" ");
+  }
+  if (domain.domain === "genealogia" && ["pai_ref", "mae_ref"].includes(fieldName)) {
+    return relationReference(row, fieldName);
   }
   const source = sourceField(domain, fieldName);
   if (domain.dateFields.includes(fieldName)) {
@@ -540,9 +563,10 @@ function groupDescriptor(row: AnyRecord, fieldName: string, domain: DomainManife
     return { key: value, value };
   }
   if (fieldName === "animal_ref") {
-    const animalId = String(row.animal_id || row.id || "");
-    const animal = domain.domain === "animais" ? row : relations.animalsById?.get(animalId);
-    return { key: animalId || normalizedText(animalLabel(animal)), value: animalLabel(animal) };
+    const reference = relationReference(row, fieldName);
+    const animal = domain.domain === "animais" ? row : relatedAnimalByReference(reference, relations);
+    if (!reference && !animal) return { key: "", value: "" };
+    return { key: String(reference || animal?.id || ""), value: animal ? animalLabel(animal) : String(reference) };
   }
   if (fieldName === "funcionario_ref") {
     const employeeId = String(row.funcionario_id || row.id || "");
@@ -550,19 +574,19 @@ function groupDescriptor(row: AnyRecord, fieldName: string, domain: DomainManife
     return { key: employeeId || normalizedText(employee?.nome), value: employee?.nome || employeeId || "Funcionario" };
   }
   if (fieldName === "pai_ref") {
-    const paiId = String(row.pai_id || "");
-    if (!paiId) return { key: "", value: "" };
-    const pai = relations.animalsById?.get(paiId);
-    return { key: paiId, value: pai ? animalLabel(pai) : paiId };
+    const reference = relationReference(row, fieldName);
+    if (!reference) return { key: "", value: "" };
+    const pai = relatedAnimalByReference(reference, relations);
+    return { key: String(reference), value: pai ? animalLabel(pai) : String(reference) };
   }
   if (fieldName === "mae_ref") {
-    const maeId = String(row.mae_id || "");
-    if (!maeId) return { key: "", value: "" };
-    const mae = relations.animalsById?.get(maeId);
-    return { key: maeId, value: mae ? animalLabel(mae) : maeId };
+    const reference = relationReference(row, fieldName);
+    if (!reference) return { key: "", value: "" };
+    const mae = relatedAnimalByReference(reference, relations);
+    return { key: String(reference), value: mae ? animalLabel(mae) : String(reference) };
   }
   const value = rowValue(row, domain, fieldName, relations);
-  return { key: normalizedText(value) || "sem_valor", value };
+  return { key: normalizedText(value), value: value ?? "" };
 }
 
 function aggregationMetricKey(aggregation: AggregationPlan) {
@@ -592,6 +616,9 @@ function buildAggregations(rows: AnyRecord[], plan: QueryActionPlan, domain: Dom
   const groupedRows = new Map<string, { values: AnyRecord; rows: AnyRecord[] }>();
   for (const row of rows) {
     const descriptors = plan.groupBy.map((fieldName) => groupDescriptor(row, fieldName, domain, plan, relations));
+    // Missing relations are not a real ranking category. Keeping them here
+    // creates misleading groups such as "sem_valor: 69 filhos".
+    if (descriptors.some((descriptor) => !String(descriptor.key || "").trim())) continue;
     const key = descriptors.map((descriptor) => descriptor.key).join("::");
     const values = Object.fromEntries(plan.groupBy.map((fieldName, index) => [fieldName, descriptors[index].value]));
     const current = groupedRows.get(key);
@@ -2024,6 +2051,36 @@ function buildProductionResponse(
   ].join("\n");
 }
 
+function genealogyRankingResponse(groups: AnyRecord[], plan: QueryActionPlan, relations: AnyRecord) {
+  const groupField = plan.groupBy?.[0];
+  if (!groupField || !["pai_ref", "mae_ref"].includes(groupField)) return null;
+  const aggregation = plan.aggregations?.[0];
+  if (!aggregation || aggregation.op !== "count") return null;
+
+  const sorted = [...groups].sort((left, right) =>
+    Number(right.metrics?.[aggregationMetricKey(aggregation)] || 0)
+      - Number(left.metrics?.[aggregationMetricKey(aggregation)] || 0)
+  );
+  const metricKey = aggregationMetricKey(aggregation);
+  const selected = sorted.slice(0, plan.limit || sorted.length);
+  const role = groupField === "pai_ref" ? "pai" : "mãe";
+  const title = groupField === "pai_ref"
+    ? "Ranking de pais por número de filhos"
+    : "Ranking de mães por número de filhos";
+
+  if (selected.length === 1 && plan.limit === 1) {
+    const top = selected[0];
+    const total = Number(top.metrics?.[metricKey] || 0);
+    return `O ${role} com mais filhos é ${resolveGroupLabel(top, plan, relations)}, com ${numberText(total)} filho(s).`;
+  }
+
+  return [
+    `${title}:`,
+    ...selected.map((group, index) => `${index + 1}. ${group.label} — ${numberText(Number(group.metrics?.[metricKey] || 0))} filho(s).`),
+    selected.length < sorted.length ? `...e mais ${sorted.length - selected.length} grupo(s).` : ""
+  ].filter(Boolean).join("\n");
+}
+
 function animalSelectedFieldLines(animal: AnyRecord, plan: QueryActionPlan, relations: AnyRecord) {
   const selected = Array.from(new Set((plan.select || []).filter((field) => field !== "id")));
   if (!selected.length) return [];
@@ -2061,6 +2118,10 @@ function buildResponse(
   if (metrics.groups?.length && plan.groupBy?.length && plan.aggregations?.length) {
     const groups = (metrics.groups as AnyRecord[]).filter((g) => String(g.key || "").trim() !== "");
     if (!groups.length) return `Não encontrei registros para essa consulta.`;
+    if (domain.domain === "genealogia") {
+      const genealogyRanking = genealogyRankingResponse(groups, plan, relations);
+      if (genealogyRanking) return genealogyRanking;
+    }
     const agg = plan.aggregations[0];
     const metricKey = agg.as || `${agg.op}_${agg.field}`;
     const dir = plan.orderBy?.direction === "asc" ? 1 : -1;

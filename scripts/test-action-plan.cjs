@@ -6074,6 +6074,38 @@ test("ActionPlan genealogia encontra crias e nunca exibe UUID", async () => {
   assert(!result.response.includes("uuid-"), `UUID interno nao pode aparecer: ${result.response}`);
 });
 
+test("ActionPlan genealogia ranqueia pais sem criar grupo sem valor", async () => {
+  const animals = [
+    { id: "uuid-pai-t07", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "T-07", nome: "Trovao", categoria: "touro" },
+    { id: "uuid-pai-t08", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "T-08", nome: "Relampago", categoria: "touro" },
+    { id: "uuid-cria-1", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "C-01", nome: "Aurora", categoria: "bezerra", pai_id: "uuid-pai-t07" },
+    { id: "uuid-cria-2", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "C-02", nome: "Brisa", categoria: "bezerra", pai_id: "uuid-pai-t07" },
+    { id: "uuid-cria-3", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "C-03", nome: "Cacau", categoria: "bezerro", pai_id: "uuid-pai-t08" },
+    { id: "uuid-sem-pai", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "C-04", nome: "Sem pai", categoria: "bezerro" }
+  ];
+  const result = await executeQueryActionPlan({
+    plan: {
+      action: "query",
+      domain: "genealogia",
+      confidence: 0.94,
+      aggregations: [{ field: "id", op: "count", as: "total_filhos" }],
+      groupBy: ["pai_ref"],
+      orderBy: { field: "total_filhos", direction: "desc" },
+      limit: 1,
+      requiresConfirmation: false
+    },
+    originalText: "qual touro tem mais filhos",
+    owner: ADMIN_OWNER,
+    supabase: createActionPlanSupabase({ [TABLES.animais]: animals })
+  });
+
+  assert(result.ok, `ranking de pais deveria executar: ${result.reason}`);
+  assert(result.response.includes("Trovao (T-07)"), `ranking deveria resolver o nome do pai: ${result.response}`);
+  assert(result.response.includes("2 filho(s)"), `ranking deveria contar somente filhos com pai: ${result.response}`);
+  assert(!result.response.includes("sem valor"), `ranking nao pode criar grupo sem valor: ${result.response}`);
+  assert(!result.response.includes("Sem pai"), `animal sem pai nao deve entrar no ranking: ${result.response}`);
+});
+
 test("ActionPlan preserva animal especifico na consulta de producao", async () => {
   const animals = [
     { id: "animal-090", fazenda_id: ADMIN_OWNER.fazenda_id, brinco: "090", nome: "Mimosa", categoria: "vaca" },

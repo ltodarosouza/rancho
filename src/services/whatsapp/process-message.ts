@@ -5033,7 +5033,8 @@ function buildProcessResult(input: {
     eventoConfirmado: Boolean(input.eventConfirmed),
     erro: input.error || null,
     debug: input.debug || null,
-    pendingAction: detected || null
+    pendingAction: detected || null,
+    pendingSessionData: input.nextSession?.dados || null
   };
 }
 

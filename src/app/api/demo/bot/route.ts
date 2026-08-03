@@ -36,12 +36,13 @@ function normalizeStore(value: unknown): DemoStore {
 }
 
 function pendingFromRequest(value: unknown) {
-  if (!isRecord(value)) return { parsed: null as ParsedRanchoMessage | null, etapa: "livre" as BotSession["etapa"] };
+  if (!isRecord(value)) return { parsed: null as ParsedRanchoMessage | null, etapa: "livre" as BotSession["etapa"], sessionData: {} };
   const parsed = isRecord(value.parsed) ? value.parsed as unknown as ParsedRanchoMessage : null;
   const etapa = value.etapa === "aguardando_dado" || value.etapa === "aguardando_confirmacao"
     ? value.etapa
     : parsed ? "aguardando_confirmacao" : "livre";
-  return { parsed, etapa: etapa as BotSession["etapa"] };
+  const sessionData = isRecord(value.sessionData) ? value.sessionData : {};
+  return { parsed, etapa: etapa as BotSession["etapa"], sessionData };
 }
 
 function demoOwner(): WhatsAppOwner {
@@ -71,6 +72,7 @@ function pendingResponse(result: Awaited<ReturnType<typeof processWhatsappMessag
   return {
     parsed,
     etapa: result.estadoNovo === "aguardando_dado" || result.camposFaltantes.length ? "aguardando_dado" : "aguardando_confirmacao",
+    sessionData: result.pendingSessionData || { pending: parsed },
     summary: result.respostaTexto
   };
 }
@@ -89,7 +91,9 @@ export async function POST(request: NextRequest) {
     const incomingPending = pendingFromRequest(body?.pendingAction);
     const initialSession: BotSession = {
       etapa: incomingPending.parsed ? incomingPending.etapa : "livre",
-      dados: incomingPending.parsed ? { pending: incomingPending.parsed } : {}
+      dados: incomingPending.parsed
+        ? { ...incomingPending.sessionData, pending: incomingPending.parsed }
+        : {}
     };
     const demoDatabase = createDemoSupabase(store, DEMO_PHONE, initialSession);
     const supabase = getSupabaseAdmin();

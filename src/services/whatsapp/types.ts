@@ -35,4 +35,5 @@ export type ProcessWhatsappMessageResult = {
   erro: string | null;
   debug?: AnyRecord | null;
   pendingAction?: ParsedRanchoMessage | null;
+  pendingSessionData?: AnyRecord | null;
 };

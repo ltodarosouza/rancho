@@ -157,7 +157,10 @@ export function BotLandingDemo() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = messagesEndRef.current;
+    if (!el) return;
+    const container = el.closest("[data-chat-scroll]");
+    if (container) container.scrollTop = container.scrollHeight;
   }, []);
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
@@ -258,7 +261,7 @@ export function BotLandingDemo() {
             </div>
 
             {/* Messages */}
-            <div className="flex h-[320px] flex-col gap-2.5 overflow-y-auto p-4 sm:h-[370px] [scrollbar-width:thin]">
+            <div data-chat-scroll className="flex h-[320px] flex-col gap-2.5 overflow-y-auto p-4 sm:h-[370px] [scrollbar-width:thin]">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[88%] whitespace-pre-line rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed ${

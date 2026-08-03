@@ -29,6 +29,7 @@ import { createRecord, deleteRecord, deleteRecords, invalidateRecordsCache, list
 import { syncAnimalPhaseAfterEvent } from "@/services/animal-lifecycle";
 import { notifyDashboardUpdated } from "@/services/dashboard";
 import { removeEventCostFromFinance, syncEventCostToFinance } from "@/services/event-finance";
+import { syncMonthlyPayrollTransaction } from "@/services/payroll-finance";
 import { removeProductionStockMovement, syncProductionStockMovement, validateProductionStockDestination } from "@/services/production-stock";
 import { useAuth } from "@/lib/auth-context";
 import { getFriendlyErrorMessage } from "@/lib/errors";
@@ -533,6 +534,9 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
         if (config.tableName === TABLES.ordenhas) {
           await syncProductionStockMovement(updated || { ...editing, ...payload, id: editing.id }, dataContext);
         }
+        if (config.tableName === TABLES.funcionarios) {
+          await syncMonthlyPayrollTransaction(dataContext).catch(() => {});
+        }
         setEditing(null);
       } else {
         const created = await createRecord(config.tableName, payload, dataContext);
@@ -543,6 +547,9 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
         }
         if (config.tableName === TABLES.ordenhas) {
           await syncProductionStockMovement(created || payload, dataContext);
+        }
+        if (config.tableName === TABLES.funcionarios) {
+          await syncMonthlyPayrollTransaction(dataContext).catch(() => {});
         }
       }
       notifyDashboardUpdated();
@@ -594,6 +601,9 @@ export function ModuleScreen({ config }: { config: ModuleConfig }) {
       }
       if (config.tableName === TABLES.eventosAnimal && deletedRow) {
         await removeEventCostFromFinance(id, dataContext);
+      }
+      if (config.tableName === TABLES.funcionarios) {
+        await syncMonthlyPayrollTransaction(dataContext).catch(() => {});
       }
       notifyDashboardUpdated();
       await load(true);

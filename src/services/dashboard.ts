@@ -6,6 +6,7 @@ import type { DataContext } from "@/lib/types";
 import { financialAmount, financialMonthKey, isFinancialExpense, isFinancialIncome } from "@/lib/finance";
 import { formatDateBRShort, toDateOnlyString } from "@/lib/utils";
 import { getRanchDayRange, getRanchTodayISO } from "@/lib/dates/ranch-time";
+import { syncMonthlyPayrollTransaction } from "@/services/payroll-finance";
 
 const DASHBOARD_UPDATED_EVENT = "rancho:dashboard-updated";
 
@@ -30,15 +31,6 @@ function startOfCurrentMonthIso() {
   return getRanchDayRange(`${getRanchTodayISO().slice(0, 7)}-01`).start.toISOString();
 }
 
-function startOfCurrentMonthDate() {
-  return `${getRanchTodayISO().slice(0, 7)}-01`;
-}
-
-function startOfNextMonthDate() {
-  const [year, month] = getRanchTodayISO().split("-").map(Number);
-  return month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
-}
-
 function startOfRollingMonthsDate(months: number) {
   const [year, month] = getRanchTodayISO().split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1 - Math.max(0, months - 1), 1, 12));
@@ -49,8 +41,6 @@ export async function loadDashboardData(context?: DataContext, options: LoadDash
   const today = getRanchTodayISO();
   const month = today.slice(0, 7);
   const monthStartIso = startOfCurrentMonthIso();
-  const monthStartDate = startOfCurrentMonthDate();
-  const nextMonthStartDate = startOfNextMonthDate();
   const sixMonthsStartDate = startOfRollingMonthsDate(6);
   const cacheOptions = {
     cache: true,
@@ -58,7 +48,9 @@ export async function loadDashboardData(context?: DataContext, options: LoadDash
     forceRefresh: options.forceRefresh
   };
 
-  const [animals, productions, stock, finance, employees, payrolls, alerts] = await Promise.all([
+  await syncMonthlyPayrollTransaction({ fazendaId: context?.fazendaId, usuarioId: context?.usuarioId }).catch(() => {});
+
+  const [animals, productions, stock, finance, employees, alerts] = await Promise.all([
     listRecords(TABLES.animais, { ...context, ...cacheOptions, select: "id,status,brinco", orderBy: "created_at" }),
     listRecords(TABLES.ordenhas, {
       ...context,
@@ -86,16 +78,6 @@ export async function loadDashboardData(context?: DataContext, options: LoadDash
       select: "id,ativo,deleted_at,salario_base",
       orderBy: "created_at"
     }),
-    listRecords(TABLES.folhaPagamento, {
-      ...context,
-      ...cacheOptions,
-      select: "id,funcionario_id,total_liquido,salario_base,competencia",
-      orderBy: "competencia",
-      filters: [
-        { column: "competencia", operator: "gte", value: monthStartDate },
-        { column: "competencia", operator: "lt", value: nextMonthStartDate }
-      ]
-    }),
     listRecords(TABLES.alertas, { ...context, ...cacheOptions, select: "id,resolvido,created_at", orderBy: "created_at" })
   ]);
 
@@ -115,14 +97,6 @@ export async function loadDashboardData(context?: DataContext, options: LoadDash
 
   const criticalStock = stock.filter((item) => Number(item.quantidade_atual || 0) <= Number(item.quantidade_minima || 0));
   const activeEmployees = employees.filter((item) => item.ativo !== false && !item.deleted_at);
-  const payrollByEmployee = new Map(
-    payrolls
-      .filter((item) => String(item.competencia || "").slice(0, 7) === month)
-      .map((item) => [item.funcionario_id, Number(item.total_liquido ?? item.salario_base ?? 0)])
-  );
-  const payrollExpense = activeEmployees.reduce((sum, employee) => {
-    return sum + Number(payrollByEmployee.get(employee.id) ?? employee.salario_base ?? 0);
-  }, 0);
   const activeAlerts = alerts.filter((item) => item.resolvido !== true);
 
   const dailyMap = productions.reduce<Record<string, number>>((acc, item) => {
@@ -171,7 +145,6 @@ export async function loadDashboardData(context?: DataContext, options: LoadDash
     stock,
     finance,
     employees,
-    payrolls,
     alerts,
     cards: {
       totalAnimals: animals.length,
@@ -179,8 +152,8 @@ export async function loadDashboardData(context?: DataContext, options: LoadDash
       productionToday,
       productionMonth,
       income,
-      expenses: expenses + payrollExpense,
-      profit: income - expenses - payrollExpense,
+      expenses,
+      profit: income - expenses,
       criticalStock: criticalStock.length,
       activeEmployees: activeEmployees.length,
       activeAlerts: activeAlerts.length

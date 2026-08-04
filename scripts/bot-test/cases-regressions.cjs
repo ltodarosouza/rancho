@@ -685,7 +685,12 @@ module.exports = function loadBotTestSection(context) {
     ].map((message) => ({
       name: `acao destrutiva em massa bloqueada: ${message}`,
       module: "seguranca-destrutiva",
-      phone: BOT_TEST_ADMIN_PHONE,
+      // BOT_TEST_ADMIN_PHONE nao esta seedado em securityWhatsappUsers(), entao
+      // o resolveWhatsAppOwner caia no fallback de dono e auto-provisionava o
+      // vinculo (write legitimo de self-heal), o que a asserção de "nenhum
+      // salvamento" contava como falha. SECURITY_OWNER_A_PHONE ja esta
+      // seedado nesse fixture com o mesmo papel admin.
+      phone: SECURITY_OWNER_A_PHONE,
       whatsappUsers: securityWhatsappUsers(),
       messages: [message],
       expected: {
@@ -702,7 +707,7 @@ module.exports = function loadBotTestSection(context) {
     destructiveBulkSecurityCases.push({
       name: "exclusao individual nao e classificada como massa",
       module: "seguranca-destrutiva",
-      phone: BOT_TEST_ADMIN_PHONE,
+      phone: SECURITY_OWNER_A_PHONE,
       whatsappUsers: securityWhatsappUsers(),
       messages: ["excluir vaca 090"],
       expected: {
@@ -718,7 +723,7 @@ module.exports = function loadBotTestSection(context) {
       {
         name: "payload invalido: valor NaN nao salva financeiro",
         module: "seguranca-maliciosa",
-        phone: BOT_TEST_ADMIN_PHONE,
+        phone: SECURITY_OWNER_A_PHONE,
         whatsappUsers: securityWhatsappUsers(),
         initialSession: () => ({
           etapa: "aguardando_confirmacao",
@@ -742,7 +747,7 @@ module.exports = function loadBotTestSection(context) {
       {
         name: "payload invalido: quantidade negativa nao salva estoque",
         module: "seguranca-maliciosa",
-        phone: BOT_TEST_ADMIN_PHONE,
+        phone: SECURITY_OWNER_A_PHONE,
         whatsappUsers: securityWhatsappUsers(),
         initialSession: () => ({
           etapa: "aguardando_confirmacao",
@@ -766,7 +771,7 @@ module.exports = function loadBotTestSection(context) {
       {
         name: "payload invalido: texto enorme nao passa para parser",
         module: "seguranca-maliciosa",
-        phone: BOT_TEST_ADMIN_PHONE,
+        phone: SECURITY_OWNER_A_PHONE,
         whatsappUsers: securityWhatsappUsers(),
         messages: ["registrar ".repeat(260)],
         expected: {

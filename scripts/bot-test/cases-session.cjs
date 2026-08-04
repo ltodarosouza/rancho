@@ -79,7 +79,7 @@ module.exports = function loadBotTestSection(context) {
               estadoAnterior: "aguardando_dado",
               estadoNovo: "aguardando_dado",
               dados: { litros: 32, animal_codigo: "B-002" },
-              responseIncludes: "Deseja adicionar"
+              responseIncludes: "quer lançar também"
             }
           },
           {
@@ -871,7 +871,7 @@ module.exports = function loadBotTestSection(context) {
                 estoque_leite_status: "matched",
                 estoque_leite_movimentar: false
               },
-              responseIncludes: "Deseja adicionar"
+              responseIncludes: "quer lançar também"
             }
           }
         ]
@@ -892,7 +892,7 @@ module.exports = function loadBotTestSection(context) {
                 estoque_leite_status: "not_found",
                 estoque_leite_movimentar: false
               },
-              responseIncludes: "Criar item"
+              responseIncludes: "Criar o item"
             }
           },
           {

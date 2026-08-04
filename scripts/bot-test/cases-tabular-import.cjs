@@ -1520,14 +1520,21 @@ module.exports = function loadBotTestSection(context) {
         }
       },
       {
-        name: "tabela durante importacao pendente nao inicia nova importacao automaticamente",
+        // Uma segunda tabela enquanto a primeira aguarda confirmacao substitui
+        // o pendente (com aviso explicito "deixei esse novo registro no lugar
+        // do anterior"), em vez de ser ignorada. Isso e consistente com o
+        // mesmo mecanismo de substituicao usado para qualquer outra acao
+        // pendente (consulta, criacao de lote/animal, etc.) em process-message.ts.
+        // Nada e salvo sem confirmacao em nenhum dos dois casos.
+        name: "tabela durante importacao pendente substitui a pendente com aviso",
         module: "tabela-dominio",
         phone: BOT_TEST_ADMIN_PHONE,
         extraAnimals: tabularExtraAnimals,
         messages: [mixedBirthPendingEventsMessage, newEmployeesTableMessage],
         expected: {
-          finalIntent: "IMPORTACAO_EVENTOS_TABELA",
-          allResponsesNotInclude: ["Importação de funcionários", "Funcionários prontos", "Registro salvo no sistema com sucesso"],
+          finalIntent: "IMPORTACAO_TABELA_DOMINIO",
+          responseIncludes: "deixei esse novo registro no lugar do anterior",
+          allResponsesNotInclude: ["Registro salvo no sistema com sucesso"],
           shouldAskConfirmation: true,
           shouldSaveBeforeConfirmation: false,
           savedAfterConfirmation: false,

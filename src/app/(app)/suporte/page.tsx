@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/lib/auth-context";
 
-const supportEmail = "projeto.fazenda00@gmail.com";
+const supportEmail = "assistencia.rancho@gmail.com";
 
 function encodeMailto(value: string) {
   return encodeURIComponent(value).replace(/%20/g, "+");

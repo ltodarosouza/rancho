@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const SITE_NAME = "Rancho";
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://rancho-seven.vercel.app";
-export const SUPPORT_EMAIL = "projeto.fazenda00@gmail.com";
+export const SUPPORT_EMAIL = "assistencia.rancho@gmail.com";
 
 export const LANDING_TITLE = "Rancho | Software para fazenda, rebanho e produção de leite";
 export const LANDING_DESCRIPTION =

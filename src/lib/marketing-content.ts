@@ -72,7 +72,7 @@ export const companyLocation = "João Pessoa, Paraíba";
 export const trustSignals = [
   "Projeto criado em João Pessoa/PB",
   "Feito por Lucas Todaro e Henrique Guimarães",
-  "Contato direto: projeto.fazenda00@gmail.com"
+  "Contato direto: assistencia.rancho@gmail.com"
 ];
 
 export const showcaseItems: MarketingScreenshot[] = [

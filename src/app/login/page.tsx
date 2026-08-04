@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { getPasswordResetRedirectUrl } from "@/lib/app-url";
 import { getFriendlyErrorMessage } from "@/lib/errors";
 
-const SUPPORT_EMAIL = "projeto.fazenda00@gmail.com";
+const SUPPORT_EMAIL = "assistencia.rancho@gmail.com";
 const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Solicitação de acesso ao Rancho")}&body=${encodeURIComponent("Olá, gostaria de solicitar acesso ao sistema Rancho.\n\nNome:\nFazenda:\nTelefone:")}`;
 
 export default function LoginPage() {

@@ -425,14 +425,15 @@ export const RANCHO_DOMAIN_MANIFEST = {
     fields: {
       entidade_ref: field("relation"),
       tipo_entidade: field("enum", { enumValues: ["animal", "lote", "estoque", "funcionario", "fazenda"] }),
-      animal_ref: field("relation", { relationDomain: "animais" }),
+      animal_ref: field("relation", { relationDomain: "animais", sourceField: "animal_id" }),
       item_ref: field("relation", { relationDomain: "estoque" }),
       funcionario_ref: field("relation", { relationDomain: "funcionarios" }),
       lote_ref: field("relation", { relationDomain: "lotes" }),
-      observacao: field("string"),
-      observacoes: field("string", { sourceField: "observacao" }),
-      data: field("date"),
-      categoria: field("string")
+      observacao: field("string", { sourceField: "descricao" }),
+      observacoes: field("string", { sourceField: "descricao" }),
+      data: field("date", { sourceField: "data_evento" }),
+      data_evento: field("datetime"),
+      categoria: field("string", { sourceField: "tipo" })
     },
     requiredFieldsByAction: {
       create: ["observacao"],
@@ -441,7 +442,7 @@ export const RANCHO_DOMAIN_MANIFEST = {
     },
     searchableFields: ["entidade_ref", "tipo_entidade", "animal_ref", "item_ref", "funcionario_ref", "lote_ref", "observacao", "observacoes", "categoria"],
     aggregatableFields: [],
-    dateFields: ["data"],
+    dateFields: ["data", "data_evento"],
     relationFields: ["entidade_ref", "animal_ref", "item_ref", "funcionario_ref", "lote_ref"],
     enumFields: {
       tipo_entidade: ["animal", "lote", "estoque", "funcionario", "fazenda"]

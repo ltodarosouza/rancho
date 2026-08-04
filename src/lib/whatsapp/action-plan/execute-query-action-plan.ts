@@ -2234,6 +2234,11 @@ function financeDetailPlan(plan: QueryActionPlan): QueryActionPlan {
   return {
     ...plan,
     operation: "listar",
+    // O resumo pode ter agrupado por mes/categoria para a visao geral; a
+    // lista detalhada mostra cada lancamento, entao o agrupamento nao pode
+    // sobreviver, senao o "mostrar mais" volta a mostrar os mesmos grupos.
+    groupBy: undefined,
+    aggregations: undefined,
     semantic: {
       ...(plan.semantic || {}),
       operation: "listar",
@@ -2254,13 +2259,27 @@ function financeLine(row: AnyRecord, index: number) {
   return `${index}. ${shortDate(row.data_transacao || row.created_at)} - ${type} - ${description}${cat}: ${money(Number(row.valor || 0))}${method}`;
 }
 
+function isFinanceValueRanking(plan: QueryActionPlan) {
+  return plan.orderBy?.field === "valor" && !plan.groupBy?.length && !plan.aggregations?.length;
+}
+
 function buildFinanceDetailedResponse(rows: AnyRecord[], plan: QueryActionPlan, offset = 0, pageSize = 10) {
   const pageRows = rows.slice(offset, offset + pageSize);
   const period = periodText(plan);
   if (!pageRows.length) return "Não há mais transações para mostrar.";
+  const ranking = isFinanceValueRanking(plan);
+  const typeFilter = plan.filters.find((filter) => filter.field === "tipo");
+  const financeType = typeFilter ? normalizeFinanceType(typeFilter.value) : "";
+  const rankingLabel = financeType === "saida"
+    ? (plan.orderBy?.direction === "asc" ? "Menores gastos" : "Maiores gastos")
+    : financeType === "entrada"
+      ? (plan.orderBy?.direction === "asc" ? "Menores receitas" : "Maiores receitas")
+      : (plan.orderBy?.direction === "asc" ? "Menores lançamentos" : "Maiores lançamentos");
   const title = offset
     ? `Mais ${pageRows.length} transações financeiras:`
-    : `Transações financeiras${period ? ` ${period}` : ""}:`;
+    : ranking
+      ? `${rankingLabel}${period ? ` ${period}` : ""}:`
+      : `Transações financeiras${period ? ` ${period}` : ""}:`;
   const nextOffset = offset + pageRows.length;
   return [
     title,
@@ -2501,7 +2520,21 @@ function buildResponse(
     const metricKey = agg.as || `${agg.op}_${agg.field}`;
     const dir = plan.orderBy?.direction === "asc" ? 1 : -1;
     const sorted = [...groups].sort((a, b) => (Number(a.metrics?.[metricKey] || 0) - Number(b.metrics?.[metricKey] || 0)) * dir);
-    const limited = sorted.slice(0, plan.limit || sorted.length);
+    if (sorted.length === 1 && plan.limit === 1) {
+      const top = sorted[0];
+      const val = Number(top.metrics?.[metricKey] || 0);
+      const label = resolveGroupLabel(top, plan, relations);
+      const unit = metricKey.replace(/^total_/, "");
+      return `${label}: ${domain.domain === "financeiro" ? money(val) : numberText(val)} ${unit}.`;
+    }
+    // Grupos tem paginacao propria: cada "mostrar mais" avanca pelo numero de
+    // grupos, nao pelas linhas cruas que os formaram. Sem isso, o offset da
+    // consulta original nunca aparecia aqui e "mostrar mais" repetia a mesma
+    // resposta.
+    const offset = Math.min(sorted.length, pagination?.offset || 0);
+    const pageSize = pagination?.pageSize || plan.limit || sorted.length;
+    const limited = sorted.slice(offset, offset + pageSize);
+    if (!limited.length) return "Não há mais itens para mostrar.";
     if (limited.length === 1 && plan.limit === 1) {
       const top = limited[0];
       const val = Number(top.metrics?.[metricKey] || 0);
@@ -2512,13 +2545,19 @@ function buildResponse(
     const lines = limited.map((group, i) => {
       const val = Number(group.metrics?.[metricKey] || 0);
       const label = resolveGroupLabel(group, plan, relations);
-      return `${i + 1}. ${label} — ${domain.domain === "financeiro" ? money(val) : numberText(val)}`;
+      return `${offset + i + 1}. ${label} — ${domain.domain === "financeiro" ? money(val) : numberText(val)}`;
     });
     const period = periodText(plan);
     const title = domain.domain === "financeiro"
       ? `Relatório financeiro${period ? ` ${period}` : ""}`
       : plan.limit === 1 ? "Resultado" : `Ranking${period ? ` ${period}` : ""}`;
-    return `${title}:\n${lines.join("\n")}`;
+    const nextOffset = offset + limited.length;
+    const hasMore = nextOffset < sorted.length;
+    return [
+      `${title}:`,
+      ...lines,
+      hasMore ? `...e mais ${sorted.length - nextOffset}. Responda "mostrar mais" para ver os outros.` : ""
+    ].filter(Boolean).join("\n");
   }
 
   if (metrics.totals && plan.aggregations?.length && !plan.groupBy?.length && !["financeiro", "producao_leite", "animais"].includes(domain.domain)) {
@@ -2547,7 +2586,7 @@ function buildResponse(
   }
 
   if (domain.domain === "financeiro") {
-    if (wantsDetailedList(plan) || pagination?.offset) {
+    if (wantsDetailedList(plan) || pagination?.offset || isFinanceValueRanking(plan)) {
       return buildFinanceDetailedResponse(rows, plan, pagination?.offset || 0, pagination?.pageSize || 10);
     }
     const entradas = rows.filter((row) => normalizeFinanceType(row.tipo) === "entrada").reduce((sum, row) => sum + Number(row.valor || 0), 0);
@@ -2699,6 +2738,31 @@ function buildEventListResponse(
     }),
     nextOffset < rows.length ? `Responda "mostrar mais" para ver os outros ${rows.length - nextOffset} eventos.` : offset ? "Fim da lista." : ""
   ].filter(Boolean).join("\n");
+}
+
+/**
+ * "vacas que nunca pariram" e semelhantes: o interpretador marca
+ * semantic.attributes.excluir_com_evento com o tipo de evento a excluir, mas
+ * o dominio animais nao tem coluna de evento. A consulta cruzada busca quem
+ * TEM o evento em eventos_animal e devolve o restante do rebanho.
+ */
+async function animalIdsWithEvent(
+  supabase: ActionPlanSupabaseLike | null | undefined,
+  fazendaId: string | null | undefined,
+  eventValue: string
+): Promise<Set<string>> {
+  const ids = new Set<string>();
+  if (!supabase || !fazendaId || !eventValue) return ids;
+  const normalizedEvent = normalizedText(eventValue);
+  const { data } = await supabase
+    .from(TABLES.eventosAnimal)
+    .select("animal_id,tipo")
+    .eq("fazenda_id", fazendaId)
+    .limit(5000);
+  for (const row of (data || []) as AnyRecord[]) {
+    if (row.animal_id && normalizedText(row.tipo) === normalizedEvent) ids.add(String(row.animal_id));
+  }
+  return ids;
 }
 
 async function loadRelationContext(supabase: ActionPlanSupabaseLike | null | undefined, owner: ActionPlanOwnerContext, plan: QueryActionPlan) {
@@ -2939,7 +3003,12 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
 
   const relationContext = await loadRelationContext(input.supabase, input.owner, plan);
   const baseDate = currentDate(input.currentDate);
+  const excludeEventValue = domain.domain === "animais" ? String(plan.semantic?.attributes?.excluir_com_evento || "").trim() : "";
+  const excludedAnimalIds = excludeEventValue
+    ? await animalIdsWithEvent(input.supabase, input.owner.fazenda_id, excludeEventValue)
+    : null;
   const rows = ((data || []) as AnyRecord[])
+    .filter((row) => !excludedAnimalIds || !excludedAnimalIds.has(String(row.id)))
     .filter((row) => plan.filters.every((filter) => filterMatches(row, domain, filter, relationContext, baseDate)))
     .slice(0, resultLimit);
   const metrics = buildAggregations(rows, plan, domain, relationContext);
@@ -2949,7 +3018,14 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
     ? buildStructuredSummary(domain, rows, metrics, plan, relationContext)
     : null;
   const response = structuredSummary?.response || buildResponse(domain, rows, metrics, plan, relationContext, { offset, pageSize });
-  const displayTotal = paginationTotal(domain, rows);
+  // Consulta agrupada pagina pelo numero de grupos exibidos, nao pelas linhas
+  // cruas que os formaram, senao "mostrar mais" ficava disponivel mesmo com
+  // todos os grupos ja exibidos, e o offset guardado nao batia com o que
+  // buildResponse usa para fatiar os grupos.
+  const groupCount = plan.groupBy?.length && plan.aggregations?.length && "groups" in metrics
+    ? ((metrics.groups as AnyRecord[] | undefined) || []).filter((group) => String(group.key || "").trim() !== "").length
+    : null;
+  const displayTotal = groupCount !== null ? groupCount : paginationTotal(domain, rows);
   const nextOffset = Math.min(displayTotal, offset + pageSize);
   const financeSummaryCanOpenDetails = domain.domain === "financeiro" && !wantsDetailedList(plan) && rows.length > 0;
   const pagination: ActionPlanQueryPagination | undefined = financeSummaryCanOpenDetails
@@ -2960,7 +3036,9 @@ export async function executeQueryActionPlan(input: ExecuteQueryActionPlanInput)
         currentDate: input.currentDate,
         offset: 0,
         pageSize,
-        total: displayTotal
+        // financeDetailPlan sempre vira lista plana, entao o total precisa
+        // ser a contagem de lancamentos, nunca a contagem de grupos do resumo.
+        total: rows.length
       }
     : queryPaginationPageSize(domain, plan) && nextOffset < displayTotal
       ? {

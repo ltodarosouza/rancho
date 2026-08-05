@@ -61,6 +61,10 @@ function monthLabel(value: string) {
 }
 
 function rangeLabel(band: UsageBand) {
+  if (band.key === "faixa_1") return "Até 1.500 mensagens";
+  if (band.key === "faixa_2") return "De 1.500 até 3.000 mensagens";
+  if (band.key === "faixa_3") return "De 3.000 até 5.000 mensagens";
+  if (band.key === "faixa_4") return "Acima de 5.000 mensagens";
   return band.max === null
     ? `${numberFormatter.format(band.min)}+ mensagens`
     : `${numberFormatter.format(band.min)} a ${numberFormatter.format(band.max)} mensagens`;

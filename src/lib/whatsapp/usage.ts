@@ -26,10 +26,10 @@ export type WhatsAppUsageSummary = {
  * único lugar quando a tabela oficial for decidida.
  */
 export const PROVISIONAL_WHATSAPP_USAGE_BANDS: WhatsAppUsageBand[] = [
-  { key: "faixa_1", label: "Faixa 1", min: 0, max: 500, additionalFee: 100 },
-  { key: "faixa_2", label: "Faixa 2", min: 501, max: 2_000, additionalFee: 200 },
-  { key: "faixa_3", label: "Faixa 3", min: 2_001, max: 5_000, additionalFee: 350 },
-  { key: "faixa_4", label: "Faixa 4", min: 5_001, max: null, additionalFee: 500 }
+  { key: "faixa_1", label: "Faixa 1", min: 0, max: 1_500, additionalFee: 50 },
+  { key: "faixa_2", label: "Faixa 2", min: 1_501, max: 3_000, additionalFee: 110 },
+  { key: "faixa_3", label: "Faixa 3", min: 3_001, max: 5_000, additionalFee: 180 },
+  { key: "faixa_4", label: "Faixa 4", min: 5_001, max: null, additionalFee: 270 }
 ];
 
 export function usageBandForTotal(total: number) {
